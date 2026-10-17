@@ -36,7 +36,7 @@ use super::PluginEnv;
 /// [`ConfigFile::load_as`]'s error: the settings do not deserialize into the
 /// requested type (a setting of the wrong type, say). Opaque, so it can carry
 /// more detail later without a break.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct ConfigError {
     message: String,
 }

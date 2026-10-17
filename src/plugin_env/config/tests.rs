@@ -85,7 +85,7 @@ fn load_as_deserializes_the_table() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join(FILE_NAME);
     let mut cfg = ConfigFile::in_dir(dir.path());
-    assert_eq!(cfg.load_as::<Settings>(), Ok(Settings::default()));
+    assert_eq!(cfg.load_as::<Settings>().unwrap(), Settings::default());
     fs::write(&path, "tab_prefix = \"P\"\nhome_tab = true\nother = 1\n").unwrap();
     let s: Settings = cfg.load_as().unwrap();
     assert_eq!(s.tab_prefix.as_deref(), Some("P"));
