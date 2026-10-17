@@ -11,8 +11,11 @@
 use super::system::{SystemProcesses, parent_pid};
 use super::{MAX_DEPTH, Pid, ProcessTable, basename};
 
-pub use super::liveness::SystemLiveness;
-pub use super::system::{live_tasks, task_of};
+mod liveness;
+mod tasks;
+
+pub use liveness::SystemLiveness;
+pub use tasks::{live_tasks, task_of};
 
 /// The entry scripts of the `@anthropic-ai/claude-code` npm package. A path
 /// must end with one of these, so the scope is a whole path segment.

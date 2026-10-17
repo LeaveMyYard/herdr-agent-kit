@@ -95,6 +95,13 @@ pub(crate) fn ascii_digits(s: &str) -> &str {
     &s[..end]
 }
 
+/// `(\d+) ` at the start of `s`: the digits, when a space follows them (any number of
+/// digits; [`parse_id`] decides whether they make an id).
+pub(crate) fn digits_then_space(s: &str) -> Option<&str> {
+    let digits = ascii_digits(s);
+    (!digits.is_empty() && s[digits.len()..].starts_with(' ')).then_some(digits)
+}
+
 /// Python's `int()` of a run of ASCII digits; `None` when it does not fit a `u64`
 /// (Python's ints have no limit: such an id is dropped, never wrapped).
 pub(crate) fn parse_id(digits: &str) -> Option<u64> {
