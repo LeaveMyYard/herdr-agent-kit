@@ -4,8 +4,7 @@
 use std::collections::BTreeSet;
 use std::fs;
 
-use super::PROC;
-use super::procfs::descendants;
+use crate::agent_procs::system::{PROC, descendants};
 use crate::agent_procs::{Pid, basename};
 
 /// The task id of a background task's output file, `…/tasks/<id>.output`
