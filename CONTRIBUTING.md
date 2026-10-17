@@ -1,5 +1,11 @@
 # Contributing
 
+Thanks for helping. Bug reports, fixes, docs and ideas are all welcome. This project follows the
+[Code of Conduct](CODE_OF_CONDUCT.md). The kit is a library for the herdr plugins
+[herdr-panorama](https://github.com/LeaveMyYard/herdr-panorama) and
+[herdr-inbox](https://github.com/LeaveMyYard/herdr-inbox), so a change here is judged by what it
+does for both. Open an issue before a large change or a new public API.
+
 - Kit PRs run the kit's own checks: fmt, rustdoc with `-D warnings`, clippy with
   `-D warnings` and the tests for each feature set on Linux and macOS, and a
   compile check for the plugins' four targets (musl and darwin, x86_64 and
@@ -25,3 +31,27 @@
   cargo clippy --all-targets --all-features -- -D warnings
   cargo test --all-features
   ```
+
+The kit's tests use a fake herdr and fixtures. As a habit, unset every `HERDR_*` variable in the
+shell you test from, so nothing can reach a live herdr session:
+
+```sh
+unset $(env | sed -n 's/^\(HERDR_[A-Za-z0-9_]*\)=.*/\1/p')
+```
+
+## Pull requests
+
+- Keep a PR small and about one thing. Describe what changed and why; link the issue it fixes.
+- A fix or a new behavior comes with a test.
+- Commit messages: a short imperative summary line, then the reason in the body if it is not obvious.
+- CI must be green. The maintainer reviews every PR and may ask for changes; please answer in the PR.
+- Start as a draft if the work is not finished.
+
+## Questions and bugs
+
+Ask questions and float ideas in [Discussions](https://github.com/LeaveMyYard/herdr-agent-kit/discussions).
+Bugs and concrete requests go in an [issue](https://github.com/LeaveMyYard/herdr-agent-kit/issues/new/choose).
+Looking for a first contribution? Try the
+[good first issue](https://github.com/LeaveMyYard/herdr-agent-kit/labels/good%20first%20issue) and
+[help wanted](https://github.com/LeaveMyYard/herdr-agent-kit/labels/help%20wanted) labels. Report security
+problems privately, see [SECURITY.md](SECURITY.md).

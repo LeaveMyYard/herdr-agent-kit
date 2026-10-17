@@ -1,0 +1,37 @@
+name: Bug report
+description: Something in the kit does not work as documented
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: And what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: A minimal snippet or failing test is ideal.
+    validations:
+      required: true
+  - type: input
+    id: kit
+    attributes:
+      label: herdr-agent-kit version
+      description: The tag you depend on, for example v0.1.0
+    validations:
+      required: true
+  - type: input
+    id: herdr
+    attributes:
+      label: herdr version
+      description: Output of `herdr --version`, if herdr is involved
+  - type: input
+    id: os
+    attributes:
+      label: OS and Rust version
+      placeholder: macOS 15 arm64, rustc 1.96
+    validations:
+      required: true
