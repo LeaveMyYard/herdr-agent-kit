@@ -80,3 +80,6 @@ pub fn sanitize_cwd(cwd: &str) -> String {
         .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
         .collect()
 }
+
+#[cfg(test)]
+mod tests;

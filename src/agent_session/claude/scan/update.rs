@@ -9,6 +9,7 @@ use crate::agent_session::claude::fold::Owner;
 use crate::agent_session::claude::io::{Tailer, related};
 use crate::agent_session::claude::wire::contains;
 
+/// One incremental pass over the session's files.
 impl Scanner {
     /// Reads what changed. `since`: agent files last written before it and
     /// never read are skipped (they cannot change anything inside a done

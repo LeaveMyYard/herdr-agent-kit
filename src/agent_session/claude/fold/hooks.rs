@@ -10,6 +10,7 @@ use crate::agent_procs::{Liveness, Pid, ProcessIdentity};
 use crate::agent_session::Ts;
 use crate::agent_session::claude::wire::Line;
 
+/// panorama's hook records, and the Claude processes behind them.
 impl Session {
     /// Forgets the hook records (the hook file was rewritten).
     pub fn reset_hooks(&mut self) {

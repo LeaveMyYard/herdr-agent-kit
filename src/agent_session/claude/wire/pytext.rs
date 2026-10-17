@@ -121,3 +121,6 @@ pub(crate) fn py_float_repr(f: f64) -> String {
     };
     format!("{sign}{body}")
 }
+
+#[cfg(test)]
+mod tests;

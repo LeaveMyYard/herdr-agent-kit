@@ -37,22 +37,21 @@ mod line;
 mod markers;
 mod notice;
 mod pytext;
+mod questions;
 mod record;
-mod summary;
 mod tail;
 mod timestamp;
+mod tool_summary;
+mod tools;
 
 pub use line::Line;
 pub(crate) use markers::contains;
 pub use markers::{MARKERS, PROMPT_MARKERS, wanted, wanted_lines};
-pub use notice::{
-    BG_STOP_TOOLS, Ending, Notice, ORPHAN, parse_notice, parse_notices, question_ids,
-};
+pub use notice::{Ending, Notice, ORPHAN, parse_notice, parse_notices};
 pub(crate) use pytext::{blank, py_isspace, py_splitlines, py_str, py_strip, truthy};
+pub use questions::question_ids;
 pub use record::{Attachment, BOOKKEEPING, Block, Content, Record, TitleKind, text_of};
-pub use summary::{SPAWN_TOOLS, SUMMARY_MAX, short_path, summarize_tool, truncate_summary};
 pub use tail::{TailInfo, ToolCall};
 pub use timestamp::ts;
-
-#[cfg(test)]
-mod tests;
+pub use tool_summary::{SUMMARY_MAX, short_path, summarize_tool, truncate_summary};
+pub use tools::{BG_STOP_TOOLS, SPAWN_TOOLS};

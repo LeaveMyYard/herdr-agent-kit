@@ -21,6 +21,7 @@ fn better_owner(owner: &Owner, when: Option<f64>, old: &Spawn) -> bool {
     or_inf(when) < or_inf(old.ts.map(Ts::secs))
 }
 
+/// Tool calls and their results, folded from records ([`Session::apply`]).
 impl Session {
     pub(super) fn tool_use(
         &mut self,
@@ -62,6 +63,7 @@ impl Session {
         } else if name.ends_with("ask_operator") {
             self.pending_ask.insert(id.to_string(), owner.clone());
         } else if name == "Bash" || name == "Monitor" {
+            // `bg_calls` and `bg_stop_calls` are read by `background.rs`
             let kind = if name == "Bash" {
                 BgKind::Bash
             } else {

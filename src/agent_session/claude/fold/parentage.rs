@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use super::fields::non_empty;
 use super::{Ack, Owner, Session, Spawn};
 
+/// Parentage: the spawning call, its acknowledgement, parents and children.
 impl Session {
     fn call_of(&self, id: &str) -> Option<&str> {
         self.agents

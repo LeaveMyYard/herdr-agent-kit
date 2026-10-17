@@ -17,7 +17,7 @@
 mod discovery;
 mod follower;
 mod projects;
-mod summary;
+mod tail_summary;
 mod tailer;
 mod transcripts;
 
@@ -26,9 +26,6 @@ pub use discovery::{
 };
 pub use follower::{FOLLOW_CHUNK, Follower};
 pub use projects::{ProjectsRoot, sanitize_cwd};
-pub use summary::{HEAD_MAX, TAIL_BYTES, TAIL_MAX, summarize_tail, summarize_tail_from};
+pub use tail_summary::{HEAD_MAX, TAIL_BYTES, TAIL_MAX, summarize_tail, summarize_tail_from};
 pub use tailer::{MAX_PARTIAL, Tail, Tailer};
 pub use transcripts::{FOLLOWERS_MAX, Transcripts};
-
-#[cfg(test)]
-mod tests;

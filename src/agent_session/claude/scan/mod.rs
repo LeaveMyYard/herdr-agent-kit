@@ -12,15 +12,20 @@
 //! byte count of `"type":"tool_use"`.
 
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use super::SessionId;
 use super::fold::{Owner, Session};
 use super::io::Tailer;
 
-mod disk;
+// The scanner itself: construction and accessors.
+mod lifecycle;
+
+// Reading: one pass, and one reader per file kind.
 mod readers;
 mod update;
+
+// Supports: modification times and JSON object files.
+mod disk;
 
 pub use disk::mtime;
 
@@ -60,46 +65,4 @@ pub struct Scanner {
     meta_mtime: HashMap<String, f64>,
     bg_scanned: HashSet<(PathBuf, u64)>,
     hook_tail: Tailer,
-}
-
-impl Scanner {
-    /// The session `id` whose main transcript is `root`. `cwd` shortens the
-    /// paths in tool summaries; `hooks` is panorama's hook record file of the
-    /// session, if any.
-    pub fn new(id: SessionId, root: PathBuf, cwd: Option<String>, hooks: Option<PathBuf>) -> Self {
-        Scanner {
-            root,
-            cwd,
-            hooks,
-            session: Session::new(id),
-            files: Vec::new(),
-            file_paths: HashSet::new(),
-            journals: Vec::new(),
-            journal_runs: HashSet::new(),
-            meta_mtime: HashMap::new(),
-            bg_scanned: HashSet::new(),
-            hook_tail: Tailer::new(),
-        }
-    }
-
-    /// The main transcript.
-    pub fn root(&self) -> &Path {
-        &self.root
-    }
-
-    /// The fold of everything read so far.
-    pub fn session(&self) -> &Session {
-        &self.session
-    }
-
-    fn add_file(&mut self, path: PathBuf, owner: Owner) {
-        self.session.file_mut(owner.clone());
-        self.file_paths.insert(path.clone());
-        self.files.push(FileState {
-            path,
-            owner,
-            tail: Tailer::new(),
-            info_size: None,
-        });
-    }
 }

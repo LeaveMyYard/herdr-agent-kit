@@ -10,6 +10,7 @@ use super::{BgKind, BgLaunch, Owner, Session};
 use crate::agent_procs::Liveness;
 use crate::agent_session::Ts;
 
+/// Background tasks: launches, stops, open and still-running tasks.
 impl Session {
     pub(super) fn background(
         &mut self,

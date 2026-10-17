@@ -154,3 +154,6 @@ fn file_identity(meta: &fs::Metadata) -> Option<(u64, u64)> {
 fn file_identity(_meta: &fs::Metadata) -> Option<(u64, u64)> {
     None
 }
+
+#[cfg(test)]
+mod tests;

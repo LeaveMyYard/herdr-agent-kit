@@ -8,6 +8,7 @@ use super::{AgentRec, FileFacts, Owner, Session, Titles};
 use crate::agent_session::claude::wire::Ending;
 use crate::agent_session::{SessionId, Ts};
 
+/// What the fold knows: agents, files, titles, prompts, notices, resumes, question ids.
 impl Session {
     /// The agents by id, in the order they were first recorded
     /// ([`Session::set_agent`] or [`Session::set_meta`]), as panorama's

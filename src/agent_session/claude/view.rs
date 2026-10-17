@@ -3,6 +3,7 @@
 use super::{Hop, Session, SessionId};
 use crate::agent_session::{SessionView, Status};
 
+/// The neutral [`SessionView`] of the session.
 impl Session {
     /// The neutral view of this session, for a plugin's core.
     ///

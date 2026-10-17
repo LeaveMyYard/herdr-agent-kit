@@ -13,6 +13,7 @@ use crate::agent_session::claude::wire::{self, Line, contains};
 const TOOL_USE: &[u8] = br#""type":"tool_use""#;
 const ASSISTANT: &[u8] = br#""type":"assistant""#;
 
+/// One reader per file kind.
 impl Scanner {
     /// Reads file `i`'s appended lines into the fold; `true` when the file
     /// was rewritten (the caller rebuilds).

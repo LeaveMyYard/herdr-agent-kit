@@ -2,10 +2,7 @@
 
 use serde_json::{Map, Value};
 
-use super::{py_isspace, py_splitlines, py_strip};
-
-/// The spawning tools (`Agent`, and `Task` from older Claude Code versions).
-pub const SPAWN_TOOLS: [&str; 2] = ["Agent", "Task"];
+use super::{SPAWN_TOOLS, py_isspace, py_splitlines, py_strip};
 
 /// Summaries longer than this many characters are cut with `…`.
 pub const SUMMARY_MAX: usize = 200;
@@ -94,3 +91,6 @@ pub fn summarize_tool(name: &str, input: Option<&Map<String, Value>>, cwd: Optio
     let cut: String = truncate_summary(first).chars().take(80).collect();
     format!("{short}({cut})")
 }
+
+#[cfg(test)]
+mod tests;

@@ -1,15 +1,10 @@
-//! `<task-notification>`s and inbox question ids.
+//! `<task-notification>`s: which tasks a notice names and how they ended.
 
-use std::collections::BTreeSet;
 use std::sync::OnceLock;
 
 use regex::Regex;
 
 use super::py_isspace;
-
-/// The tools that stop a background task (`TaskStop`, and
-/// `KillShell` from older Claude Code versions).
-pub const BG_STOP_TOOLS: [&str; 2] = ["TaskStop", "KillShell"];
 
 /// Claude Code's marker task id in the notice that lists the tasks a restart
 /// orphaned: never a task of its own.
@@ -62,8 +57,6 @@ struct NoticeRes {
     task_ids: Regex,
     tags: [(&'static str, Regex); 4],
     event: Regex,
-    qid: Regex,
-    qid_json: Regex,
 }
 
 fn notice_res() -> &'static NoticeRes {
@@ -82,9 +75,6 @@ fn notice_res() -> &'static NoticeRes {
             ("tool_uses", tag("tool_uses")),
         ],
         event: Regex::new(r"<event>\s*\[Monitor expired").expect("event"),
-        qid: Regex::new(r"(?:Recorded as Q|\bQ)([0-9]+)\b").expect("qid"),
-        qid_json: Regex::new(r#""id"\s*:\s*([0-9]+)\s*,\s*"status"\s*:\s*"(?:open|already_open)""#)
-            .expect("qid json"),
     })
 }
 
@@ -162,15 +152,5 @@ pub fn parse_notice(block: &str) -> Option<Notice> {
     })
 }
 
-/// The inbox question ids an `ask_operator` result names (`Recorded as Q12`,
-/// `Q12`, or a JSON receipt's `"id": 12, "status": "open"`): panorama's
-/// `wire.question_ids`. Only ASCII digits are read (Python's `\d` also takes
-/// other Unicode digits), and an id beyond `u64` is skipped.
-pub fn question_ids(text: &str) -> BTreeSet<u64> {
-    let r = notice_res();
-    r.qid
-        .captures_iter(text)
-        .chain(r.qid_json.captures_iter(text))
-        .filter_map(|c| c.get(1)?.as_str().parse().ok())
-        .collect()
-}
+#[cfg(test)]
+mod tests;

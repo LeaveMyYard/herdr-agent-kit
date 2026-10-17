@@ -79,3 +79,6 @@ pub fn wanted_lines<L: AsRef<[u8]>>(lines: &[L]) -> Vec<usize> {
 pub(crate) fn contains(haystack: &[u8], needle: &[u8]) -> bool {
     memchr::memmem::find(haystack, needle).is_some()
 }
+
+#[cfg(test)]
+mod tests;

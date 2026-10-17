@@ -96,7 +96,7 @@ impl Follower {
 
 /// `subagents` is one of the three directories above the file (the inbox's
 /// rule: folders above the session never count).
-pub(super) fn in_subagents_dir(path: &Path) -> bool {
+fn in_subagents_dir(path: &Path) -> bool {
     path.parent()
         .map(|dir| {
             dir.components()
@@ -106,3 +106,6 @@ pub(super) fn in_subagents_dir(path: &Path) -> bool {
         })
         .unwrap_or(false)
 }
+
+#[cfg(test)]
+mod tests;

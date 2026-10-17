@@ -72,22 +72,30 @@ use std::sync::OnceLock;
 use indexmap::IndexMap;
 use serde_json::{Map, Value};
 
-use super::{Continuation, SessionId};
+use super::Continuation;
 use crate::agent_procs::Pid;
 use times::{NoticeAt, T};
 
+// The session itself: construction, identity, reset.
+mod lifecycle;
+
+// Inputs: what the reader folds in.
 mod apply;
 mod background;
-mod fields;
 mod hooks;
-mod limits;
+mod tool_calls;
+mod workflow;
+
+// Derived views.
 mod parentage;
 mod queries;
 mod status;
+
+// Supports: the stores' values, the rules' limits, times and JSON fields.
+mod fields;
+mod limits;
 mod stores;
 mod times;
-mod tool_calls;
-mod workflow;
 
 pub use limits::{
     ACTIVE, ASYNC_QUIET, BG_CAP, HOOK_VERSION, MONITOR_SLACK, NESTING_CAP, PENDING_CAP,
@@ -134,62 +142,4 @@ pub struct Session {
     /// by every input that can change parentage (`apply`, `set_agent`,
     /// `set_meta`, `reset`): panorama's `_children`, cached per update.
     children: OnceLock<HashMap<Owner, Vec<String>>>,
-}
-
-impl Session {
-    /// An empty fold of session `own`.
-    pub fn new(own: SessionId) -> Session {
-        Session {
-            agents: IndexMap::new(),
-            files: HashMap::new(),
-            spawns: HashMap::new(),
-            acks: HashMap::new(),
-            ack_of: HashMap::new(),
-            notices: HashMap::new(),
-            resumes: HashMap::new(),
-            wf_launches: IndexMap::new(),
-            journal_started: HashMap::new(),
-            journal_phases: HashMap::new(),
-            journal_done: HashMap::new(),
-            journal_failed: HashMap::new(),
-            spawn_results: HashSet::new(),
-            spawn_owners: HashMap::new(),
-            wf_summary: HashMap::new(),
-            prompts: BTreeSet::new(),
-            titles: Titles::default(),
-            continuation: Continuation::new(own),
-            qids: HashMap::new(),
-            pending_ask: HashMap::new(),
-            hook_starts: HashMap::new(),
-            hook_stops: HashMap::new(),
-            hook_procs: Vec::new(),
-            bg: IndexMap::new(),
-            bg_calls: HashMap::new(),
-            bg_stop_calls: HashMap::new(),
-            bg_stops: HashMap::new(),
-            children: OnceLock::new(),
-        }
-    }
-
-    /// The session's id.
-    pub fn id(&self) -> &SessionId {
-        self.continuation.own()
-    }
-
-    /// Forgets everything folded from records (a file was rewritten): every
-    /// store, the hook records, the workflow summaries, the continuation, and
-    /// each file's stream time and tool-call count. The agents, their metas
-    /// and the tail summaries stay (panorama's `_reset_stores`).
-    pub fn reset(&mut self) {
-        let agents = std::mem::take(&mut self.agents);
-        let mut files = std::mem::take(&mut self.files);
-        for f in files.values_mut() {
-            f.last_ts = None;
-            f.tool_calls = 0;
-        }
-        let own = self.continuation.own().clone();
-        *self = Session::new(own);
-        self.agents = agents;
-        self.files = files;
-    }
 }

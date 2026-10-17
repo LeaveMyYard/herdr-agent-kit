@@ -6,6 +6,7 @@ use super::{Session, WorkflowLaunch};
 use crate::agent_session::Ts;
 use crate::agent_session::claude::wire::{Ending, Line, py_str, truthy};
 
+/// Workflow runs: journals, summaries, launches and how a run ended.
 impl Session {
     /// Folds one line of workflow run `run`'s `journal.jsonl` (`None`: a line
     /// that did not parse).

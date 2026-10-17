@@ -44,6 +44,7 @@ impl StatusOf {
     }
 }
 
+/// The status rules (the [module docs](super)).
 impl Session {
     /// Agent `id`'s status at `now`: the status rules (module docs), with
     /// `live` answering the process checks. An agent that ended its turn

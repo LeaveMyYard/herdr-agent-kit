@@ -220,3 +220,6 @@ fn iso_ts(text: &str) -> Option<Ts> {
     let total = secs.checked_mul(1_000_000)?.checked_add(micros)?;
     Some(Ts(total as f64 / 1e6))
 }
+
+#[cfg(test)]
+mod tests;

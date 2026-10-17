@@ -10,6 +10,7 @@ use super::{FileFacts, Owner, Session};
 use crate::agent_session::Ts;
 use crate::agent_session::claude::wire::{self, Block, Line, Record, py_strip};
 
+/// Inputs: agent files, metas, the main transcript's lines and transcript records.
 impl Session {
     /// Records an agent file of the session (its transcript, and the workflow
     /// run it is under), keeping a meta already read.

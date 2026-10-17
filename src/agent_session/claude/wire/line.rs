@@ -248,3 +248,6 @@ fn replace_lone_surrogates(raw: &[u8]) -> Vec<u8> {
     }
     out
 }
+
+#[cfg(test)]
+mod tests;
