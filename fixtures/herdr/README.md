@@ -77,6 +77,25 @@ Things worth knowing that the records show:
   focused workspace, the only one). The `--workspace` records (tab:0, tab:1) are the
   capture's setup.
 
+## `clean/clean.jsonl`: the sanitiser's outputs
+
+`herdr.clean(text, limit)` from both Python plugins (herdr-panorama `92f6d4c`, herdr-inbox
+`e209939` on main, 2026-10-17), run over one corpus: every code point U+0000 to U+00A0 and a
+few others between two letters, escape sequences, line separators, and texts around the
+4000-character cap and other limits (0, 1, 2, 3, 10, 200, 300, 10^9). The script takes only
+the `MAX_ARG`, `_SPACE`, `_CONTROL` and `clean` definitions from each `herdr.py` (with `ast`,
+so nothing else runs) and stops if the two plugins disagree on any input. One line per input:
+`{"text", "limit" (null = MAX_ARG), "out"}`. `herdr_api::clean` must reproduce every line.
+
+Re-capture (from the kit root; both plugin repos fetched):
+
+```
+git -C ../herdr-panorama show origin/main:src/herdr_panorama/herdr.py > <scratch>/panorama_herdr.py
+git -C ../herdr-inbox show origin/main:src/herdr_inbox/herdr.py > <scratch>/inbox_herdr.py
+env -i PATH=/usr/bin:/bin python3 -I fixtures/herdr/capture/capture_clean.py \
+    <scratch>/panorama_herdr.py <scratch>/inbox_herdr.py > fixtures/herdr/clean/clean.jsonl
+```
+
 ## Simplified or not recorded
 
 - `layout.apply` (socket:6): the request's `first` pane runs `["panorama", "panel"]` with only
