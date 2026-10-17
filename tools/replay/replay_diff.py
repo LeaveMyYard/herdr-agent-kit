@@ -53,11 +53,9 @@ def parse_args(argv):
 def hook_lines(path, T):
     """The hook record lines written at or before T."""
     keep = []
-    try:
-        fh = open(path, "rb")
-    except OSError:
+    if not os.path.exists(path):
         return keep
-    with fh:
+    with open(path, "rb") as fh:
         for raw in fh:
             if not raw.endswith(b"\n"):
                 break
@@ -125,9 +123,9 @@ def main(argv=None) -> int:
     sys.path.insert(0, os.path.join(panorama, "tools"))
     if args.hooks_dir:
         os.environ["PANORAMA_HOOKS_DIR"] = args.hooks_dir
-    import replay_oracle  # noqa: E402  (herdr-panorama's tools/replay_oracle.py: Truth, truncate)
-    from herdr_panorama import hooks as hookmod  # noqa: E402
-    from herdr_panorama.scan import session as session_mod  # noqa: E402
+    import replay_oracle  # herdr-panorama's tools/replay_oracle.py: Truth, truncate
+    from herdr_panorama import hooks as hookmod
+    from herdr_panorama.scan import session as session_mod
 
     # a past instant's processes cannot be checked: unknown on both sides (Rust: NoProcs)
     hookmod.process_alive = lambda *a, **k: None
@@ -190,12 +188,12 @@ def main(argv=None) -> int:
                                   + (f" (status py={p['status']} rs={r['status']})" if f != "status" else ""))
             shutil.rmtree(dest, ignore_errors=True)
             print(sid, json.dumps(c))
-            for key in total:
+            for key, n in c.items():
                 if key == "statuses":
-                    for st, n in c[key].items():
-                        total[key][st] = total[key].get(st, 0) + n
+                    for st, m in n.items():
+                        total[key][st] = total[key].get(st, 0) + m
                 else:
-                    total[key] += c[key]
+                    total[key] += n
     finally:
         proc.stdin.close()
         proc.wait()
