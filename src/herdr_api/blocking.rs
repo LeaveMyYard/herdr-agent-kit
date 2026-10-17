@@ -11,12 +11,13 @@ use super::cli;
 use super::error::HerdrError;
 use super::ids::{PaneId, ServerId, TabId, WorkspaceId};
 use super::sanitize::Sanitized;
+use super::target::{Target, client_config};
 use super::transport;
+use super::typed_methods::typed_methods;
 use super::types::{
     AgentInfo, Extra, LayoutInfo, Machine, MoveResult, NotificationResult, PaneInfo, PluginInfo,
     ProcessInfo, Snapshot, SwapResult, TabInfo, WorkspaceInfo,
 };
-use super::{Target, client_config, typed_methods};
 
 macro_rules! blocking_methods {
     ($($name:ident($($arg:ident: $ty:ty),*) -> $ret:ty;)*) => {
