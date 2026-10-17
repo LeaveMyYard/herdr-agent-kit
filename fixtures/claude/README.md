@@ -13,9 +13,14 @@ One file per payload, as the capture hook wrote it:
  "env": {<CLAUDE* variables the hook saw>}, "env_names": [<every variable name>]}
 ```
 
-The capture plugin (`capture/plugin`) registers exactly the events, matchers and exec form
-(`"command": "sh", "args": [...]`) that the two plugins' `hooks/hooks.json` register, with
-`capture/plugin/hooks/dump.py` in place of the plugin's script. Variables whose names mention
+The capture plugin (`capture/plugin`) registers the same events, matchers and exec form
+(`"command": "sh", "args": [...]`) as the two plugins' `hooks/hooks.json`, with
+`capture/plugin/hooks/dump.py` in place of the plugin's script. Timeouts and the exit
+mapping differ (the rewake hook has `timeout: 60` instead of 43200 and no
+`[ $? -eq 3 ] && exit 2`; the inbox SessionStart timeout is 10 instead of 20). The payloads
+do not depend on them, nor on the hook command itself: herdr-panorama's main has since
+moved its hooks to a `run-hook.sh` shim (#51) with the same events and matchers, and that
+needs no re-capture. Variables whose names mention
 a token, key, secret, auth, password or credential were never read. `CAPTURE_OUT`,
 `HERDR_INBOX_DB` and `HERDR_INBOX_NO_WORKER` in `env_names` are the capture's own.
 
@@ -77,8 +82,12 @@ The servers ran from clean `git archive` exports of the plugin repos' `main`
   row counts of `questions`, `sessions`, `alerts` and `changes` were unchanged, and no row
   holds any of the three capture session ids.
 - Only `--allowedTools Agent` was granted; no permission-bypass flag.
-- The command lines are in `capture/run.sh`, which re-creates the setup (it was assembled
-  from the commands used, after the capture):
+- The command lines are in `capture/run.sh`, which re-creates the setup. It was assembled
+  from the commands used, after the capture, and has **not been re-run end to end** (each
+  run bills the operator). Differences from the recorded runs: the capture passed the
+  plugin as a copy (`.../recordings/claude/capture-plugin`, which is the
+  `CLAUDE_PLUGIN_ROOT` in the payloads) where run.sh passes `capture/plugin`; `UV_CACHE_DIR`
+  is now set in run.sh as it was in the capture.
 
 ```
 claude -p "<synthetic prompt: use the Agent tool once, then reply done>" --session-id <S> --allowedTools Agent $COMMON

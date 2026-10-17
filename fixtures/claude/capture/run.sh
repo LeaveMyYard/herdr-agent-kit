@@ -11,6 +11,10 @@
 # its no-worker guard, both under <work-dir>), and `--setting-sources project` keeps the
 # user's settings (installed plugins, user hooks) out. A `herdr` stub that always fails
 # comes first in PATH so nothing can reach a real herdr.
+#
+# This script was assembled after the 2026-10-17 capture from the commands used, and has
+# not been re-run end to end. Differences from the recorded runs: the plugin dir was a copy
+# of capture/plugin (the payloads' CLAUDE_PLUGIN_ROOT shows its path).
 set -eu
 WORK=$(cd "$1" && pwd); INBOX=$(cd "$2" && pwd); PANO=$(cd "$3" && pwd)
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -34,7 +38,7 @@ CLAUDE_BIN=$(command -v claude); UV_BIN_DIR=$(dirname "$(command -v uv)")
 cenv() {
   env -i PATH="$WORK/bin:$(dirname "$CLAUDE_BIN"):$UV_BIN_DIR:/usr/bin:/bin" HOME="$HOME" USER="$USER" TERM=xterm-256color LANG=C.UTF-8 \
     XDG_STATE_HOME="$WORK/state" XDG_CONFIG_HOME="$WORK/xdg-config" HERDR_INBOX_DB="$WORK/state/inbox.db" HERDR_INBOX_NO_WORKER=1 \
-    CAPTURE_OUT="$WORK/out/hooks" "$@"
+    UV_CACHE_DIR="${UV_CACHE_DIR:-$HOME/.cache/uv}" CAPTURE_OUT="$WORK/out/hooks" "$@"
 }
 S=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen | tr 'A-F' 'a-f')
 COMMON="--model haiku --effort low --setting-sources project --strict-mcp-config --mcp-config $WORK/mcp.json

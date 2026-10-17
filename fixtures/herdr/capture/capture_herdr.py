@@ -321,9 +321,9 @@ def session() -> None:
                     "--focus", used_by="tests/bench setup"))
     wid = ws["workspace"]["workspace_id"]
     t1 = result(cli("tab", "tab create (focus)", "tab", "create", "--workspace", wid, "--label", "Agent", "--cwd", proj,
-                    "--focus", used_by="panorama herdr.create_tab"))
+                    "--focus", used_by="setup (panorama sends no --workspace: see below)"))
     t2 = result(cli("tab", "tab create (no-focus)", "tab", "create", "--workspace", wid, "--label", "Other",
-                    "--cwd", proj, "--no-focus", used_by="panorama herdr.create_tab"))
+                    "--cwd", proj, "--no-focus", used_by="setup"))
     tab_a, pane_a = t1["tab"]["tab_id"], t1["root_pane"]["pane_id"]
     tab_b, pane_b = t2["tab"]["tab_id"], t2["root_pane"]["pane_id"]
 
@@ -441,7 +441,9 @@ def session() -> None:
             "type": "split", "direction": "right", "ratio": 0.3,
             "first": {"type": "pane", "command": ["panorama", "panel"], "env": {"HERDR_PLUGIN_ID": P},
                       "label": "Panorama panel", "cwd": str(ISO / "plugins/panorama-stub")},
-            "second": {"type": "pane", "cwd": proj}}}}, used_by="panorama herdr.apply_panel_layout")
+            "second": {"type": "pane", "cwd": proj}}}}, used_by="panorama herdr.apply_panel_layout",
+         note="request simplified: panorama sends PANEL_COMMAND (sh -c ...) and up to four HERDR_PLUGIN_* env "
+              "values in `first`; the reply shape does not depend on them")
     new_lay = ((lay["replies"] or [{}])[0].get("result") or {}).get("layout") or {}
     new_tab = new_lay.get("tab_id")
     second = ((new_lay.get("root") or {}).get("second") or {}).get("pane_id")
@@ -483,6 +485,13 @@ def session() -> None:
     # close paths
     if new_tab:
         cli("tab", "tab close", "tab", "close", new_tab, used_by="panorama herdr.close_tab")
+
+    # panorama's own create_tab argv (no --workspace: herdr picks the workspace), from inside a
+    # pane (HERDR_PANE_ID set, as for panorama's processes) and with no pane context
+    cli("tab", "tab create (panorama create_tab form, from a pane)", "tab", "create", "--label", "From pane",
+        "--focus", "--cwd", proj, env_extra={"HERDR_PANE_ID": pane_b}, used_by="panorama herdr.create_tab")
+    cli("tab", "tab create (panorama create_tab form, no pane context)", "tab", "create", "--label", "No context",
+        "--no-focus", "--cwd", proj, used_by="panorama herdr.create_tab")
 
     # error replies
     E = "errors"

@@ -27,7 +27,7 @@ Never commit secrets or private content: scrub transcripts before adding them.
 | dir | captured | from | how |
 |---|---|---|---|
 | `herdr/` | 2026-10-17 | herdr 0.9.3, socket protocol 22 | isolated `herdr server` behind a recording proxy socket; `herdr/capture/capture_herdr.py` |
-| `claude/hooks/` | 2026-10-17 | Claude Code 2.1.302 (`claude-haiku-5-5`) | four short `claude -p` runs with a capture plugin mirroring the plugins' hooks; `claude/capture/run.sh` |
+| `claude/hooks/` | 2026-10-17 | Claude Code 2.1.302 (`claude-haiku-5-5`) | four short `claude -p` runs with a capture plugin mirroring the plugins' hook events and matchers; `claude/capture/run.sh` (assembled afterwards, not re-run end to end) |
 | `claude/mcp/` | 2026-10-17 | herdr-inbox `a9b215a`, herdr-panorama `2cee57f` (Python `mcp` 2.3.0) | stdio tee between Claude Code and each server, plus a direct legacy `initialize` session |
 
 Each directory's README has the exact command lines, the isolation used and what, if

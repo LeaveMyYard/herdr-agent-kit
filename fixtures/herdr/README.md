@@ -71,6 +71,22 @@ Things worth knowing that the records show:
 - `plugin config-dir` is answered by the CLI alone (no socket traffic), even for an unknown id.
 - `pane report-metadata` errors carry the id `cli:request`.
 - Socket errors for a request that does not parse carry `"id": ""`.
+- `tab create` without `--workspace` (panorama's `create_tab` form) sends `tab.create` with
+  no `workspace_id`, and the CLI does not forward `HERDR_PANE_ID`: herdr picks the
+  workspace itself (tab:7 from inside a pane, tab:8 with no pane context; both landed in the
+  focused workspace, the only one). The `--workspace` records (tab:0, tab:1) are the
+  capture's setup.
+
+## Simplified or not recorded
+
+- `layout.apply` (socket:6): the request's `first` pane runs `["panorama", "panel"]` with only
+  `HERDR_PLUGIN_ID` in its env. panorama sends `PANEL_COMMAND` (`sh -c ...`) and up to four
+  `HERDR_PLUGIN_*` values there. The reply shape does not depend on them.
+- `plugin install -y [--ref R] LeaveMyYard/herdr-inbox` (herdr-inbox `remote.py`, run over
+  ssh on a remote machine) is not recorded: it clones from GitHub. The install and update
+  paths are recorded in P2, on herdr 0.9.4.
+- `--machine <id> ...` with a saved machine is not recorded (no SSH machine in the capture);
+  only the unknown-machine replies are.
 
 ## Method index
 
@@ -83,13 +99,15 @@ Things worth knowing that the records show:
 | meta:1 | api schema --json | `api schema --json` |  | ok |  |
 | workspace:0 | workspace create | `workspace create --cwd …h/P0a/recordings/iso/proj --label capture --focus` | ping, workspace.create | ok `workspace_created` | tests/bench setup |
 | workspace:1 | workspace list | `workspace list` | ping, workspace.list | ok `workspace_list` | inbox herdr.all_tabs |
-| tab:0 | tab create (focus) | `tab create --workspace w1 --label Agent --cwd …h/P0a/recordings/iso/proj --focus` | ping, tab.create | ok `tab_created` | panorama herdr.create_tab |
-| tab:1 | tab create (no-focus) | `tab create --workspace w1 --label Other --cwd …h/P0a/recordings/iso/proj --no-focus` | ping, tab.create | ok `tab_created` | panorama herdr.create_tab |
+| tab:0 | tab create (focus) | `tab create --workspace w1 --label Agent --cwd …h/P0a/recordings/iso/proj --focus` | ping, tab.create | ok `tab_created` | setup (panorama sends no --workspace: see below) |
+| tab:1 | tab create (no-focus) | `tab create --workspace w1 --label Other --cwd …h/P0a/recordings/iso/proj --no-focus` | ping, tab.create | ok `tab_created` | setup |
 | tab:2 | tab list --workspace | `tab list --workspace w1` | ping, tab.list | ok `tab_list` | inbox herdr.all_tabs |
 | tab:3 | tab get | `tab get w1:t2` | ping, tab.get | ok `tab_info` | inbox herdr.tab_label |
 | tab:4 | tab rename | `tab rename w1:t3 ❓ Other` | ping, tab.rename | ok `tab_info` | both herdr.rename_tab |
 | tab:5 | tab focus | `tab focus w1:t3` | ping, tab.focus | ok `tab_info` | panorama herdr.focus_tab |
 | tab:6 | tab close | `tab close w1:t5` | ping, tab.close | ok `ok` | panorama herdr.close_tab |
+| tab:7 | tab create (panorama create_tab form, from a pane) | `tab create --label From pane --focus --cwd …h/P0a/recordings/iso/proj` | ping, tab.create | ok `tab_created` | panorama herdr.create_tab |
+| tab:8 | tab create (panorama create_tab form, no pane context) | `tab create --label No context --no-focus --cwd …h/P0a/recordings/iso/proj` | ping, tab.create | ok `tab_created` | panorama herdr.create_tab |
 | pane:0 | pane send-text | `pane send-text w1:p2 claude\n` | ping, pane.send_text | ok | tests/bench setup |
 | pane:1 | pane report-agent-session | `pane report-agent-session w1:p2 --source capture --agent claude --agent-session-id 00000000-0000-4000-8000-000000000001 --session-start-source startup` | ping, pane.report_agent_session | ok | herdr's Claude Code integration (reference) |
 | pane:2 | pane report-agent | `pane report-agent w1:p2 --source capture --agent claude --state idle --agent-session-id 00000000-0000-4000-8000-000000000001` | ping, pane.report_agent | ok | inbox tools/latency_bench.py, fake_agent.py |
