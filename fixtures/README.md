@@ -8,8 +8,9 @@ captured (a sibling `.md` or a header comment), so it can be re-captured.
 
 Planned contents:
 
-- `transcripts/`: Claude Code session transcripts, including continued and
-  resumed sessions (they pin the continuation rule).
+- `transcripts/`: captured Claude Code transcript record templates, one per record
+  kind; the tests build transcripts (continued and resumed sessions included) only
+  from them. See `transcripts/README.md`.
 - `herdr/`: herdr socket request and reply recordings from an **isolated** herdr
   (its own HOME, XDG dirs and socket). They seed `FakeHerdr`. Captured: see
   `herdr/README.md` (method index included).
@@ -26,6 +27,7 @@ Never commit secrets or private content: scrub transcripts before adding them.
 
 | dir | captured | from | how |
 |---|---|---|---|
+| `transcripts/` | Claude Code 2.1.x, copied 2026-10-17 | herdr-panorama `tests/fixtures/templates.json` at `f504b95` | herdr-panorama's `capture.py`, anonymised; see `transcripts/README.md` |
 | `herdr/` | 2026-10-17 | herdr 0.9.3, socket protocol 22 | isolated `herdr server` behind a recording proxy socket; `herdr/capture/capture_herdr.py` |
 | `claude/hooks/` | 2026-10-17 | Claude Code 2.1.302 (`claude-haiku-5-5`) | four short `claude -p` runs with a capture plugin mirroring the plugins' hook events and matchers; `claude/capture/run.sh` (assembled afterwards, not re-run end to end) |
 | `claude/mcp/` | 2026-10-17 | herdr-inbox `a9b215a`, herdr-panorama `2cee57f` (Python `mcp` 2.3.0) | stdio tee between Claude Code and each server, plus a direct legacy `initialize` session |

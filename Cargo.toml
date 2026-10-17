@@ -23,6 +23,8 @@ remote = []
 sqlite = []
 
 [dependencies]
+memchr = "2"
+serde_json = "1"
 
 [lints.rust]
 missing_docs = "warn"
