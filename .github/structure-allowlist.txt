@@ -5,10 +5,6 @@
 src/agent_procs/fake.rs  # predates the rule: inline tests; split in the agent_procs restructure PR
 src/agent_procs/liveness.rs  # predates the rule: inline tests; split in the agent_procs restructure PR
 src/agent_procs/system.rs  # predates the rule: inline tests, 415 non-test lines; split in the agent_procs restructure PR
-src/agent_session/claude/fold.rs  # predates the rule: 1379 non-test lines; split in the agent_session restructure PR
-src/agent_session/claude/io.rs  # predates the rule: 599 non-test lines; split in the agent_session restructure PR
-src/agent_session/claude/scan.rs  # predates the rule: 344 non-test lines; split in the agent_session restructure PR
-src/agent_session/claude/wire.rs  # predates the rule: 1255 non-test lines; split in the agent_session restructure PR
 src/herdr_api/calls.rs  # predates the rule: inline tests, 668 non-test lines; split in the herdr_api restructure PR
 src/herdr_api/cli.rs  # predates the rule: inline tests; split in the herdr_api restructure PR
 src/herdr_api/error.rs  # predates the rule: inline tests; split in the herdr_api restructure PR
