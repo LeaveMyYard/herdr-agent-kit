@@ -18,7 +18,10 @@
 //! 2. Its time is the record's own `timestamp`. An undated one takes the time
 //!    of the last **dated** record of any type before it in the file (the
 //!    record's own, top-level `timestamp`; a nested one never dates a record),
-//!    or no time when there is none.
+//!    or no time when there is none. A time of `0` counts as no time here, as
+//!    it does in both Pythons' `ts or last` (panorama's backward search took
+//!    a `0` as a time; this follows the inbox's `if when: last = when`). A
+//!    conversation record dated `0` is still dated for rule 3.
 //! 3. It is cleared only by a later conversation record: a `user` or
 //!    `assistant` record whose own time is later than the continuation's (the
 //!    old session was resumed with `claude --resume`, so it is live again). A
@@ -114,7 +117,8 @@ impl Continuation {
             };
             match line.kind() {
                 Some("continued-in") => {
-                    let when = match line.ts() {
+                    // a time of 0 is falsy in both Pythons (`ts or last`): no time
+                    let when = match line.ts().filter(|t| t.0 != 0.0) {
                         Some(t) => Some(t),
                         None => {
                             if let Some(found) = last_dated(&lines[done..i]) {
@@ -165,7 +169,7 @@ fn last_dated<L: AsRef<[u8]>>(lines: &[L]) -> Option<Ts> {
         .rev()
         .map(AsRef::as_ref)
         .filter(|raw| contains(raw, b"\"timestamp\""))
-        .find_map(|raw| Line::parse(raw).and_then(|l| l.ts()))
+        .find_map(|raw| Line::parse(raw).and_then(|l| l.ts()).filter(|t| t.0 != 0.0))
 }
 
 /// Where a session's transcript says its conversation went: the IO side of
@@ -200,10 +204,12 @@ pub struct Hop {
 ///
 /// - panorama's `Collector.live_session` (the session whose transcript it
 ///   reads now): the hops with `found: true`, ending at the last of them;
-/// - the inbox's `transcript.follow` (the session a delivery is filed and
-///   typed under): **the last hop, found or not** (`hops.last()`). In the
-///   window between a `continued-in` record and the new session's first
-///   write, that is the new, not yet written session, not the old one;
+/// - the inbox's `transcript.follow` (on herdr-inbox main when this was
+///   written): **the last hop, found or not** (`hops.last()`). In the window
+///   between a `continued-in` record and the new session's first write, that
+///   is the new, not yet written session, not the old one. Which sessions an
+///   inbox delivery may target is the inbox's own merged rule (a forward
+///   family), not this function; a port builds it from forward walks;
 /// - every id on the way, including a next one not written yet (panorama's
 ///   `Collector.continuations`, the inbox's `transcript.chain`): all hops.
 ///
@@ -253,6 +259,63 @@ mod tests {
         fn continued_in(&mut self, id: &SessionId) -> Option<Option<SessionId>> {
             self.0.get(id).cloned()
         }
+    }
+
+    fn feed(c: &mut Continuation, lines: &[&str]) {
+        c.feed(&lines.iter().map(|l| l.as_bytes()).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn a_time_of_zero_is_no_time_for_the_continuation() {
+        // both Pythons: `ts or last`, and the inbox's `if when: last = when`
+        let own = sid(1);
+        let to = sid(2);
+        let cont = |ts: &str| {
+            format!(r#"{{"type":"continued-in","timestamp":{ts},"continuedInSessionId":"{to}"}}"#)
+        };
+        // dated 0: takes the last dated record's time (10), so a resume at 5 does not clear it
+        let mut c = Continuation::new(own.clone());
+        feed(
+            &mut c,
+            &[
+                r#"{"type":"user","timestamp":10}"#,
+                &cont("0"),
+                r#"{"type":"user","timestamp":5}"#,
+            ],
+        );
+        assert_eq!(c.next(), Some(&to));
+        assert_eq!(c.at(), Some(Ts(10.0)));
+        // a record dated 0 does not date an undated continuation
+        let mut c = Continuation::new(own.clone());
+        feed(
+            &mut c,
+            &[
+                r#"{"type":"user","timestamp":10}"#,
+                r#"{"type":"mode","timestamp":"0"}"#,
+                &cont("null"),
+            ],
+        );
+        assert_eq!(c.at(), Some(Ts(10.0)));
+        // a conversation record dated 0 is still dated: not later than 10
+        feed(&mut c, &[r#"{"type":"user","timestamp":0}"#]);
+        assert_eq!(c.next(), Some(&to));
+    }
+
+    #[test]
+    fn a_resume_holding_a_lone_surrogate_still_clears_it() {
+        // Node writes a lone surrogate escape when it cuts a string inside an emoji
+        let mut c = Continuation::new(sid(1));
+        let to = sid(2);
+        feed(
+            &mut c,
+            &[
+                &format!(
+                    r#"{{"type":"continued-in","timestamp":10,"continuedInSessionId":"{to}"}}"#
+                ),
+                r#"{"type":"user","timestamp":20,"message":{"role":"user","content":"cut \ud83d"}}"#,
+            ],
+        );
+        assert_eq!(c.next(), None);
     }
 
     #[test]

@@ -24,6 +24,11 @@
 //!   line nested deeper than 128 levels is rejected (Python: about 1000), and
 //!   UTF-16/32 lines are rejected (Python detects them; a UTF-8 BOM is accepted
 //!   by both).
+//! - A string holding a **lone UTF-16 surrogate escape** (`"\ud83d"` with no
+//!   low half; Node writes one when it cuts a string inside an emoji) is
+//!   accepted like Python accepts it, but the lone surrogate reads as
+//!   U+FFFD (a Rust string cannot hold it; Python keeps the surrogate). Text
+//!   compared with such a string differs from Python only at that character.
 //! - Timestamps: see [`ts`].
 //! - Text fields that are not strings (a numeric `text`, `name` or `id`) are
 //!   treated as absent; Python would use their `str()`.
@@ -150,9 +155,16 @@ impl Ts {
 /// sixth are dropped, as in Python), optionally followed by an offset `Z`,
 /// `±HH`, `±HHMM` or `±HH:MM[:SS]`. Week dates, the basic format
 /// (`20261014T0900`), other date-time separators and fractional offsets are
-/// not read. A date-time **without an offset is read as UTC**; Python reads it
-/// in the machine's local zone, which a pure function cannot know (Claude Code
-/// always writes `Z`).
+/// not read, nor are an empty fraction (`12.Z`) and integer strings in
+/// non-ASCII digits. A date-time **without an offset is read as UTC**; Python
+/// reads it in the machine's local zone, which a pure function cannot know
+/// (Claude Code always writes `Z`). A 13-digit string is milliseconds here;
+/// Python reads it as a basic-format date first (year 1376 for
+/// `"1376050891932"`).
+///
+/// A time of `0` is a time here (as in Python's `is not None` checks); the
+/// continuation rule treats it as no time where both Pythons do (see
+/// [`super::Continuation`]).
 pub fn ts(value: &Value) -> Option<Ts> {
     match value {
         Value::Number(n) => n.as_f64().and_then(number_ts),
@@ -404,6 +416,46 @@ pub(crate) fn truthy(v: &Value) -> bool {
     }
 }
 
+/// The code unit of a `\uXXXX` escape starting at `raw[i]` (the backslash).
+fn escape_unit(raw: &[u8], i: usize) -> Option<u16> {
+    let hex = raw.get(i + 2..i + 6)?;
+    if raw.get(i + 1) != Some(&b'u') || !hex.iter().all(u8::is_ascii_hexdigit) {
+        return None;
+    }
+    u16::from_str_radix(std::str::from_utf8(hex).ok()?, 16).ok()
+}
+
+/// `raw` with every unpaired UTF-16 surrogate escape (`\ud800`..`\udfff`
+/// not part of a high-low pair) replaced by `\ufffd`. Escaped backslashes are
+/// skipped, so `\\ud83d` (a backslash, then text) is left alone.
+fn replace_lone_surrogates(raw: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(raw.len());
+    let mut i = 0;
+    while i < raw.len() {
+        if raw[i] != b'\\' {
+            out.push(raw[i]);
+            i += 1;
+            continue;
+        }
+        match escape_unit(raw, i) {
+            Some(0xD800..=0xDBFF) if matches!(escape_unit(raw, i + 6), Some(0xDC00..=0xDFFF)) => {
+                out.extend_from_slice(&raw[i..i + 12]);
+                i += 12;
+            }
+            Some(0xD800..=0xDFFF) => {
+                out.extend_from_slice(b"\\ufffd");
+                i += 6;
+            }
+            _ => {
+                // any other escape (or a stray backslash): copy it and the byte it escapes
+                out.extend_from_slice(&raw[i..(i + 2).min(raw.len())]);
+                i += 2;
+            }
+        }
+    }
+    out
+}
+
 // -- lines and records -------------------------------------------------------------------------
 
 /// One parsed transcript line: a JSON object. Everything else (a broken line,
@@ -418,7 +470,16 @@ impl Line {
         let raw = raw.strip_prefix(b"\xef\xbb\xbf").unwrap_or(raw);
         match serde_json::from_slice::<Value>(raw) {
             Ok(Value::Object(map)) => Some(Line(map)),
-            _ => None,
+            Ok(_) => None,
+            // Python's json accepts a lone UTF-16 surrogate escape (Node writes one
+            // when a string is cut inside an emoji); serde_json does not
+            Err(_) if contains(raw, b"\\ud") || contains(raw, b"\\uD") => {
+                match serde_json::from_slice::<Value>(&replace_lone_surrogates(raw)) {
+                    Ok(Value::Object(map)) => Some(Line(map)),
+                    _ => None,
+                }
+            }
+            Err(_) => None,
         }
     }
 
@@ -950,6 +1011,32 @@ mod tests {
         assert_eq!(Line::parse(b"\xff\xfe"), None);
         assert!(Line::parse(b"{\"a\":1}\r").is_some());
         assert!(Line::parse(b"\xef\xbb\xbf{\"a\":1}").is_some());
+    }
+
+    #[test]
+    fn a_lone_surrogate_escape_parses_like_python() {
+        // expected values: Python 3.13 json.loads on the same lines, with each
+        // lone surrogate read as U+FFFD (Python keeps the surrogate itself)
+        let cases: [(&[u8], Option<&str>); 8] = [
+            (br#"{"c":"\ud83d cut"}"#, Some("\u{fffd} cut")),
+            (br#"{"c":"a\ude00"}"#, Some("a\u{fffd}")),
+            (br#"{"c":"\ud83d\u0041"}"#, Some("\u{fffd}A")),
+            (br#"{"c":"\ud83d\ude00"}"#, Some("\u{1f600}")),
+            (br#"{"c":"\\ud83d"}"#, Some("\\ud83d")),
+            (br#"{"c":"\uD83D"}"#, Some("\u{fffd}")),
+            (br#"{"c":"\ud83d""#, None),
+            (br#"{"c":"\ud83d\ud83d\ude00"}"#, Some("\u{fffd}\u{1f600}")),
+        ];
+        for (raw, want) in cases {
+            let got =
+                Line::parse(raw).map(|l| l.get("c").and_then(Value::as_str).map(str::to_string));
+            assert_eq!(
+                got,
+                want.map(|w| Some(w.to_string())),
+                "{}",
+                String::from_utf8_lossy(raw)
+            );
+        }
     }
 
     #[test]
