@@ -64,7 +64,8 @@
 //!
 //! The API is 0.x and follows semver: before 1.0 a breaking change bumps the
 //! minor version. The `internal` module is excluded: it changes whenever the
-//! two plugins need it. Types that are expected to grow (statuses, errors,
+//! two plugins need it. So are the `test-support` fakes, which follow the
+//! tests' needs. Types that are expected to grow (statuses, errors,
 //! records, herdr's responses, [`agent_session::SessionView`]) are
 //! `#[non_exhaustive]`; the ones callers build have constructors.
 //!

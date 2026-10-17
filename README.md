@@ -6,8 +6,9 @@ Shared Rust library for the herdr plugins
 
 Rust building blocks for tools around coding agents in [herdr](https://herdr.dev). Claude Code is
 the first supported harness; other harnesses are planned, not built yet. The API is 0.x and follows
-semver: before 1.0 a breaking change bumps the minor version. The kit is pre-0.1.0 and has no
-tag yet; the plugins will depend on it by tag.
+semver: before 1.0 a breaking change bumps the minor version (see
+[CHANGELOG.md](CHANGELOG.md)). The kit is not published to crates.io; the plugins depend on it
+by git tag.
 
 The two plugins are separate repos and each runs without the other. The code
 whose rules must not drift between them lives here, once: the herdr API client,
@@ -53,7 +54,8 @@ with `sqlite` its read-only reader of the 0.1 `questions` columns; and
 and state paths). It exists for the two plugins only and is **outside
 semver**: it can change in any release.
 
-**Semver.** Types expected to grow are `#[non_exhaustive]`. Public
+**Semver.** The `test-support` fakes are outside semver too: they follow the
+tests' needs. Types expected to grow are `#[non_exhaustive]`. Public
 dependencies are `serde`/`serde_json` 1.x and `tokio` 1.x only. The package
 holds `src/` and the herdr recordings `FakeHerdr` embeds; CI builds the
 packaged crate with every feature.
