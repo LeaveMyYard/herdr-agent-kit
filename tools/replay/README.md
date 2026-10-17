@@ -22,7 +22,7 @@ cut at instant `T`. For each session with subagents (default: all of them;
    activity gaps (a random agent write plus 2 to 30 minutes), seeded by the
    session path. Two more instants are added: the session's last record, and
    one hour after it. Then come the **boundary instants**, for up to `--boundary-agents` agents
-   per session (default 6, seeded). After each base write chosen below, add
+   per session (default 4, seeded). After each base write chosen below, add
    1 s before and 1 s after each timing limit of the status rules (`ACTIVE`,
    `ASYNC_QUIET`, `PENDING_CAP`, read from panorama's `scan.session`).
    Those are the instants where a moved limit flips a status. The base writes:

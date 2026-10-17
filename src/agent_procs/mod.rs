@@ -11,12 +11,14 @@
 //!   Claude?** [`claude_process`], [`owning_claude`] and [`nested_claude`]
 //!   walk up the process tree through a [`ProcessTable`]: the real one is
 //!   [`SystemProcesses`] (procfs, or `ps` where there is no procfs, as on
-//!   macOS), the test one is [`fake::FakeProcesses`].
+//!   macOS), the test one is
+//!   `fake::FakeProcesses` (feature `test-support`).
 //! - **Is a recorded process still alive?** The [`Liveness`] trait, which
 //!   [`crate::agent_session::claude::fold`]'s `status_of` takes as an argument so the
 //!   status rules stay pure. [`SystemLiveness`] reads the real process table,
 //!   [`NoProcs`] answers "unknown" everywhere (transcripts mirrored from
-//!   another machine), and [`fake::FakeLiveness`] is scripted for tests.
+//!   another machine), and `fake::FakeLiveness` (feature
+//!   `test-support`) is scripted for tests.
 //!
 //! Ported from herdr-panorama `hooks.py` (`is_claude`, `claude_process`,
 //! `process_alive`, `own_pidns`) and `bgproc.py`, and herdr-inbox `proc.py`
@@ -31,6 +33,7 @@
 mod liveness;
 mod system;
 
+#[cfg(any(test, feature = "test-support"))]
 pub mod fake;
 
 pub use liveness::{Liveness, NoProcs, ProcessIdentity, SystemLiveness};

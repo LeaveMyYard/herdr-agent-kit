@@ -50,7 +50,8 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         features:
           - { name: none, flags: "--no-default-features" }
-          - { name: fake, flags: "--no-default-features --features fake" }
+          - { name: test-support, flags: "--no-default-features --features test-support" }
+          - { name: internal, flags: "--no-default-features --features internal" }
           - { name: tui, flags: "--no-default-features --features tui" }
           - { name: remote, flags: "--no-default-features --features remote" }
           - { name: sqlite, flags: "--no-default-features --features sqlite" }

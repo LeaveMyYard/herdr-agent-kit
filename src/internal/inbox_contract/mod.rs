@@ -1,4 +1,5 @@
-//! The inbox's published formats.
+//! The inbox's published formats. **Plugin-only: not public API, outside
+//! semver** (see [`crate::internal`]).
 //!
 //! herdr-inbox owns these formats; herdr-panorama only reads them.
 //!

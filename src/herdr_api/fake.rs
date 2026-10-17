@@ -1,4 +1,4 @@
-//! `FakeHerdr`, behind the `fake` feature. **Test IO.**
+//! `FakeHerdr`, behind the `test-support` feature. **Test IO.**
 //!
 //! [`FakeHerdr`] is a Unix socket server that answers like herdr and records
 //! every request as `(method, params)`. Integration tests in both plugins use

@@ -4,23 +4,35 @@ version = "0.0.0"
 edition = "2024"
 # MSRV. Kept equal to the channel in rust-toolchain.toml, so CI builds at the MSRV.
 rust-version = "1.96"
-description = "Shared library for the herdr plugins herdr-panorama and herdr-inbox"
+description = "Building blocks for tools around coding agents in herdr: the herdr API client, agent sessions, agent processes and the plugin environment"
 license = "MIT"
 repository = "https://github.com/LeaveMyYard/herdr-agent-kit"
 readme = "README.md"
+keywords = ["herdr", "claude-code", "agents", "terminal"]
+categories = ["development-tools"]
+# Captured test inputs and the replay tool stay in the repo, not the package.
+exclude = ["fixtures/", "tools/", ".github/"]
 # Consumed as a git dependency pinned by tag, never from crates.io (yet).
 publish = false
 
+[package.metadata.docs.rs]
+all-features = true
+
 [features]
 default = []
-# `FakeHerdr`: a scripted herdr socket server for tests (`herdr_api::fake`).
-fake = []
+# Test fakes: `FakeHerdr`, a scripted herdr socket server (`herdr_api::fake`),
+# and scripted process tables and liveness (`agent_procs::fake`).
+test-support = []
+# Plugin-only parts, not public API and outside semver (`internal`):
+# the inbox's published formats (`internal::inbox_contract`).
+internal = []
 # Terminal toolkit shared by the two TUIs (`tui_kit`).
 tui = []
 # Remote machines: machine list, ssh options, ControlPath scheme (`remote_machines`).
 remote = []
-# Read-only reader of the inbox's 0.1 `questions` columns (`inbox_contract::sqlite`).
-sqlite = ["dep:rusqlite"]
+# Read-only reader of the inbox's 0.1 `questions` columns
+# (`internal::inbox_contract::sqlite`); plugin-only, so it turns on `internal`.
+sqlite = ["internal", "dep:rusqlite"]
 
 [dependencies]
 indexmap = "2"
@@ -57,4 +69,20 @@ tokio = { version = "1", features = ["rt", "macros", "net", "io-util", "time", "
 
 [[test]]
 name = "herdr_api"
-required-features = ["fake"]
+required-features = ["test-support"]
+
+[[test]]
+name = "agent_session_claude_fold"
+required-features = ["test-support"]
+
+[[test]]
+name = "bridge_rules_is_claude"
+required-features = ["test-support"]
+
+[[test]]
+name = "inbox_nested_claude"
+required-features = ["test-support"]
+
+[[test]]
+name = "inbox_contract_goldens"
+required-features = ["internal"]

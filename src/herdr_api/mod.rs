@@ -12,7 +12,7 @@
 //!   and the same [`HerdrError`] mapping.
 //! - [`clean`] and [`Sanitized`]: every prompt and label is built through
 //!   `clean()`, and every string param passes it again on the way out.
-//! - `fake` (feature `fake`): `FakeHerdr`, a scripted herdr socket seeded
+//! - `fake` (feature `test-support`): `FakeHerdr`, a scripted herdr socket seeded
 //!   from the recordings in `fixtures/herdr` that records every request, and
 //!   `CliStub` for the CLI path.
 //!
@@ -25,7 +25,7 @@ pub mod calls;
 mod cli;
 mod error;
 mod events;
-#[cfg(feature = "fake")]
+#[cfg(feature = "test-support")]
 pub mod fake;
 mod ids;
 mod sanitize;

@@ -26,7 +26,7 @@ use super::wire::{self, Line, contains};
 
 /// A Bash moved to the background (its result record): an old agent file
 /// holding it is read even when it is outside the done window.
-pub const BG_MARK: &[u8] = br#""backgroundTaskId""#;
+pub(crate) const BG_MARK: &[u8] = br#""backgroundTaskId""#;
 const TOOL_USE: &[u8] = br#""type":"tool_use""#;
 const ASSISTANT: &[u8] = br#""type":"assistant""#;
 

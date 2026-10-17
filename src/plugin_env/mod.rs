@@ -55,7 +55,7 @@ pub fn short_sha1(bytes: &[u8]) -> String {
 ///
 /// The same rule as herdr-inbox's `transcript.session_id_or_none`. It is
 /// crate-private so a lock path is never built from anything else; the public
-/// validator belongs to `agent_session::claude`.
+/// validator belongs to `agent_session` (`SessionId`).
 pub(crate) fn session_file_name(value: &str) -> Option<String> {
     const GROUPS: [usize; 5] = [8, 4, 4, 4, 12];
     let mut parts = value.split('-');

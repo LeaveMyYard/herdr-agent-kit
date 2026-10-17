@@ -1,8 +1,7 @@
 //! Scripted process tables and liveness, for tests. **Pure** (no IO).
 //!
-//! Always compiled (not behind the `fake` feature, which is `FakeHerdr`'s):
-//! it is small, and `agent_session::claude`'s status tests and both plugins' tests
-//! use it without a herdr fake.
+//! Behind the `test-support` feature, like `FakeHerdr`: the status tests of
+//! `agent_session::claude` and both plugins' tests use it.
 
 use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
