@@ -554,6 +554,7 @@ impl Direction {
 /// `plugin.pane.open` of one of a plugin's entrypoints. `focus` defaults to
 /// `true`, as herdr's CLI does.
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct OpenPluginPane {
     /// The plugin (`leavemyyard.herdr-panorama`).
     pub plugin_id: String,

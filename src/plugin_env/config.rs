@@ -22,6 +22,7 @@
 //! is ignored whole, here as in the Python plugins, with the same
 //! `ignoring <path>: <reason>` diagnostic.
 
+use std::fmt;
 use std::fs;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
@@ -31,6 +32,22 @@ use serde::de::DeserializeOwned;
 use toml::Table;
 
 use super::PluginEnv;
+
+/// [`ConfigFile::load_as`]'s error: the settings do not deserialize into the
+/// requested type (a setting of the wrong type, say). Opaque, so it can carry
+/// more detail later without a break.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConfigError {
+    message: String,
+}
+
+impl fmt::Display for ConfigError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for ConfigError {}
 
 /// The file name in the config directory.
 pub const FILE_NAME: &str = "config.toml";
@@ -90,10 +107,12 @@ impl ConfigFile {
     /// empty when the file is missing or broken ([`ConfigFile::error`] says
     /// why), so a `T` whose fields all have defaults always loads. `Err` is
     /// the deserialization error (a setting of the wrong type, say).
-    pub fn load_as<T: DeserializeOwned>(&mut self) -> Result<T, String> {
+    pub fn load_as<T: DeserializeOwned>(&mut self) -> Result<T, ConfigError> {
         toml::Value::Table(self.load().clone())
             .try_into()
-            .map_err(|e: toml::de::Error| e.message().to_owned())
+            .map_err(|e: toml::de::Error| ConfigError {
+                message: e.message().to_owned(),
+            })
     }
 
     /// The file's top-level table, re-read if the file changed since the last

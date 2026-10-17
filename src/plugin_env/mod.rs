@@ -22,7 +22,7 @@ pub mod private_dir;
 mod toml10;
 pub mod vars;
 
-pub use config::ConfigFile;
+pub use config::{ConfigError, ConfigFile};
 pub use lock::{HeldLock, LockFile};
 pub use vars::PluginEnv;
 

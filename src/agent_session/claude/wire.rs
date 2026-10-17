@@ -803,6 +803,7 @@ pub const ORPHAN: &str = "__orphan_summary__";
 /// "fail"`), so the latest of two notices at the same time is picked the same
 /// way.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[non_exhaustive]
 pub enum Ending {
     /// `killed` or `stopped`.
     Cancelled,

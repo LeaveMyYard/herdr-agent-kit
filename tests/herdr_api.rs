@@ -302,76 +302,64 @@ async fn plugin_panes_open_as_herdrs_cli_opens_them() {
     };
     let panorama = |entry: &str| OpenPluginPane::new("leavemyyard.herdr-panorama", entry);
     // panorama open_view: a popup, no pane in the answer
-    let open = OpenPluginPane {
-        cwd: Some(cwd(5)),
-        ..panorama("panorama")
-    };
+    let mut open = panorama("panorama");
+    open.cwd = Some(cwd(5));
     assert_eq!(
         parity(calls::open_plugin_pane(&open), "plugin.jsonl", 5).await,
         Ok(None)
     );
     // herdr-inbox open_popup
-    let open = OpenPluginPane {
-        cwd: Some(cwd(6)),
-        env: vec![("INBOX_FOCUS_PANE".into(), "w1:p2".into())],
-        ..OpenPluginPane::new("leavemyyard.herdr-inbox", "inbox")
-    };
+    let mut open = OpenPluginPane::new("leavemyyard.herdr-inbox", "inbox");
+    open.cwd = Some(cwd(6));
+    open.env = vec![("INBOX_FOCUS_PANE".into(), "w1:p2".into())];
     assert_eq!(
         parity(calls::open_plugin_pane(&open), "plugin.jsonl", 6).await,
         Ok(None)
     );
     // panorama open_view(split)
-    let open = OpenPluginPane {
-        placement: Some(Placement::Split),
-        direction: Some(Direction::Right),
-        target_pane: Some(p("w1:p2")),
-        cwd: Some(cwd(7)),
-        ..panorama("panorama")
-    };
+    let mut open = panorama("panorama");
+    open.placement = Some(Placement::Split);
+    open.direction = Some(Direction::Right);
+    open.target_pane = Some(p("w1:p2"));
+    open.cwd = Some(cwd(7));
     let pane = parity(calls::open_plugin_pane(&open), "plugin.jsonl", 7)
         .await
         .unwrap();
     assert_eq!(pane.unwrap().pane_id, Some(p("w1:p4")));
     // panorama open_tab_pane
-    let open = OpenPluginPane {
-        placement: Some(Placement::Tab),
-        cwd: Some(cwd(9)),
-        focus: false,
-        env: vec![("PANORAMA_HOME".into(), "1".into())],
-        ..panorama("panorama")
-    };
+    let mut open = panorama("panorama");
+    open.placement = Some(Placement::Tab);
+    open.cwd = Some(cwd(9));
+    open.focus = false;
+    open.env = vec![("PANORAMA_HOME".into(), "1".into())];
     let pane = parity(calls::open_plugin_pane(&open), "plugin.jsonl", 9)
         .await
         .unwrap();
     assert!(pane.is_some());
     // panorama open_panel
-    let open = OpenPluginPane {
-        placement: Some(Placement::Split),
-        direction: Some(Direction::Right),
-        target_pane: Some(p("w1:p2")),
-        cwd: Some(cwd(10)),
-        focus: false,
-        ..panorama("panel")
-    };
+    let mut open = panorama("panel");
+    open.placement = Some(Placement::Split);
+    open.direction = Some(Direction::Right);
+    open.target_pane = Some(p("w1:p2"));
+    open.cwd = Some(cwd(10));
+    open.focus = false;
     let pane = parity(calls::open_plugin_pane(&open), "plugin.jsonl", 10)
         .await
         .unwrap();
     assert!(pane.is_some());
     // panorama open_new_agent (socket)
     let (params, _) = exchange("socket.jsonl", 5, "plugin.pane.open");
-    let open = OpenPluginPane {
-        placement: Some(Placement::Popup),
-        size: Some((84, 26)),
-        env: vec![(
-            "PANORAMA_NEW_AGENT_CWD".into(),
-            params["env"]["PANORAMA_NEW_AGENT_CWD"]
-                .as_str()
-                .unwrap()
-                .into(),
-        )],
-        cwd: params.get("cwd").and_then(Value::as_str).map(PathBuf::from),
-        ..panorama("new-agent")
-    };
+    let mut open = panorama("new-agent");
+    open.placement = Some(Placement::Popup);
+    open.size = Some((84, 26));
+    open.env = vec![(
+        "PANORAMA_NEW_AGENT_CWD".into(),
+        params["env"]["PANORAMA_NEW_AGENT_CWD"]
+            .as_str()
+            .unwrap()
+            .into(),
+    )];
+    open.cwd = params.get("cwd").and_then(Value::as_str).map(PathBuf::from);
     assert_eq!(
         parity(calls::open_plugin_pane(&open), "socket.jsonl", 5).await,
         Ok(None)
@@ -498,15 +486,13 @@ async fn recorded_refusals_keep_herdrs_codes() {
             .unwrap_err()
             .is_code("agent_pane_not_found")
     );
-    let busy = OpenPluginPane {
-        cwd: Some(PathBuf::from(recorded_param(
-            e,
-            0,
-            "plugin.pane.open",
-            "/cwd",
-        ))),
-        ..OpenPluginPane::new("leavemyyard.herdr-inbox", "inbox")
-    };
+    let mut busy = OpenPluginPane::new("leavemyyard.herdr-inbox", "inbox");
+    busy.cwd = Some(PathBuf::from(recorded_param(
+        e,
+        0,
+        "plugin.pane.open",
+        "/cwd",
+    )));
     let err = parity(calls::open_plugin_pane(&busy), e, 0)
         .await
         .unwrap_err();

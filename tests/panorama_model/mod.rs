@@ -729,6 +729,7 @@ fn ending_code(e: Ending) -> &'static str {
         Ending::Done => DONE,
         Ending::Failed => FAIL,
         Ending::Cancelled => CXL,
+        other => panic!("an ending this port does not know: {other:?}"),
     }
 }
 
