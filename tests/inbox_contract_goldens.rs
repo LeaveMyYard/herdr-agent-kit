@@ -299,6 +299,20 @@ fn open_args_parse_like_the_inbox() {
     }
 }
 
+#[test]
+fn question_refs_like_the_inbox() {
+    let g = golden("open-args.json");
+    let cases = g["question_ref"].as_array().unwrap();
+    assert!(!cases.is_empty());
+    for c in cases {
+        let v = s(&c["value"]);
+        assert_eq!(open_args::question_ref(v), s(&c["ref"]), "{v:?}");
+        // Python's int() gives -1 for `Q-1`; no question has a negative id, so Rust says None
+        assert_eq!(open_args::question_id(v), c["id"].as_u64(), "{v:?}");
+        assert_eq!(open_args::describe_question(v), s(&c["describe"]), "{v:?}");
+    }
+}
+
 #[cfg(feature = "sqlite")]
 mod questions_db {
     use std::path::{Path, PathBuf};

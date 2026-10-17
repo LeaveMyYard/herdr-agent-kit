@@ -4,7 +4,8 @@
 
 Every output value comes from the inbox's functions on the exported source: service.py
 (delivery text, answer format), transcript.py (header ids, rewake texts) and cli.py plus
-deeplink.py (``inbox open``: the request file it writes, or its argparse error). Nothing
+deeplink.py (``inbox open``: the request file it writes, or its argparse error;
+question references: ``question_ref``, ``question_id``, ``describe``). Nothing
 here re-implements a format. Run only from run.sh (isolated env, failing herdr stub).
 """
 
@@ -61,6 +62,16 @@ def open_parse(argv):
     return out
 
 
+def question_ref(value):
+    """deeplink.question_ref, question_id (None: its ValueError) and describe on one reference."""
+    try:
+        qid = deeplink.question_id(value)
+    except ValueError:
+        qid = None
+    return {"value": value, "ref": deeplink.question_ref(value), "id": qid,
+            "describe": deeplink.describe({"kind": "question", "value": value})}
+
+
 def main():
     assert not any(k.startswith("HERDR_") and k not in ("HERDR_INBOX_DB", "HERDR_INBOX_NO_WORKER")
                    for k in os.environ), "run from run.sh: no HERDR_* but the capture's own"
@@ -74,6 +85,7 @@ def main():
         "parse": [{"text": t, "header_ids": sorted(transcript.header_ids(t)),
                    "rewake_texts": list(transcript._rewake_texts(t))} for t in cases["parse"]],
         "open_parse": [{"argv": a, **open_parse(a)} for a in cases["open_parse"]],
+        "question_ref": [question_ref(v) for v in cases["question_ref"]],
         "receipt_constants": {"unavailable": service.UNAVAILABLE, "not_migrated": service.NOT_MIGRATED},
     }
     json.dump(out, open(sys.argv[2], "w"), ensure_ascii=False, indent=1)

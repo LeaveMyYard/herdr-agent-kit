@@ -21,9 +21,9 @@ CREATE TABLE questions (
     repeat_count    INTEGER NOT NULL DEFAULT 0,
     delivery_attempts INTEGER NOT NULL DEFAULT 0
 );
-INSERT INTO "questions" VALUES(1,'2026-10-17T15:54:02+00:00','w1:p1',NULL,NULL,'5f0c2a8e-3b1d-4c6e-9a7f-1e2d3c4b5a69',NULL,'old','Old question one?',NULL,NULL,'old question one','open',NULL,NULL,NULL,NULL,NULL,0,0);
-INSERT INTO "questions" VALUES(2,'2026-10-17T15:54:02+00:00','w1:p1',NULL,NULL,'5f0c2a8e-3b1d-4c6e-9a7f-1e2d3c4b5a69',NULL,NULL,'Old answered?',NULL,NULL,'old answered','answered','yes','2026-10-17T15:54:02+00:00',NULL,NULL,NULL,0,0);
-INSERT INTO "questions" VALUES(3,'2026-10-17T15:54:02+00:00',NULL,NULL,NULL,NULL,NULL,NULL,'No pane, no session','["a", "b"]',NULL,'no pane no session','open',NULL,NULL,NULL,NULL,NULL,0,0);
+INSERT INTO "questions" VALUES(1,'2026-10-17T16:52:30+00:00','w1:p1',NULL,NULL,'5f0c2a8e-3b1d-4c6e-9a7f-1e2d3c4b5a69',NULL,'old','Old question one?',NULL,NULL,'old question one','open',NULL,NULL,NULL,NULL,NULL,0,0);
+INSERT INTO "questions" VALUES(2,'2026-10-17T16:52:30+00:00','w1:p1',NULL,NULL,'5f0c2a8e-3b1d-4c6e-9a7f-1e2d3c4b5a69',NULL,NULL,'Old answered?',NULL,NULL,'old answered','answered','yes','2026-10-17T16:52:30+00:00',NULL,NULL,NULL,0,0);
+INSERT INTO "questions" VALUES(3,'2026-10-17T16:52:30+00:00',NULL,NULL,NULL,NULL,NULL,NULL,'No pane, no session','["a", "b"]',NULL,'no pane no session','open',NULL,NULL,NULL,NULL,NULL,0,0);
 CREATE INDEX questions_status ON questions(status);
 CREATE INDEX questions_session ON questions(session_id);
 DELETE FROM "sqlite_sequence";

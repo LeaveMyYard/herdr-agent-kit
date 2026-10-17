@@ -10,10 +10,15 @@
 //!   and its `inbox open --help`.
 //! - Reading (herdr-inbox's `cli.py` and `deeplink.py`): [`parse_open_args`] and
 //!   [`valid`], giving the request the popup is opened for.
+//! - Question references (herdr-inbox's `deeplink.question_ref`, `question_id` and
+//!   `describe`, herdr-inbox#57): [`question_ref`], [`question_id`] and
+//!   [`describe_question`]. A reference is `[machine:]` plus at most one `Q`/`q` plus
+//!   the number; the inbox stores it without the `Q` (`qnap:Q12` → `qnap:12`, `Q12` →
+//!   `12`), and readers take both forms.
 //!
 //! Goldens: `fixtures/inbox/open-args.json`.
 
-use super::text::{ascii_digits, py_space};
+use super::text::{ascii_digits, py_space, trim};
 
 /// What `inbox open` can be pointed at.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -57,10 +62,10 @@ impl OpenKind {
 pub struct OpenTarget {
     /// What it points at.
     pub kind: OpenKind,
-    /// The value as stored: a question's leading `Q`/`q` characters are removed, as
-    /// Python's `lstrip("Qq")` does (`Q7` → `7`, `007` stays `007`, `laptop:Q12` stays as
-    /// it is, but a machine name starting with `q` loses it: `qnap:Q12` → `nap:Q12`, an
-    /// inbox bug kept for parity); other kinds are stored as given.
+    /// The value as stored: a question's reference goes through [`question_ref`], which
+    /// removes the one `Q`/`q` right before the number (`Q7` → `7`, `007` stays `007`,
+    /// `laptop:Q12` → `laptop:12`, `qnap:Q12` → `qnap:12`); other kinds are stored as
+    /// given.
     pub value: String,
 }
 
@@ -214,7 +219,7 @@ pub fn parse_open_args<S: AsRef<str>>(args: &[S]) -> Result<OpenRequest, OpenArg
                 return Err(OpenArgsError::Invalid(kind, value));
             }
             let value = match kind {
-                OpenKind::Question => value.trim_start_matches(['Q', 'q']).to_owned(),
+                OpenKind::Question => question_ref(&value),
                 _ => value,
             };
             Some(OpenTarget { kind, value })
@@ -222,6 +227,67 @@ pub fn parse_open_args<S: AsRef<str>>(args: &[S]) -> Result<OpenRequest, OpenArg
         _ => None,
     };
     Ok(OpenRequest { target, hold })
+}
+
+/// A question reference without its `Q` (herdr-inbox's `deeplink.question_ref`).
+///
+/// The optional `machine:` is split off at the **last** `:`; then one `Q` or `q` right
+/// before the number is removed, and nothing else: `qnap:Q12` → `qnap:12`, `box:Q12` →
+/// `box:12`, `Q12` and `q12` → `12`, `12` stays, `QQ12` → `Q12` (which is not a number, so
+/// [`question_id`] and [`valid`] refuse it). Any text is taken; nothing is validated.
+pub fn question_ref(value: &str) -> String {
+    let (machine, reference) = match value.rfind(':') {
+        Some(at) => value.split_at(at + 1),
+        None => ("", value),
+    };
+    let reference = reference.strip_prefix(['Q', 'q']).unwrap_or(reference);
+    format!("{machine}{reference}")
+}
+
+/// A local question reference (`Q12`, `q12`, `12`) as its id (herdr-inbox's
+/// `deeplink.question_id`, the type of `inbox answer`/`dismiss`/`redeliver`/`deliver`'s
+/// id arguments); `None` for anything else (`QQ12`, `qnap:Q12`, ``).
+///
+/// The rest after [`question_ref`] is read as Python's `int()` reads it: surrounding
+/// whitespace, one sign and `_` between digits are allowed (`Q 12`, `Q+12` and `1_2` are
+/// 12). Unlike Python, the digits are ASCII only, and a negative number (no question
+/// has one) or one over `u64::MAX` is `None`.
+pub fn question_id(value: &str) -> Option<u64> {
+    py_int(&question_ref(value))
+}
+
+/// How the inbox names a question reference to the operator (herdr-inbox's
+/// `deeplink.describe` of a question target): [`question_ref`], then `Q` after the last
+/// `:`. `qnap:12` and `qnap:Q12` → `qnap:Q12`, `12` → `Q12`; text that is not a reference
+/// is named as it comes (`nap` → `Qnap`, `QQ12` → `QQ12`).
+pub fn describe_question(value: &str) -> String {
+    let reference = question_ref(value);
+    let (machine, number) = match reference.rfind(':') {
+        Some(at) => reference.split_at(at + 1),
+        None => ("", reference.as_str()),
+    };
+    format!("{machine}Q{number}")
+}
+
+/// Python's `int(s)` for an ASCII decimal that fits a `u64`.
+fn py_int(s: &str) -> Option<u64> {
+    let s = trim(s, py_space);
+    let (negative, s) = match s.as_bytes().first() {
+        Some(b'-') => (true, &s[1..]),
+        Some(b'+') => (false, &s[1..]),
+        _ => (false, s),
+    };
+    // digits, with single underscores only between two digits
+    let ok = !s.is_empty()
+        && !s.starts_with('_')
+        && !s.ends_with('_')
+        && !s.contains("__")
+        && s.bytes().all(|b| b.is_ascii_digit() || b == b'_');
+    if !ok {
+        return None;
+    }
+    let n: u64 = s.replace('_', "").parse().ok()?;
+    (!negative || n == 0).then_some(n)
 }
 
 /// argparse's `^-\d+$|^-\d*\.\d+$`: an argument starting with `-` that is still a value.
@@ -320,6 +386,26 @@ mod tests {
                 hold: false
             }
         );
+    }
+
+    #[test]
+    fn question_ids_read_like_python_int() {
+        for (v, want) in [
+            ("Q 12", Some(12)),
+            ("Q+12", Some(12)),
+            ("1_2", Some(12)),
+            ("Q007", Some(7)),
+            ("-0", Some(0)),
+            ("-1", None),
+            ("1__2", None),
+            ("_1", None),
+            ("1_", None),
+            ("+", None),
+            ("Q12 ", Some(12)),
+            ("99999999999999999999999", None),
+        ] {
+            assert_eq!(question_id(v), want, "{v:?}");
+        }
     }
 
     #[test]

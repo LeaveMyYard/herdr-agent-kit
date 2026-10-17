@@ -181,6 +181,17 @@ OPEN_PARSE = [
     ["--question", "m" * 64 + ":Q1"], ["--question", "m" * 65 + ":Q1"], ["--question", ":Q1"],
     ["--question", "qnap:Q12"], ["--pane", "-.x"], ["--pane", "-"], ["--pane", "-1"],
     ["--pane", "a\x1cb"], ["--pane", "a\x85b"], ["--pane", "a\u3000b"],
+    # herdr-inbox#55/#57: one optional Q, removed only right before the number
+    ["--question", "qnap:q12"], ["--question", "qnap:12"], ["--question", "Qnap:Q7"], ["--question", "box:Q12"],
+    ["--question", "box:12"], ["--question", "q12"], ["--question", "qq12"], ["--question", "QQ12"],
+]
+
+# question references (herdr-inbox#57, deeplink.question_ref / question_id / describe): the
+# inputs of #57's own tests (tests/test_deep_link.py), plus box:Q12, two colons (the machine
+# is split at the LAST one) and what Python's int() also reads after the Q
+QUESTION_REF = [
+    "qnap:Q12", "qnap:q12", "qnap:12", "Qnap:Q7", "box:Q12", "box:12", "Q12", "q12", "12", "QQ12", "qq12",
+    "", "nap", "Q", "a:b:Q12", "a:Q1:Q2", "Q 12", "Q+12", "Q1_2", "Q-0", "Q-1", "Q007",
 ]
 
 OPEN_ARGS = [
@@ -316,7 +327,8 @@ def main():
 
     py_in = work_cases / "inbox-in.json"
     py_in.write_text(json.dumps({"encode": ENCODE, "first_line": FIRST_LINE, "format_answer": FORMAT_ANSWER,
-                                 "parse": [], "open_parse": OPEN_PARSE}))
+                                 "parse": [], "open_parse": OPEN_PARSE,
+                                 "question_ref": QUESTION_REF}))
     run([PY_INBOX, "-I", HERE / "py_inbox.py", py_in, work_cases / "inbox-enc.json"], cwd=str(WORK))
     enc = json.loads((work_cases / "inbox-enc.json").read_text())
     produced = []
@@ -324,7 +336,7 @@ def main():
         produced += [c["delivery_text"], *c["references"], *(m["text"] for m in c["messages"])]
     parse_inputs = list(dict.fromkeys(captured_texts + produced + PARSE_EXTRA))
     py_in.write_text(json.dumps({"encode": [], "first_line": [], "format_answer": [], "parse": parse_inputs,
-                                 "open_parse": []}))
+                                 "open_parse": [], "question_ref": []}))
     run([PY_INBOX, "-I", HERE / "py_inbox.py", py_in, work_cases / "inbox-parse.json"], cwd=str(WORK))
     py_parse = json.loads((work_cases / "inbox-parse.json").read_text())["parse"]
     (work_cases / "ts-in.json").write_text(json.dumps(parse_inputs))
@@ -365,7 +377,8 @@ def main():
     extra = pano["question_ids"][len(calls):]
     write("receipts.json", {"source": meta, "constants": enc["receipt_constants"], "calls": calls,
                             "question_ids_extra": extra})
-    write("open-args.json", {"source": meta, "encode": pano["open_args"], "parse": enc["open_parse"]})
+    write("open-args.json", {"source": meta, "encode": pano["open_args"], "parse": enc["open_parse"],
+                             "question_ref": enc["question_ref"]})
     dump(db, "current")
     dump(v01, "v01")
     dump(empty, "no-table")
