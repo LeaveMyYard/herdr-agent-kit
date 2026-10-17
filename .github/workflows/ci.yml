@@ -39,6 +39,10 @@ jobs:
         run: rustup toolchain install
       - run: cargo doc --locked --no-deps --all-features
       - run: cargo doc --locked --no-deps --no-default-features
+      # Private items too: an intra-doc link in a private module is checked
+      # only here.
+      - run: cargo doc --locked --no-deps --document-private-items --all-features
+      - run: cargo doc --locked --no-deps --document-private-items --no-default-features
 
   # COMMON.md "Code structure": <= 300 non-test lines per src file, no inline
   # test modules; exceptions only in .github/structure-allowlist.txt.
