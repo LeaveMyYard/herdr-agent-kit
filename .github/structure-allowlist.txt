@@ -3,7 +3,3 @@
 # Each entry: today's file that predates the rule (2026-10-17), and why it is not fixed yet.
 # The restructure PRs after #16 (one per module group) remove these entries.
 
-src/agent_session/claude/fold.rs  # predates the rule: 1379 non-test lines; split in the agent_session restructure PR
-src/agent_session/claude/io.rs  # predates the rule: 599 non-test lines; split in the agent_session restructure PR
-src/agent_session/claude/scan.rs  # predates the rule: 344 non-test lines; split in the agent_session restructure PR
-src/agent_session/claude/wire.rs  # predates the rule: 1255 non-test lines; split in the agent_session restructure PR
