@@ -9,6 +9,11 @@ Captured 2026-10-17 by `capture/run.sh` from clean `git archive` exports of herd
 `83590dccbf478ed7927a450a3198ffae54ef88f5` (both `main`, after herdr-inbox#57 fixed question
 references, #55), with node v24.12.0. Each file's `source` repeats this. Nothing was edited by hand.
 
+The last four `question_ids_extra` cases (where Python's `\s` and `\w` differ from Rust
+regex's Unicode classes) were added 2026-10-18: their outputs were captured from the same
+panorama revision's `scan.wire.question_ids`, called directly with `python3 -I`, and their
+inputs are in `capture.py`, so a full re-capture reproduces them.
+
 **The inputs are chosen, the outputs are captured.** `capture/capture.py` lists every input
 (questions, answers, texts to parse, argument lists); every expected value is what the
 shipped code returned for it. The parse inputs also include every text the mod's

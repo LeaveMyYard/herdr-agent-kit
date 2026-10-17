@@ -426,7 +426,9 @@ fn a_transcript_that_cannot_be_read_is_not_found() {
     m.write();
     fs::set_permissions(&m.path, fs::Permissions::from_mode(0o000)).unwrap();
     if fs::File::open(&m.path).is_ok() {
-        // root reads any file: nothing to check here (CI runs unprivileged)
+        // root reads a mode-000 file, so the unreadable case cannot be made
+        // here; CI runs unprivileged and checks it
+        eprintln!("skipped: running as root, a mode-000 file is still readable");
         fs::set_permissions(&m.path, fs::Permissions::from_mode(0o644)).unwrap();
         return;
     }
