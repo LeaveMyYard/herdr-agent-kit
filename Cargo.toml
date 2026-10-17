@@ -23,8 +23,11 @@ remote = []
 sqlite = []
 
 [dependencies]
+libc = "0.2.191"
 memchr = "2"
 serde_json = "1"
+sha1_smol = "1.0.1"
+toml = { version = "0.9", default-features = false, features = ["parse", "serde", "std"] }
 
 [lints.rust]
 missing_docs = "warn"
@@ -32,3 +35,6 @@ unsafe_op_in_unsafe_fn = "deny"
 
 [lints.clippy]
 all = { level = "warn", priority = -1 }
+
+[dev-dependencies]
+tempfile = "3.27.0"
