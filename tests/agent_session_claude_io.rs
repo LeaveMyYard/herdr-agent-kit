@@ -11,7 +11,9 @@ use herdr_agent_kit::agent_session::claude::io::{
     Follower, ProjectsRoot, Transcripts, related, summarize_tail, summarize_tail_from,
     workflow_summary_path,
 };
-use herdr_agent_kit::agent_session::claude::{Hop, TranscriptFiles, chain, continuation::MAX_HOPS};
+use herdr_agent_kit::agent_session::claude::{
+    Hop, Lookup, TranscriptFiles, chain, continuation::MAX_HOPS,
+};
 use herdr_agent_kit::agent_session::{SessionId, Ts};
 use serde_json::{Value, json};
 
@@ -294,7 +296,7 @@ fn transcripts_follow_a_chain_forward_and_notice_a_next_session_appearing() {
     // the old session is resumed: it no longer continues anywhere
     a.prompt(BASE + 30, "back again");
     a.write();
-    assert_eq!(files.continued_in(&id(SID)), Some(None));
+    assert_eq!(files.lookup(&id(SID)), Lookup::Ended);
     assert_eq!(
         chain(&id(SID), &mut files, MAX_HOPS),
         vec![Hop::new(id(SID), true, None)]
@@ -314,10 +316,16 @@ fn a_remembered_path_is_used_while_it_exists() {
     let mut files = Transcripts::new(ProjectsRoot::new(&proj.root), None);
     files.remember(id(SID), elsewhere.clone());
     assert_eq!(files.find(&id(SID)), Some(elsewhere.clone()));
-    assert_eq!(files.continued_in(&id(SID)), Some(None));
+    assert_eq!(files.lookup(&id(SID)), Lookup::Ended);
     fs::remove_file(&elsewhere).unwrap();
     assert_eq!(files.find(&id(SID)), Some(m.path.clone()));
-    assert_eq!(files.continued_in(&id(SID)), Some(Some(id(NEXT))));
+    assert_eq!(
+        files.lookup(&id(SID)),
+        Lookup::ContinuedIn {
+            next: id(NEXT),
+            at: Some(Ts((BASE + 10) as f64))
+        }
+    );
 }
 
 #[test]
@@ -397,12 +405,15 @@ fn a_remembered_path_is_preferred_over_one_found_before() {
     m.prompt(BASE, "work");
     m.write();
     let mut files = Transcripts::new(ProjectsRoot::new(&proj.root), None);
-    assert_eq!(files.continued_in(&id(SID)), Some(None));
+    assert_eq!(files.lookup(&id(SID)), Lookup::Ended);
     let elsewhere = tmp.join("elsewhere.jsonl");
     let mut rec = tpl("continued_in");
     rec.insert("sessionId".into(), json!(SID));
     rec.insert("continuedInSessionId".into(), json!(NEXT));
     fs::write(&elsewhere, format!("{}\n", dumps(&rec))).unwrap();
     files.remember(id(SID), elsewhere);
-    assert_eq!(files.continued_in(&id(SID)), Some(Some(id(NEXT))));
+    assert!(matches!(
+        files.lookup(&id(SID)),
+        Lookup::ContinuedIn { next, .. } if next == id(NEXT)
+    ));
 }

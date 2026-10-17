@@ -26,7 +26,7 @@
 //! `tests/agent_session_claude_bridge_rules.rs`. Where the two plugins differ, the
 //! item says which one it follows and why.
 
-use super::{SessionId, Ts};
+use super::SessionId;
 
 pub mod continuation;
 pub mod fold;
@@ -35,7 +35,7 @@ pub mod scan;
 mod view;
 pub mod wire;
 
-pub use continuation::{Continuation, Hop, TranscriptFiles, chain};
+pub use continuation::{Continuation, Hop, Lookup, TranscriptFiles, chain};
 pub use fold::{Owner, Session, StatusOf};
 pub use scan::Scanner;
 pub use wire::{Line, Record};
