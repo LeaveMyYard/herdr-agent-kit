@@ -1,6 +1,6 @@
 //! `typed_methods!`: the one list of typed methods both clients generate.
 
-/// The typed methods, one per constructor in [`calls`], generated for both
+/// The typed methods, one per constructor in [`calls`](super::calls), generated for both
 /// clients from this one list.
 macro_rules! typed_methods {
     ($mac:ident) => {
