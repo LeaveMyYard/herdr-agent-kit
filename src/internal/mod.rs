@@ -7,5 +7,8 @@
 //!
 //! - [`inbox_contract`]: herdr-inbox's published formats, which herdr-panorama
 //!   reads (plan §2.1).
+//! - [`plugin_paths`]: the two plugins' plugin ids and state layouts (lock,
+//!   socket and state paths).
 
 pub mod inbox_contract;
+pub mod plugin_paths;

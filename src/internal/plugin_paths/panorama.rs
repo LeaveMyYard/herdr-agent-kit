@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use super::{PluginEnv, short_sha1};
+use crate::plugin_env::{PluginEnv, short_sha1};
 
 /// The longest socket path the core uses: `sockaddr_un` holds 108 bytes on
 /// Linux and 104 on macOS, so stay under both (`protocol.SUN_PATH_MAX`).
@@ -42,7 +42,7 @@ pub fn session_key(env: &PluginEnv) -> String {
 /// The length is counted in **characters**, as Python's `len(str(path))`
 /// does, not bytes: a Python core and a Rust core must pick the same directory
 /// to exclude each other. The caller makes it with
-/// [`super::private_dir::make_private_dir`].
+/// [`crate::plugin_env::private_dir::make_private_dir`].
 pub fn socket_dir(env: &PluginEnv) -> PathBuf {
     let runtime = env
         .xdg_runtime_dir()
@@ -68,7 +68,7 @@ pub fn core_socket_path(env: &PluginEnv) -> PathBuf {
 }
 
 /// The core's lock: `<socket_dir>/core-<session_key>.lock`, held (exclusive)
-/// for the core's whole life. Open it with [`super::LockFile::private`].
+/// for the core's whole life. Open it with [`crate::plugin_env::LockFile::private`].
 pub fn core_lock_path(env: &PluginEnv) -> PathBuf {
     socket_dir(env).join(format!("core-{}.lock", session_key(env)))
 }

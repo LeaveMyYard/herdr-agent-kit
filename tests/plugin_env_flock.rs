@@ -15,7 +15,8 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdout, Command, Stdio};
 
-use herdr_agent_kit::plugin_env::{LockFile, PluginEnv, inbox, panorama};
+use herdr_agent_kit::internal::plugin_paths::{inbox, panorama};
+use herdr_agent_kit::plugin_env::{LockFile, PluginEnv};
 
 const SESSION: &str = "1CD70DE7-aaaa-4bbb-8ccc-0123456789AB";
 

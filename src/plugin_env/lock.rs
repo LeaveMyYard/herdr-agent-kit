@@ -163,7 +163,7 @@ impl LockFile {
     /// The Python waits: the rewake watcher 5 s every 0.1 s (and gives up
     /// when another watcher takes ownership), panorama's home lock
     /// `LOCK_SECONDS` every 0.02 s, the tab-label lock 10 s every 0.05 s, the
-    /// Rust worker [`super::inbox::WORKER_LOCK_RETRY`].
+    /// Rust worker `internal::plugin_paths::inbox::WORKER_LOCK_RETRY`.
     pub fn exclusive_within(
         &self,
         wait: Duration,
