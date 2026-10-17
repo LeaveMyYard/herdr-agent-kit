@@ -70,6 +70,7 @@ pub fn check_private(dir: &Path, uid: u32) -> Result<(), NotPrivate> {
 
 /// What [`make_private_dir`] could not do.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum PrivateDirError {
     /// The directory (or its parent) could not be created.
     Create(io::Error),

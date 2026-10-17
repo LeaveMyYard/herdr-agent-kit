@@ -1,8 +1,7 @@
 //! Scripted process tables and liveness, for tests. **Pure** (no IO).
 //!
-//! Always compiled (not behind the `fake` feature, which is `FakeHerdr`'s):
-//! it is small, and `claude_session`'s status tests and both plugins' tests
-//! use it without a herdr fake.
+//! Behind the `test-support` feature, like `FakeHerdr`: the status tests of
+//! `agent_session::claude` and both plugins' tests use it.
 
 use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
@@ -42,11 +41,11 @@ impl FakeProcesses {
         }
     }
 
-    /// The pids whose `(comm, argv)` [`super::is_claude`] accepts, ascending.
+    /// The pids whose `(comm, argv)` [`super::claude::is_claude`] accepts, ascending.
     pub fn claudes(&self) -> Vec<Pid> {
         self.procs
             .iter()
-            .filter(|(_, (st, _, argv))| super::is_claude(&st.comm, argv))
+            .filter(|(_, (st, _, argv))| super::claude::is_claude(&st.comm, argv))
             .map(|(&pid, _)| pid)
             .collect()
     }

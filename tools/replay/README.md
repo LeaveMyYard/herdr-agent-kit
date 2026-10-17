@@ -8,7 +8,7 @@ parent disagreements.
 
 - **Python side:** herdr-panorama's `scan.session.Session` from a checkout of
   panorama `main` (the bridged scanner).
-- **Rust side:** `claude_session::Scanner` and `Session::status_of` /
+- **Rust side:** `agent_session::claude::Scanner` and `Session::status_of` /
   `parent_of` from this kit, through `examples/replay_scan.rs`.
 
 ## Method
@@ -22,7 +22,7 @@ cut at instant `T`. For each session with subagents (default: all of them;
    activity gaps (a random agent write plus 2 to 30 minutes), seeded by the
    session path. Two more instants are added: the session's last record, and
    one hour after it. Then come the **boundary instants**, for up to `--boundary-agents` agents
-   per session (default 6, seeded). After each base write chosen below, add
+   per session (default 4, seeded). After each base write chosen below, add
    1 s before and 1 s after each timing limit of the status rules (`ACTIVE`,
    `ASYNC_QUIET`, `PENDING_CAP`, read from panorama's `scan.session`).
    Those are the instants where a moved limit flips a status. The base writes:
@@ -74,7 +74,7 @@ The `TOTAL` line also counts:
   task, never come up.
 - With `hook_instants` 0, the hook rules were not compared at all: stop
   evidence, start reopen, `resumed_after` and `lost`. Those rules are covered
-  only by the kit's unit tests: the hook cases in `tests/claude_session_fold.rs`
+  only by the kit's unit tests: the hook cases in `tests/agent_session_claude_fold.rs`
   (from #13).
 
 ## Running it

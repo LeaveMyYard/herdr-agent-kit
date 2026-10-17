@@ -87,7 +87,7 @@ pub fn dumps(rec: &Map<String, Value>) -> String {
 pub fn tmp_dir(name: &str) -> PathBuf {
     static N: AtomicUsize = AtomicUsize::new(0);
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
-        .join("claude_session")
+        .join("agent_session")
         .join(format!(
             "{name}-{}-{}",
             std::process::id(),

@@ -40,6 +40,30 @@ jobs:
       - run: cargo doc --locked --no-deps --all-features
       - run: cargo doc --locked --no-deps --no-default-features
 
+  # COMMON.md "Code structure": <= 300 non-test lines per src file, no inline
+  # test modules; exceptions only in .github/structure-allowlist.txt.
+  structure:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 .github/scripts/structure-check.py --self-test
+      - run: python3 .github/scripts/structure-check.py
+
+  # The packaged crate (what crates.io and docs.rs would build) compiles with
+  # every feature: it holds every file the code embeds.
+  package:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned toolchain (rust-toolchain.toml)
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: package
+      - run: bash .github/scripts/package-check.sh
+
   test:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: test (${{ matrix.os }}, ${{ matrix.features.name }})
@@ -50,7 +74,8 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         features:
           - { name: none, flags: "--no-default-features" }
-          - { name: fake, flags: "--no-default-features --features fake" }
+          - { name: test-support, flags: "--no-default-features --features test-support" }
+          - { name: internal, flags: "--no-default-features --features internal" }
           - { name: tui, flags: "--no-default-features --features tui" }
           - { name: remote, flags: "--no-default-features --features remote" }
           - { name: sqlite, flags: "--no-default-features --features sqlite" }

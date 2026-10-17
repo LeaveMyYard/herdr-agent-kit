@@ -551,10 +551,13 @@ mod tests {
     #[test]
     fn test_without_procfs_a_walk_reads_the_process_table_once() {
         let before = ps_calls();
-        assert!(super::super::nested_claude(&no_procfs(fake_ps), 100));
+        assert!(super::super::claude::nested_claude(
+            &no_procfs(fake_ps),
+            100
+        ));
         assert_eq!(ps_calls() - before, 2);
         assert_eq!(
-            super::super::owning_claude(&no_procfs(fake_ps), 100),
+            super::super::claude::owning_claude(&no_procfs(fake_ps), 100),
             Some(102)
         );
         assert_eq!(ps_calls() - before, 4);
@@ -572,7 +575,7 @@ mod tests {
     #[test]
     fn without_procfs_the_claude_token_is_the_one_pid_read() {
         assert_eq!(
-            super::super::claude_process(&no_procfs(fake_ps), 100),
+            super::super::claude::claude_process(&no_procfs(fake_ps), 100),
             Some((102, "2026/10/03 9:17:16 Sat".to_owned()))
         );
         assert_eq!(no_procfs(fake_ps).start(999), None);
@@ -586,7 +589,10 @@ mod tests {
             None
         }
         let before = ps_calls();
-        assert!(!super::super::nested_claude(&no_procfs(first_fails), 100));
+        assert!(!super::super::claude::nested_claude(
+            &no_procfs(first_fails),
+            100
+        ));
         assert_eq!(ps_calls() - before, 1);
     }
 

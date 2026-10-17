@@ -6,26 +6,48 @@
 //! [`crate::herdr_api`]); it is asked at most once per [`ConfigFile`], as the
 //! Python plugins cache it.
 //!
-//! [`ConfigFile::load`] re-parses only when the file's modification time, size
+//! [`ConfigFile::load_as`] deserializes the settings into any serde type: a
+//! plugin's own settings struct, or `serde_json::Map<String, serde_json::Value>`
+//! for a loose view. No `toml` type is part of the API.
+//!
+//! Loading re-parses only when the file's modification time, size
 //! or inode changed, so calling it on every use is cheap and an edit applies
 //! without a restart (panorama `config.load`; the inbox re-reads every call,
 //! which this matches). A missing file is an empty table. A file that does not
 //! parse is an empty table too, with the error kept in
 //! [`ConfigFile::error`] (until the file changes again) for the caller to log.
 //!
-//! The file is parsed as TOML 1.0 ([`super::toml10`]), as Python's `tomllib`
+//! The file is parsed as TOML 1.0, as Python's `tomllib`
 //! does: a file that uses TOML 1.1 (a trailing comma in an inline table, say)
 //! is ignored whole, here as in the Python plugins, with the same
 //! `ignoring <path>: <reason>` diagnostic.
 
+use std::fmt;
 use std::fs;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
+use serde::de::DeserializeOwned;
+use toml::Table;
+
 use super::PluginEnv;
 
-pub use toml::Table;
+/// [`ConfigFile::load_as`]'s error: the settings do not deserialize into the
+/// requested type (a setting of the wrong type, say). Opaque, so it can carry
+/// more detail later without a break.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConfigError {
+    message: String,
+}
+
+impl fmt::Display for ConfigError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for ConfigError {}
 
 /// The file name in the config directory.
 pub const FILE_NAME: &str = "config.toml";
@@ -80,9 +102,22 @@ impl ConfigFile {
         self.path.as_deref()
     }
 
-    /// The settings: the file's top-level table, re-read if the file changed
-    /// since the last call. Empty when the file is missing or broken.
-    pub fn load(&mut self) -> &Table {
+    /// The settings as a `T`: the file's top-level table, re-read if the file
+    /// changed since the last call, deserialized with serde. The table is
+    /// empty when the file is missing or broken ([`ConfigFile::error`] says
+    /// why), so a `T` whose fields all have defaults always loads. `Err` is
+    /// the deserialization error (a setting of the wrong type, say).
+    pub fn load_as<T: DeserializeOwned>(&mut self) -> Result<T, ConfigError> {
+        toml::Value::Table(self.load().clone())
+            .try_into()
+            .map_err(|e: toml::de::Error| ConfigError {
+                message: e.message().to_owned(),
+            })
+    }
+
+    /// The file's top-level table, re-read if the file changed since the last
+    /// call. Empty when the file is missing or broken.
+    pub(crate) fn load(&mut self) -> &Table {
         let Some(path) = &self.path else {
             return &self.table;
         };
@@ -119,7 +154,7 @@ impl ConfigFile {
         &self.table
     }
 
-    /// Why the last [`ConfigFile::load`] ignored the file, if it did.
+    /// Why the last load ignored the file, if it did.
     pub fn error(&self) -> Option<&str> {
         self.error.as_deref()
     }
@@ -201,5 +236,27 @@ mod tests {
 
         fs::remove_file(&path).unwrap();
         assert!(cfg.load().is_empty());
+    }
+
+    #[test]
+    fn load_as_deserializes_the_table() {
+        #[derive(serde::Deserialize, Debug, PartialEq, Default)]
+        #[serde(default)]
+        struct Settings {
+            tab_prefix: Option<String>,
+            home_tab: bool,
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        let mut cfg = ConfigFile::in_dir(dir.path());
+        assert_eq!(cfg.load_as::<Settings>(), Ok(Settings::default()));
+        fs::write(&path, "tab_prefix = \"P\"\nhome_tab = true\nother = 1\n").unwrap();
+        let s: Settings = cfg.load_as().unwrap();
+        assert_eq!(s.tab_prefix.as_deref(), Some("P"));
+        assert!(s.home_tab);
+        let loose: serde_json::Map<String, serde_json::Value> = cfg.load_as().unwrap();
+        assert_eq!(loose["other"], 1);
+        fs::write(&path, "home_tab = \"yes\"\n").unwrap();
+        assert!(cfg.load_as::<Settings>().is_err());
     }
 }

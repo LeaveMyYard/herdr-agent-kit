@@ -252,7 +252,7 @@ def main(argv=None) -> int:
     if total["hook_instants"] == 0:
         print(
             "LIMITS no hook records at any instant: the hook rules (stop, start reopen, resumed_after, lost) "
-            "were not compared; they are covered by the kit's unit tests (tests/claude_session_fold.rs)"
+            "were not compared; they are covered by the kit's unit tests (tests/agent_session_claude_fold.rs)"
         )
     print("LIMITS process liveness unknown on both sides: 'lost' and live-task 'bg' are not compared")
     return 1 if any(total[f"diff_{f}"] for f in FIELDS) else 0

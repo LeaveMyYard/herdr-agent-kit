@@ -5,9 +5,9 @@
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
-use herdr_agent_kit::inbox_contract::delivery::{self, Answered};
-use herdr_agent_kit::inbox_contract::open_args;
-use herdr_agent_kit::inbox_contract::receipt;
+use herdr_agent_kit::internal::inbox_contract::delivery::{self, Answered};
+use herdr_agent_kit::internal::inbox_contract::open_args;
+use herdr_agent_kit::internal::inbox_contract::receipt;
 use serde_json::Value;
 
 fn golden(name: &str) -> Value {
@@ -333,7 +333,7 @@ mod questions_db {
     use std::thread;
     use std::time::{Duration, Instant};
 
-    use herdr_agent_kit::inbox_contract::sqlite::{OpenQuestion, open_questions};
+    use herdr_agent_kit::internal::inbox_contract::sqlite::{OpenQuestion, open_questions};
     use rusqlite::Connection;
     use serde_json::Value;
 

@@ -1,4 +1,5 @@
-//! TOML 1.0, strictly: what Python's `tomllib` accepts. **Pure**.
+//! TOML 1.0, strictly: what Python's `tomllib` accepts. **Pure**. Crate-private:
+//! [`super::ConfigFile`] is its public face.
 //!
 //! The `toml` crate parses TOML 1.1; `tomllib` (Python 3.11 to 3.13, which the
 //! Python plugins run on) parses 1.0 only. While a Python and a Rust process
@@ -325,3 +326,7 @@ mod tests {
         assert!(!err.is_empty());
     }
 }
+
+#[cfg(test)]
+#[path = "toml10_goldens.rs"]
+mod goldens;

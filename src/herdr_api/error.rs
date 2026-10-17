@@ -23,6 +23,7 @@ pub const SERVER_NOT_RUNNING: &str = "server_not_running";
 /// | panorama `NoReply` (sent; timed out or closed unanswered) | [`NoReply`](Self::NoReply) |
 /// | panorama `NoReply("garbled reply")` (sent; unreadable answer) | [`Garbled`](Self::Garbled) |
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum HerdrError {
     /// herdr's server is not running: the socket does not exist or refuses
     /// connections, or the CLI said `server_not_running`. Nothing was sent.

@@ -20,7 +20,7 @@ Planned contents:
 - `toml10/`: what Python's `tomllib` (TOML 1.0) makes of TOML inputs, for the
   `config.toml` parser. Captured: see `toml10/README.md`.
 - `panorama/`: herdr-panorama's model goldens (`panorama snapshot --json` over its test
-  scenarios), which the `claude_session` fold must reproduce. See `panorama/README.md`.
+  scenarios), which the `agent_session::claude` fold must reproduce. See `panorama/README.md`.
 - `inbox/`: goldens of the inbox's published formats (`[inbox] …` delivery
   text, `ask_operator` receipts, `inbox open` arguments) and of panorama's
   read-only `questions` reader. herdr-inbox vendors a copy for its TS mod's tests

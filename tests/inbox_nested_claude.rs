@@ -2,8 +2,9 @@
 //! `tests/test_bridge_inbox.py` (nested Claude of any install) and
 //! `tests/test_rereview_fixes.py::test_nested_detection`.
 
+use herdr_agent_kit::agent_procs::Pid;
+use herdr_agent_kit::agent_procs::claude::{nested_claude, owning_claude};
 use herdr_agent_kit::agent_procs::fake::FakeProcesses;
-use herdr_agent_kit::agent_procs::{Pid, nested_claude, owning_claude};
 
 type Proc = (&'static str, &'static [&'static str]);
 

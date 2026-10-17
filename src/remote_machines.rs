@@ -5,3 +5,5 @@
 //! run, ssh's `ControlMaster=auto` makes them share one master per host. Each
 //! plugin keeps its own pull logic (panorama's rsync mirror, the inbox's
 //! `export`/`apply`).
+//!
+//! Planned (plan phase P7): empty in 0.1.

@@ -5,7 +5,8 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
-use herdr_agent_kit::agent_procs::{Liveness, SystemLiveness, descendants, live_tasks};
+use herdr_agent_kit::agent_procs::claude::{SystemLiveness, live_tasks};
+use herdr_agent_kit::agent_procs::{Liveness, descendants};
 
 /// A private directory under the build's tmp dir (never the system /tmp).
 fn scratch(name: &str) -> PathBuf {

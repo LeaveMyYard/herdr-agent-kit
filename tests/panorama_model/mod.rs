@@ -1,7 +1,7 @@
 //! A minimal, test-only port of herdr-panorama's model builder: what
 //! `panorama snapshot --json` prints (`collect.py`, `threads.py`, the
 //! `events.py` channel reader and `model.py`'s `to_json`), on top of the kit's
-//! `claude_session` fold. It exists to prove the fold against panorama's model
+//! `agent_session::claude` fold. It exists to prove the fold against panorama's model
 //! goldens (plan §5.2 item 3) until `panorama-core::model` is ported; it
 //! covers what one `snapshot --json` run does (one collect, this machine, no
 //! remote machines, no docking).
@@ -18,10 +18,11 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use herdr_agent_kit::agent_procs::NoProcs;
-use herdr_agent_kit::claude_session::fold::{BgLaunch, Owner, Session, Status};
-use herdr_agent_kit::claude_session::io::{ProjectsRoot, Tail, Tailer};
-use herdr_agent_kit::claude_session::wire::{self, Ending, Line, ToolCall};
-use herdr_agent_kit::claude_session::{Scanner, SessionId};
+use herdr_agent_kit::agent_session::claude::Scanner;
+use herdr_agent_kit::agent_session::claude::fold::{BgLaunch, Owner, Session};
+use herdr_agent_kit::agent_session::claude::io::{ProjectsRoot, Tail, Tailer};
+use herdr_agent_kit::agent_session::claude::wire::{self, Ending, Line, ToolCall};
+use herdr_agent_kit::agent_session::{SessionId, Status, Ts};
 use indexmap::IndexMap;
 use regex::Regex;
 use serde_json::{Map, Value};
@@ -465,7 +466,7 @@ impl Collector {
         }
         let since = self.now - self.window - 600.0;
         let s = self.sessions.get_mut(session_id)?;
-        s.update(Some(since));
+        s.update(Some(Ts(since)));
         Some(s)
     }
 
@@ -661,8 +662,8 @@ impl Collector {
         };
         let sess = scanner.session();
         o.transcript = Some(scanner.root().to_string_lossy().into_owned());
-        o.bg = bg_tasks(sess, &sess.waiting_bg(&Owner::Main, now, &NoProcs));
-        o.last_activity = sess.last_activity();
+        o.bg = bg_tasks(sess, &sess.waiting_bg(&Owner::Main, Ts(now), &NoProcs));
+        o.last_activity = sess.last_activity().map(Ts::secs);
         if o.herdr_status == J::str("blocked")
             && let Some(main) = sess.file(&Owner::Main)
         {
@@ -693,7 +694,7 @@ fn bg_tasks(sess: &Session, launches: &[&BgLaunch]) -> Vec<BgTask> {
             id: l.task.clone(),
             kind: l.kind.name(),
             description: sess.bg_description(l).into(),
-            started: l.ts,
+            started: l.ts.map(Ts::secs),
         })
         .collect()
 }
@@ -728,6 +729,7 @@ fn ending_code(e: Ending) -> &'static str {
         Ending::Done => DONE,
         Ending::Failed => FAIL,
         Ending::Cancelled => CXL,
+        other => panic!("an ending this port does not know: {other:?}"),
     }
 }
 
@@ -742,17 +744,20 @@ fn build_agent(
     aid: &str,
     keep_old: bool,
 ) -> Option<Agent> {
-    let rec = &sess.agents()[aid];
+    let rec = sess.agent(aid).expect("a recorded agent");
     let f = sess.file_of(aid);
-    let st = sess.status_of(aid, now, &NoProcs);
+    let st = sess.status_of(aid, Ts(now), &NoProcs);
     let status = match st.status {
         Status::Bg => BG,
         Status::Done if st.inferred => INF,
         Status::Lost => LOST,
         other => other.code(),
     };
-    let last = sess.last_ts(aid);
-    if !keep_old && !live(status) && or_time(st.ended, last).unwrap_or(0.0) < now - window {
+    let last = sess.last_ts(aid).map(Ts::secs);
+    if !keep_old
+        && !live(status)
+        && or_time(st.ended.map(Ts::secs), last).unwrap_or(0.0) < now - window
+    {
         return None;
     }
     let (sp, ack) = (sess.spawn_of(aid), sess.ack(aid));
@@ -782,10 +787,14 @@ fn build_agent(
         _ => J::opt_str(sp.map(|s| s.call.clone())),
     };
     ag.started = or_time(
-        sp.and_then(|s| s.ts),
+        sp.and_then(|s| s.ts).map(Ts::secs),
         f.and_then(|f| f.info.first_ts).map(|t| t.secs()),
     );
-    ag.ended = if live(status) { None } else { st.ended };
+    ag.ended = if live(status) {
+        None
+    } else {
+        st.ended.map(Ts::secs)
+    };
     ag.last_at = last;
     ag.inferred = st.inferred;
     ag.transcript = Some(rec.transcript.to_string_lossy().into_owned());
@@ -797,7 +806,12 @@ fn build_agent(
         .notices(aid)
         .into_iter()
         .filter(|n| n.2.is_some())
-        .max_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)))
+        .max_by(|a, b| {
+            a.0.0
+                .total_cmp(&b.0.0)
+                .then(a.1.cmp(&b.1))
+                .then(a.2.cmp(&b.2))
+        })
         .and_then(|n| n.2);
     ag.tool_calls = [
         f.map_or(0, |f| f.tool_calls as i64),
@@ -837,7 +851,7 @@ fn build_agent(
     if status == BG {
         ag.bg = bg_tasks(
             sess,
-            &sess.waiting_bg(&Owner::Agent(aid.into()), now, &NoProcs),
+            &sess.waiting_bg(&Owner::Agent(aid.into()), Ts(now), &NoProcs),
         );
         let n = ag.bg.len();
         ag.activity = format!(
@@ -886,15 +900,15 @@ fn agents_of(
     let mut out: IndexMap<String, Agent> = IndexMap::new();
     let mut old: HashMap<String, usize> = HashMap::new();
     // collect.py `_agents`: `sorted(sess.agents.items())`
-    let mut ids: Vec<&String> = sess.agents().keys().collect();
+    let mut ids: Vec<&str> = sess.agents().map(|(id, _)| id).collect();
     ids.sort();
     for (seq, aid) in ids.into_iter().enumerate() {
         match build_agent(sess, qtext, now, window, seq, aid, false) {
             Some(ag) => {
-                out.insert(aid.clone(), ag);
+                out.insert(aid.to_owned(), ag);
             }
             None => {
-                old.insert(aid.clone(), seq);
+                old.insert(aid.to_owned(), seq);
             }
         }
     }
@@ -926,13 +940,17 @@ type SpanOf = (Option<f64>, Option<f64>, String);
 
 /// `agent_spans`: `(start, end, outcome)` per launch and per resume.
 fn agent_spans(sess: &Session, a: &Agent) -> Vec<SpanOf> {
-    let mut starts: Vec<f64> = a.started.into_iter().chain(sess.resumes(&a.id)).collect();
+    let mut starts: Vec<f64> = a
+        .started
+        .into_iter()
+        .chain(sess.resumes(&a.id).into_iter().map(Ts::secs))
+        .collect();
     starts.sort_by(f64::total_cmp);
     starts.dedup();
     let mut ends: Vec<(f64, Ending)> = sess
         .notices(&a.id)
         .into_iter()
-        .map(|n| (n.0, n.1))
+        .map(|n| (n.0.0, n.1))
         .collect();
     ends.sort_by(|x, y| x.0.total_cmp(&y.0).then(x.1.cmp(&y.1)));
     let mut out = Vec::new();
@@ -966,8 +984,7 @@ fn threads_of(
     }
     let mut runs: Vec<String> = sess
         .agents()
-        .values()
-        .filter_map(|r| r.workflow.clone())
+        .filter_map(|(_, r)| r.workflow.clone())
         .chain(sess.wf_launches().map(|w| w.run_id.clone()))
         .collect();
     runs.sort();
@@ -986,7 +1003,7 @@ fn threads_of(
     let mut spans: HashMap<String, Vec<SpanOf>> = HashMap::new();
     for id in &top {
         let a = &by_id[id];
-        if let Some((i, _)) = sess.prompt_before(a.started) {
+        if let Some((i, _)) = sess.prompt_before(a.started.map(Ts)) {
             turn_of.insert(id.clone(), i as i64);
         }
         spans.insert(id.clone(), agent_spans(sess, a));
@@ -1065,16 +1082,15 @@ fn workflow_thread(
     by_id: &mut IndexMap<String, Agent>,
     claimed: &mut HashSet<String>,
 ) -> Option<Thread> {
-    let members: Vec<&String> = sess
+    let members: Vec<&str> = sess
         .agents()
-        .iter()
         .filter(|(_, r)| r.workflow.as_deref() == Some(run))
         .map(|(id, _)| id)
         .collect();
     let ags: Vec<String> = members
         .into_iter()
         .filter(|id| by_id.contains_key(*id) && !claimed.contains(*id))
-        .cloned()
+        .map(str::to_owned)
         .collect();
     let live_run = sess.run_live(run);
     if ags.is_empty() && live_run != Some(true) {
@@ -1089,7 +1105,10 @@ fn workflow_thread(
             .journal_started(run, id)
             .and_then(|(_, p)| p)
             .filter(|p| !p.is_empty());
-        let meta_phase = str_of(&sess.agents()[id].meta, "workflowPhase");
+        let meta_phase = str_of(
+            &sess.agent(id).expect("a recorded agent").meta,
+            "workflowPhase",
+        );
         phase_of.insert(id.clone(), journal.or(meta_phase).map(str::to_string));
     }
     let summary_phases: Vec<&Map<String, Value>> = summary
@@ -1129,7 +1148,10 @@ fn workflow_thread(
         })
         .collect();
     let mut launches: Vec<_> = sess.wf_launches().filter(|w| w.run_id == run).collect();
-    launches.sort_by(|a, b| a.ts.unwrap_or(0.0).total_cmp(&b.ts.unwrap_or(0.0)));
+    launches.sort_by(|a, b| {
+        a.ts.map_or(0.0, Ts::secs)
+            .total_cmp(&b.ts.map_or(0.0, Ts::secs))
+    });
     let name = launches
         .iter()
         .rev()
@@ -1160,10 +1182,10 @@ fn workflow_thread(
                 _ => "done",
             }
             .into();
-            t.ended = end.map(|e| e.0);
+            t.ended = end.map(|e| e.0.0);
         }
     }
-    t.started = launches.first().and_then(|w| w.ts);
+    t.started = launches.first().and_then(|w| w.ts).map(Ts::secs);
     Some(t)
 }
 
@@ -1651,7 +1673,7 @@ fn main_session_thread(o: &Orchestrator, sess: &Session) -> Option<(Thread, Agen
     if !blocked && loose.is_empty() {
         return None;
     }
-    let since = sess.prompts().map(|(t, _)| t).reduce(f64::max);
+    let since = sess.prompts().map(|(t, _)| t.0).reduce(f64::max);
     let id = format!("main:{}", o.pane_id);
     let mut ag = Agent::new(&id);
     ag.description = "main session".into();

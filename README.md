@@ -18,23 +18,46 @@ It is **one library crate** (no binaries, no plugin manifests), so there is one
 thing to tag and bump. Edition 2024, MSRV 1.96 (pinned in `rust-toolchain.toml`).
 Targets herdr 0.9.4 or newer.
 
-## Modules and features
+## API
+
+The public API is what `cargo doc` shows; everything else is private to the
+crate. Run `cargo doc --open --all-features` for the full reference.
 
 | Module | Feature | Pure or IO | Purpose |
 |---|---|---|---|
-| `herdr_api` | always | IO | The only code that talks to herdr: socket client, the CLI path, `HerdrError`, `Sanitized` |
-| `herdr_api::fake` | `fake` | test IO | `FakeHerdr`, a scripted herdr socket server that records requests |
-| `claude_session::fold` | always | pure | Session fold, status rules, the continuation rule |
-| `claude_session::io` | always | IO | Projects root, transcript discovery, tailing |
-| `agent_procs` | always | IO | "Is this Claude Code", nested Claude, liveness |
-| `plugin_env` | always | IO | Plugin environment, `config.toml` with reload, state dirs, flock, socket dirs |
-| `remote_machines` | `remote` | IO | Machine list, ssh options, the shared ControlPath scheme |
-| `tui_kit` | `tui` | IO | Terminal setup, arming, identity cursors, click targets, theme |
-| `inbox_contract` | always | pure | The inbox's published formats: `[inbox] …` text, `ask_operator` receipt, `inbox open` args |
-| `inbox_contract::sqlite` | `sqlite` | IO | Read-only reader of the 0.1 `questions` columns |
+| `herdr_api` | always | IO | The only code that talks to herdr: socket client (async `Herdr`, `blocking::Herdr`), events, the CLI path, `HerdrError`, `Sanitized` |
+| `herdr_api::fake` | `test-support` | test IO | `FakeHerdr`, a scripted herdr socket server that records requests |
+| `agent_session` | always | pure | The harness-neutral seam: `SessionId` (the one session-id validator), `Ts`, `Status`, `SessionView` |
+| `agent_session::claude` | always | pure | Claude Code: the wire format, the continuation rule (D6), the session fold and status rules, `Session::view` (the `SessionView` producer) |
+| `agent_session::claude::io`, `::scan` | always | IO | Projects root, transcript discovery, tailing, following continuations, `Scanner` |
+| `agent_procs` | always | IO | Neutral process table walks, pid checks, the `Liveness` trait |
+| `agent_procs::claude` | always | IO | Claude Code: "is this Claude Code", nested Claude, `SystemLiveness` (background tasks) |
+| `agent_procs::fake` | `test-support` | pure | Scripted process tables and liveness for tests |
+| `plugin_env` | always | IO | Plugin environment, `config.toml` with reload (`ConfigFile::load_as` into any serde type), flock, private socket dirs |
+| `remote_machines` | `remote` | IO | Planned (empty in 0.1): machine list, ssh options, the shared ControlPath scheme |
+| `tui_kit` | `tui` | IO | Planned (empty in 0.1): terminal setup, arming, identity cursors, click targets, theme |
 
 Pure code takes data and the current time and returns data: no IO, no threads,
 no environment. No feature is on by default.
+
+**Harness-neutral seam.** Only `agent_session::claude` reads Claude Code's
+files or parses its wire format. It hands out neutral data (`SessionView`,
+`SessionId`, `Status`), which is all a plugin's core should consume. Claude
+Code is the only harness so far; there is deliberately no `Harness` trait
+until a second one is built.
+
+**Not public API.** The `internal` feature turns on the `internal` module
+(hidden from the docs): `internal::inbox_contract`, herdr-inbox's published
+formats (`[inbox] …` text, the `ask_operator` receipt, `inbox open` args), and
+with `sqlite` its read-only reader of the 0.1 `questions` columns; and
+`internal::plugin_paths`, the two plugins' ids and state layouts (lock, socket
+and state paths). It exists for the two plugins only and is **outside
+semver**: it can change in any release.
+
+**Semver.** Types expected to grow are `#[non_exhaustive]`. Public
+dependencies are `serde`/`serde_json` 1.x and `tokio` 1.x only. The package
+holds `src/` and the herdr recordings `FakeHerdr` embeds; CI builds the
+packaged crate with every feature.
 
 `fixtures/` holds captured test inputs (transcripts, herdr socket recordings,
 inbox-format goldens); see [fixtures/README.md](fixtures/README.md).
@@ -46,10 +69,10 @@ the features they use:
 
 ```toml
 [dependencies]
-herdr-agent-kit = { git = "https://github.com/LeaveMyYard/herdr-agent-kit", tag = "v0.1.0", features = ["sqlite"] }
+herdr-agent-kit = { git = "https://github.com/LeaveMyYard/herdr-agent-kit", tag = "v0.1.0" }
 
 [dev-dependencies]
-herdr-agent-kit = { git = "https://github.com/LeaveMyYard/herdr-agent-kit", tag = "v0.1.0", features = ["fake"] }
+herdr-agent-kit = { git = "https://github.com/LeaveMyYard/herdr-agent-kit", tag = "v0.1.0", features = ["test-support"] }
 ```
 
 `Cargo.lock` in the plugin records the exact commit, so builds are reproducible.

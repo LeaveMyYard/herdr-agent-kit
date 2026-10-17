@@ -15,16 +15,32 @@ does for both. Open an issue before a large change or a new public API.
   plugin's lock to this checkout and fails if the patch is not used). A change
   that breaks a plugin is visible before it is tagged. A plugin without a Cargo
   workspace, or not yet depending on the kit, is skipped with a notice.
-- Keep the purity boundary: pure modules (`claude_session::fold`, the
-  `inbox_contract` formats) do no IO, start no threads and read no environment.
+- Keep the purity boundary: pure modules (`agent_session`'s neutral types,
+  `agent_session::claude::fold`, the `internal::inbox_contract` formats) do no
+  IO, start no threads and read no environment.
+- Keep the harness-neutral seam: only `agent_session::claude` (and the
+  Claude matcher in `agent_procs`) knows Claude Code's files and wire format.
+- Everything public is API under semver and must be documented
+  (`missing_docs` warns, CI denies warnings). Plugin-only code goes in
+  `internal` (feature `internal`, outside semver); test fakes go behind
+  `test-support`.
+- Code structure: a `src/` file holds at most 300 lines of non-test code
+  (aim for 100 to 250), split by concept into submodules; tests live in
+  separate files (`#[cfg(test)] mod tests;` pointing at `foo/tests.rs`, or the
+  crate's `tests/`), never in an inline `mod tests { … }`. CI runs
+  `.github/scripts/structure-check.py`; the files that predate the rule are
+  listed in `.github/structure-allowlist.txt`, and that list only shrinks.
 - Fixtures are captured, never invented. See [fixtures/README.md](fixtures/README.md).
 - Run locally before pushing (the feature-off sets are where cfg-related
   warnings show up):
 
   ```sh
   cargo fmt --all --check
+  python3 .github/scripts/structure-check.py
+  bash .github/scripts/package-check.sh
   RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
-  for f in "" fake tui remote sqlite; do
+  RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --no-default-features
+  for f in "" test-support internal tui remote sqlite; do
     cargo clippy --all-targets --no-default-features --features "$f" -- -D warnings
     cargo test --no-default-features --features "$f"
   done

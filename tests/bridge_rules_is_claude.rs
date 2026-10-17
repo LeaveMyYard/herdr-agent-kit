@@ -3,10 +3,11 @@
 //! table in both), ported case for case. Each Rust test names the Python test
 //! it ports.
 
-use herdr_agent_kit::agent_procs::fake::FakeProcesses;
-use herdr_agent_kit::agent_procs::{
-    Pid, claude_process, first_claude, is_claude, nested_claude, owning_claude,
+use herdr_agent_kit::agent_procs::Pid;
+use herdr_agent_kit::agent_procs::claude::{
+    claude_process, first_claude, is_claude, nested_claude, owning_claude,
 };
+use herdr_agent_kit::agent_procs::fake::FakeProcesses;
 
 type Row = (&'static str, &'static [&'static str]);
 

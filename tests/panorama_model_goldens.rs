@@ -1,5 +1,5 @@
 //! herdr-panorama's model goldens (plan §5.2 item 3), reproduced byte for
-//! byte by the kit's `claude_session` fold plus a test-only port of
+//! byte by the kit's `agent_session::claude` fold plus a test-only port of
 //! panorama's model builder (`panorama_model`).
 //!
 //! Each golden (`fixtures/panorama/model/*.json`) is `panorama snapshot
