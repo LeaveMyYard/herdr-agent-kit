@@ -40,6 +40,20 @@ jobs:
       - run: cargo doc --locked --no-deps --all-features
       - run: cargo doc --locked --no-deps --no-default-features
 
+  # The packaged crate (what crates.io and docs.rs would build) compiles with
+  # every feature: it holds every file the code embeds.
+  package:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned toolchain (rust-toolchain.toml)
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: package
+      - run: bash .github/scripts/package-check.sh
+
   test:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: test (${{ matrix.os }}, ${{ matrix.features.name }})
