@@ -1,0 +1,28 @@
+# Structure-check exceptions (COMMON.md "Code structure"). The list may only shrink.
+# Each entry: today's file that predates the rule (2026-10-17), and why it is not fixed yet.
+# The restructure PRs after #16 (one per module group) remove these entries.
+
+src/agent_procs/fake.rs  # predates the rule: inline tests; split in the agent_procs restructure PR
+src/agent_procs/liveness.rs  # predates the rule: inline tests; split in the agent_procs restructure PR
+src/agent_procs/system.rs  # predates the rule: inline tests, 415 non-test lines; split in the agent_procs restructure PR
+src/agent_session/claude/fold.rs  # predates the rule: 1379 non-test lines; split in the agent_session restructure PR
+src/agent_session/claude/io.rs  # predates the rule: 599 non-test lines; split in the agent_session restructure PR
+src/agent_session/claude/scan.rs  # predates the rule: 344 non-test lines; split in the agent_session restructure PR
+src/agent_session/claude/wire.rs  # predates the rule: 1255 non-test lines; split in the agent_session restructure PR
+src/herdr_api/calls.rs  # predates the rule: inline tests, 668 non-test lines; split in the herdr_api restructure PR
+src/herdr_api/cli.rs  # predates the rule: inline tests; split in the herdr_api restructure PR
+src/herdr_api/error.rs  # predates the rule: inline tests; split in the herdr_api restructure PR
+src/herdr_api/fake.rs  # predates the rule: 695 non-test lines; split in the herdr_api restructure PR
+src/herdr_api/ids.rs  # predates the rule: inline tests; split in the herdr_api restructure PR
+src/herdr_api/mod.rs  # predates the rule: inline tests, 319 non-test lines; split in the herdr_api restructure PR
+src/herdr_api/sanitize.rs  # predates the rule: inline tests; split in the herdr_api restructure PR
+src/herdr_api/types.rs  # predates the rule: inline tests, 448 non-test lines; split in the herdr_api restructure PR
+src/herdr_api/wire.rs  # predates the rule: inline tests; split in the herdr_api restructure PR
+src/internal/inbox_contract/delivery.rs  # predates the rule: 433 non-test lines; split in the internal restructure PR
+src/internal/inbox_contract/open_args.rs  # predates the rule: 378 non-test lines; split in the internal restructure PR
+src/plugin_env/config.rs  # predates the rule: inline tests; split in the plugin_env restructure PR
+src/plugin_env/lock.rs  # predates the rule: inline tests; split in the plugin_env restructure PR
+src/plugin_env/mod.rs  # predates the rule: inline tests; split in the plugin_env restructure PR
+src/plugin_env/private_dir.rs  # predates the rule: inline tests; split in the plugin_env restructure PR
+src/plugin_env/toml10.rs  # predates the rule: inline tests; split in the plugin_env restructure PR
+src/plugin_env/vars.rs  # predates the rule: inline tests; split in the plugin_env restructure PR

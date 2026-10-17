@@ -24,12 +24,20 @@ does for both. Open an issue before a large change or a new public API.
   (`missing_docs` warns, CI denies warnings). Plugin-only code goes in
   `internal` (feature `internal`, outside semver); test fakes go behind
   `test-support`.
+- Code structure: a `src/` file holds at most 300 lines of non-test code
+  (aim for 100 to 250), split by concept into submodules; tests live in
+  separate files (`#[cfg(test)] mod tests;` pointing at `foo/tests.rs`, or the
+  crate's `tests/`), never in an inline `mod tests { … }`. CI runs
+  `.github/scripts/structure-check.py`; the files that predate the rule are
+  listed in `.github/structure-allowlist.txt`, and that list only shrinks.
 - Fixtures are captured, never invented. See [fixtures/README.md](fixtures/README.md).
 - Run locally before pushing (the feature-off sets are where cfg-related
   warnings show up):
 
   ```sh
   cargo fmt --all --check
+  python3 .github/scripts/structure-check.py
+  bash .github/scripts/package-check.sh
   RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
   RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --no-default-features
   for f in "" test-support internal tui remote sqlite; do
