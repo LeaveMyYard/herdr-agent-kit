@@ -23,8 +23,10 @@ remote = []
 sqlite = ["dep:rusqlite"]
 
 [dependencies]
+indexmap = "2"
 libc = "0.2.191"
 memchr = "2"
+regex = "1"
 serde_json = { version = "1", features = ["float_roundtrip"] }
 sha1_smol = "1.0.1"
 toml = { version = "0.9", default-features = false, features = ["parse", "serde", "std"] }
