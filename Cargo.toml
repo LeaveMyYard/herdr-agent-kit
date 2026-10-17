@@ -1,0 +1,36 @@
+[package]
+name = "herdr-agent-kit"
+version = "0.0.0"
+edition = "2024"
+# MSRV. Kept equal to the channel in rust-toolchain.toml, so CI builds at the MSRV.
+rust-version = "1.96"
+description = "Shared library for the herdr plugins herdr-panorama and herdr-inbox"
+license = "MIT"
+repository = "https://github.com/LeaveMyYard/herdr-agent-kit"
+readme = "README.md"
+# Consumed as a git dependency pinned by tag, never from crates.io (yet).
+publish = false
+include = ["src/**", "fixtures/**", "Cargo.toml", "Cargo.lock", "LICENSE", "README.md"]
+
+[lib]
+path = "src/lib.rs"
+
+[features]
+default = []
+# `FakeHerdr`: a scripted herdr socket server for tests (`herdr_api::fake`).
+fake = []
+# Terminal toolkit shared by the two TUIs (`tui_kit`).
+tui = []
+# Remote machines: machine list, ssh options, ControlPath scheme (`remote_machines`).
+remote = []
+# Read-only reader of the inbox's 0.1 `questions` columns (`inbox_contract::sqlite`).
+sqlite = []
+
+[dependencies]
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_op_in_unsafe_fn = "deny"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }

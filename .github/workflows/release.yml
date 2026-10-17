@@ -1,0 +1,44 @@
+name: Release
+
+# Push a tag vX.Y.Z on a main commit whose Cargo.toml version is X.Y.Z.
+# The kit ships source only: the release has generated notes and no binaries.
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install the pinned toolchain (rust-toolchain.toml)
+        run: rustup toolchain install
+      - name: Tag matches Cargo.toml and is on main
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 --locked \
+            | jq -r '.packages[] | select(.name == "herdr-agent-kit") | .version')
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::tag $TAG does not match Cargo.toml version $version (expected v$version)"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::tag $TAG points at $GITHUB_SHA, which is not on main"
+            exit 1
+          fi
+      - name: Test
+        run: cargo test --locked --all-features
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes

@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  fmt:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned toolchain (rust-toolchain.toml)
+        run: rustup toolchain install
+      - run: cargo fmt --all --check
+
+  test:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    name: test (${{ matrix.os }}, ${{ matrix.features.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        features:
+          - { name: none, flags: "--no-default-features" }
+          - { name: fake, flags: "--no-default-features --features fake" }
+          - { name: tui, flags: "--no-default-features --features tui" }
+          - { name: remote, flags: "--no-default-features --features remote" }
+          - { name: sqlite, flags: "--no-default-features --features sqlite" }
+          - { name: all, flags: "--all-features" }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned toolchain (rust-toolchain.toml)
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.features.name }}
+      - name: clippy
+        run: cargo clippy --locked --all-targets ${{ matrix.features.flags }} -- -D warnings
+      - name: test
+        run: cargo test --locked ${{ matrix.features.flags }}
+
+  targets:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    name: build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-musl }
+          - { os: ubuntu-latest, target: aarch64-unknown-linux-musl }
+          - { os: macos-latest, target: x86_64-apple-darwin }
+          - { os: macos-latest, target: aarch64-apple-darwin }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned toolchain (rust-toolchain.toml) and the target
+        run: |
+          rustup toolchain install
+          rustup target add ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - run: cargo build --locked --all-features --target ${{ matrix.target }}
+
+  # Kit PRs also run both plugins' Rust suites against this checkout of the kit,
+  # so a change that breaks a plugin shows up before it is tagged. A plugin
+  # whose default branch has no Cargo workspace yet is skipped with a notice.
+  plugin-suites:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    name: plugin suite (${{ matrix.plugin }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin: [herdr-panorama, herdr-inbox]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: kit
+      - uses: actions/checkout@v4
+        with:
+          repository: LeaveMyYard/${{ matrix.plugin }}
+          path: plugin
+      - name: Test the plugin against this kit
+        working-directory: plugin
+        run: |
+          if [ ! -f Cargo.toml ]; then
+            echo "::notice::${{ matrix.plugin }} has no Cargo workspace yet; skipping"
+            exit 0
+          fi
+          rustup toolchain install
+          cargo test --workspace --all-features \
+            --config 'patch."https://github.com/LeaveMyYard/herdr-agent-kit".herdr-agent-kit.path="../kit"'
