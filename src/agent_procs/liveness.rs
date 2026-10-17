@@ -11,7 +11,7 @@ use super::{Pid, system};
 pub struct ProcessIdentity {
     /// The process id.
     pub pid: Pid,
-    /// The start token ([`super::ProcStat::start`]), so a reused pid is not
+    /// The start token ([`super::start_token`]), so a reused pid is not
     /// mistaken for this process.
     pub start: String,
     /// The pid namespace it was recorded in ([`super::own_pidns`]), if known.
@@ -120,7 +120,7 @@ mod tests {
     #[test]
     fn this_process_is_alive_and_a_reused_pid_is_not_it() {
         let me = std::process::id();
-        let start = system::stat(me).expect("own stat").start;
+        let start = system::start_token(me).expect("own start token");
         let live = SystemLiveness::new(None);
         assert_eq!(
             live.process_alive(&ProcessIdentity::new(me, start.clone(), None)),

@@ -1,4 +1,8 @@
 //! Scripted process tables and liveness, for tests. **Pure** (no IO).
+//!
+//! Always compiled (not behind the `fake` feature, which is `FakeHerdr`'s):
+//! it is small, and `claude_session`'s status tests and both plugins' tests
+//! use it without a herdr fake.
 
 use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
@@ -9,7 +13,7 @@ use super::{Liveness, Pid, ProcStat, ProcessIdentity, ProcessTable};
 /// token, argv). A pid not in it is unreadable.
 #[derive(Debug, Default)]
 pub struct FakeProcesses {
-    procs: BTreeMap<Pid, (ProcStat, Vec<String>)>,
+    procs: BTreeMap<Pid, (ProcStat, Option<String>, Vec<String>)>,
     cmdline_reads: Cell<usize>,
 }
 
@@ -26,17 +30,23 @@ impl FakeProcesses {
         let stat = ProcStat {
             ppid,
             comm: comm.to_owned(),
-            start: start.to_owned(),
         };
         let argv = argv.iter().map(|a| a.as_ref().to_owned()).collect();
-        self.procs.insert(pid, (stat, argv));
+        self.procs.insert(pid, (stat, Some(start.to_owned()), argv));
+    }
+
+    /// Makes the start token of `pid` unreadable.
+    pub fn forget_start(&mut self, pid: Pid) {
+        if let Some((_, start, _)) = self.procs.get_mut(&pid) {
+            *start = None;
+        }
     }
 
     /// The pids whose `(comm, argv)` [`super::is_claude`] accepts, ascending.
     pub fn claudes(&self) -> Vec<Pid> {
         self.procs
             .iter()
-            .filter(|(_, (st, argv))| super::is_claude(&st.comm, argv))
+            .filter(|(_, (st, _, argv))| super::is_claude(&st.comm, argv))
             .map(|(&pid, _)| pid)
             .collect()
     }
@@ -49,15 +59,19 @@ impl FakeProcesses {
 
 impl ProcessTable for FakeProcesses {
     fn stat(&self, pid: Pid) -> Option<ProcStat> {
-        self.procs.get(&pid).map(|(st, _)| st.clone())
+        self.procs.get(&pid).map(|(st, _, _)| st.clone())
     }
 
     fn cmdline(&self, pid: Pid) -> Vec<String> {
         self.cmdline_reads.set(self.cmdline_reads.get() + 1);
         self.procs
             .get(&pid)
-            .map(|(_, argv)| argv.clone())
+            .map(|(_, _, argv)| argv.clone())
             .unwrap_or_default()
+    }
+
+    fn start(&self, pid: Pid) -> Option<String> {
+        self.procs.get(&pid).and_then(|(_, start, _)| start.clone())
     }
 }
 

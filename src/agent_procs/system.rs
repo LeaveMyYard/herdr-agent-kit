@@ -22,54 +22,48 @@ pub fn parent_pid() -> Pid {
     std::os::unix::process::parent_id()
 }
 
-/// The parent, command name and start token of `pid` (panorama
-/// `hooks._stat`): from `/proc/<pid>/stat`, or, where that does not exist (no
-/// procfs), from `ps -o ppid=,lstart=,comm= -p <pid>`. `None` if unknown.
-pub fn stat(pid: Pid) -> Option<ProcStat> {
-    match fs::read(format!("{PROC}/{pid}/stat")) {
-        Ok(raw) => parse_proc_stat(&raw),
-        Err(e) if e.kind() == ErrorKind::NotFound => parse_ps_stat(&run_ps(&[
-            "-o",
-            "ppid=,lstart=,comm=",
-            "-p",
-            &pid.to_string(),
-        ])?),
-        Err(_) => None,
-    }
+/// The start token of `pid` (panorama `hooks._stat`'s third value): from
+/// `/proc/<pid>/stat`, or, where that does not exist (no procfs), from
+/// `ps -o ppid=,lstart=,comm= -p <pid>`. `None` if unknown. Panorama's hooks
+/// write this token into their records, so its format is a wire format.
+pub fn start_token(pid: Pid) -> Option<String> {
+    SystemProcesses::new().start(pid)
 }
 
 /// `/proc/<pid>/stat`: the command name sits between the first `(` and the
 /// last `)` (it may contain both); after it come state, ppid, …, and the 22nd
-/// field, starttime. Not UTF-8 is unreadable, as in the Python.
-fn parse_proc_stat(raw: &[u8]) -> Option<ProcStat> {
+/// field, starttime (the start token). Not UTF-8 is unreadable, as in the
+/// Python.
+fn parse_proc_stat(raw: &[u8]) -> Option<(ProcStat, String)> {
     let text = std::str::from_utf8(raw).ok()?;
     let open = text.find('(')?;
     let close = text.rfind(')')?;
     let comm = text.get(open + 1..close)?;
     let fields: Vec<&str> = text.get(close + 2..)?.split_whitespace().collect();
-    Some(ProcStat {
+    let stat = ProcStat {
         ppid: fields.get(1)?.parse().ok()?,
         comm: comm.to_owned(),
-        start: (*fields.get(19)?).to_owned(),
-    })
+    };
+    Some((stat, (*fields.get(19)?).to_owned()))
 }
 
 /// One `ps -o ppid=,lstart=,comm=` line, split on whitespace: the ppid, the
 /// command's base name from the last word, and every word between them as the
-/// start token. This exact token is what panorama's hooks have recorded on
-/// macOS, so it is kept word for word.
-fn parse_ps_stat(out: &str) -> Option<ProcStat> {
+/// start token (however many words `lstart` has in the user's locale). This
+/// exact token is what panorama's hooks have recorded on macOS, so it is kept
+/// word for word.
+fn parse_ps_stat(out: &str) -> Option<(ProcStat, String)> {
     let words: Vec<&str> = out.split_whitespace().collect();
     let (first, last) = (words.first()?, words.last()?);
     let between = words.get(1..words.len().saturating_sub(1)).unwrap_or(&[]);
-    Some(ProcStat {
+    let stat = ProcStat {
         ppid: first.parse().ok()?,
         comm: basename(last).to_owned(),
-        start: between.join(" "),
-    })
+    };
+    Some((stat, between.join(" ")))
 }
 
-/// The argv of `pid` from `/proc/<pid>/cmdline` (empty arguments dropped,
+/// The argv of `pid` from `<proc>/<pid>/cmdline` (empty arguments dropped,
 /// invalid UTF-8 replaced). `Err(NotFound)` when there is no such file.
 fn proc_cmdline(proc: &str, pid: Pid) -> std::io::Result<Vec<String>> {
     let raw = fs::read(format!("{proc}/{pid}/cmdline"))?;
@@ -80,10 +74,11 @@ fn proc_cmdline(proc: &str, pid: Pid) -> std::io::Result<Vec<String>> {
         .collect())
 }
 
-/// Runs `ps` with `args` and returns its stdout whatever its exit status;
-/// `None` if it cannot run or takes longer than [`PS_TIMEOUT`].
-fn run_ps(args: &[&str]) -> Option<String> {
-    let mut child = Command::new("ps")
+/// Runs `program` with `args` and returns its stdout whatever its exit
+/// status; `None` if it cannot run or takes longer than `timeout` (then it is
+/// killed and reaped).
+fn run_with_timeout(program: &str, args: &[&str], timeout: Duration) -> Option<String> {
+    let mut child = Command::new(program)
         .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -96,7 +91,7 @@ fn run_ps(args: &[&str]) -> Option<String> {
         let mut out = Vec::new();
         stdout.read_to_end(&mut out).map(|_| out)
     });
-    let deadline = Instant::now() + PS_TIMEOUT;
+    let deadline = Instant::now() + timeout;
     loop {
         match child.try_wait() {
             Ok(Some(_)) => break,
@@ -104,13 +99,18 @@ fn run_ps(args: &[&str]) -> Option<String> {
             _ => {
                 let _ = child.kill();
                 let _ = child.wait();
-                let _ = reader.join();
+                // a grandchild may still hold the pipe: do not wait for the reader
                 return None;
             }
         }
     }
     let out = reader.join().ok()?.ok()?;
     Some(String::from_utf8_lossy(&out).into_owned())
+}
+
+/// `ps` with `args`, bounded by [`PS_TIMEOUT`].
+fn run_ps(args: &[&str]) -> Option<String> {
+    run_with_timeout("ps", args, PS_TIMEOUT)
 }
 
 /// The whole process table from `ps`, read once (inbox `proc._ps_table`): a
@@ -120,13 +120,15 @@ fn run_ps(args: &[&str]) -> Option<String> {
 struct PsTable(BTreeMap<Pid, (ProcStat, Vec<String>)>);
 
 impl PsTable {
-    /// Two `ps` calls through `run`; empty when either fails.
+    /// Two `ps` calls through `run` (the second only if the first worked);
+    /// empty when either fails.
     fn read(run: PsRunner) -> Self {
-        let names = run(&["-A", "-o", "pid=,ppid=,lstart=,comm="]);
-        let argvs = run(&["-A", "-o", "pid=,command="]);
-        match (names, argvs) {
-            (Some(names), Some(argvs)) => Self::parse(&names, &argvs),
-            _ => Self::default(),
+        let Some(names) = run(&["-A", "-o", "pid=,ppid=,comm="]) else {
+            return Self::default();
+        };
+        match run(&["-A", "-o", "pid=,command="]) {
+            Some(argvs) => Self::parse(&names, &argvs),
+            None => Self::default(),
         }
     }
 
@@ -150,38 +152,34 @@ impl PsTable {
     }
 }
 
-/// The `lstart` column is five words (`Sat Oct 17 18:26:02 2026`).
-const LSTART_WORDS: usize = 5;
-
-/// One `ps -A -o pid=,ppid=,lstart=,comm=` line. The command name is the base
-/// name of the whole rest of the line (it may hold spaces; inbox), and the
-/// start token is every word between the ppid and the last word, exactly as
-/// [`parse_ps_stat`] reads the same columns for one pid.
+/// One `ps -A -o pid=,ppid=,comm=` line (inbox `_ps_table`): pid, ppid, and
+/// the base name of the whole rest of the line as the command name (it may
+/// hold spaces).
 fn parse_ps_row(line: &str) -> Option<(Pid, ProcStat)> {
-    let words: Vec<&str> = line.split_whitespace().collect();
-    if words.len() < 3 + LSTART_WORDS {
-        return None;
-    }
-    let pid = words[0].parse().ok()?;
-    let ppid = words[1].parse().ok()?;
-    // the rest of the line after pid, ppid and lstart, inner spaces kept
     let mut rest = line.trim_start();
-    for _ in 0..2 + LSTART_WORDS {
-        let word_end = rest.find(char::is_whitespace)?;
-        rest = rest[word_end..].trim_start();
+    let mut field = || {
+        let end = rest.find(char::is_whitespace)?;
+        let word = &rest[..end];
+        rest = rest[end..].trim_start();
+        Some(word)
+    };
+    let pid = field()?.parse().ok()?;
+    let ppid = field()?.parse().ok()?;
+    let comm = rest.trim_end();
+    if comm.is_empty() {
+        return None;
     }
     let stat = ProcStat {
         ppid,
-        comm: basename(rest.trim_end()).to_owned(),
-        start: words[2..words.len() - 1].join(" "),
+        comm: basename(comm).to_owned(),
     };
     Some((pid, stat))
 }
 
 /// This machine's process table, for one walk up the tree. Reads procfs;
 /// where there is none, it reads the whole table with `ps` once, on first use,
-/// and keeps it for the life of the value. Make a new one per walk, so no walk
-/// sees an old table.
+/// and keeps it for the life of the value: make a new one per walk (the
+/// `*_here` functions do), so no walk sees an old table.
 #[derive(Debug)]
 pub struct SystemProcesses {
     proc: &'static str,
@@ -192,31 +190,38 @@ pub struct SystemProcesses {
 /// How `ps` is run (a test seam).
 type PsRunner = fn(&[&str]) -> Option<String>;
 
-impl Default for SystemProcesses {
-    fn default() -> Self {
+impl SystemProcesses {
+    /// A table for one walk.
+    pub fn new() -> Self {
         Self {
             proc: PROC,
             run: run_ps,
             ps: OnceCell::new(),
         }
     }
-}
-
-impl SystemProcesses {
-    /// A table for one walk.
-    pub fn new() -> Self {
-        Self::default()
-    }
 
     fn ps(&self) -> &PsTable {
         self.ps.get_or_init(|| PsTable::read(self.run))
+    }
+
+    fn proc_stat(&self, pid: Pid) -> std::io::Result<Option<(ProcStat, String)>> {
+        Ok(parse_proc_stat(&fs::read(format!(
+            "{}/{pid}/stat",
+            self.proc
+        ))?))
+    }
+}
+
+impl Default for SystemProcesses {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 impl ProcessTable for SystemProcesses {
     fn stat(&self, pid: Pid) -> Option<ProcStat> {
-        match fs::read(format!("{}/{pid}/stat", self.proc)) {
-            Ok(raw) => parse_proc_stat(&raw),
+        match self.proc_stat(pid) {
+            Ok(st) => st.map(|(st, _)| st),
             Err(e) if e.kind() == ErrorKind::NotFound => {
                 self.ps().0.get(&pid).map(|(st, _)| st.clone())
             }
@@ -234,6 +239,20 @@ impl ProcessTable for SystemProcesses {
                 .map(|(_, argv)| argv.clone())
                 .unwrap_or_default(),
             Err(_) => Vec::new(),
+        }
+    }
+
+    /// procfs, or the one-pid `ps` read (panorama `_stat`), never the walk's
+    /// table: the token must be byte-identical to what the Python hooks wrote.
+    fn start(&self, pid: Pid) -> Option<String> {
+        match self.proc_stat(pid) {
+            Ok(st) => st.map(|(_, start)| start),
+            Err(e) if e.kind() == ErrorKind::NotFound => {
+                let pid = pid.to_string();
+                let out = (self.run)(&["-o", "ppid=,lstart=,comm=", "-p", &pid])?;
+                parse_ps_stat(&out).map(|(_, start)| start)
+            }
+            Err(_) => None,
         }
     }
 }
@@ -289,7 +308,7 @@ pub fn process_alive(id: &ProcessIdentity) -> Option<bool> {
         Signal0::Failed => return None,
         Signal0::Delivered | Signal0::NotPermitted => {}
     }
-    Some(stat(id.pid)?.start == id.start)
+    Some(start_token(id.pid)? == id.start)
 }
 
 /// Is `pid` alive, by `kill(pid, 0)` alone (inbox `proc.alive`)? An unknown
@@ -377,7 +396,8 @@ pub fn live_tasks(pid: Pid) -> Option<BTreeSet<String>> {
             let Ok(target) = fs::read_link(fd.path()) else {
                 continue;
             };
-            if let Some(task) = target.to_str().and_then(task_of) {
+            // lossy, as Python's surrogate escapes: the `tasks/<id>.output` tail is ASCII
+            if let Some(task) = task_of(&target.to_string_lossy()) {
                 out.insert(task.to_owned());
             }
         }
@@ -392,10 +412,10 @@ mod tests {
     #[test]
     fn a_proc_stat_line_with_parentheses_in_the_name() {
         let line = b"4242 (we(ird) n)ame) S 4100 4242 4100 34816 4242 4194304 1 2 3 4 5 6 7 8 20 0 1 0 987654 1000 200";
-        let st = parse_proc_stat(line).unwrap();
+        let (st, start) = parse_proc_stat(line).unwrap();
         assert_eq!(st.comm, "we(ird) n)ame");
         assert_eq!(st.ppid, 4100);
-        assert_eq!(st.start, "987654");
+        assert_eq!(start, "987654");
         assert_eq!(parse_proc_stat(b"4242 (x) S 4100"), None); // no starttime
         assert_eq!(parse_proc_stat(b"4242 (x)"), None);
         assert_eq!(parse_proc_stat(b"4242 x S 1"), None);
@@ -407,42 +427,43 @@ mod tests {
 
     #[test]
     fn a_ps_line_for_one_pid() {
-        let st = parse_ps_stat("  812 Sat Oct  3 09:17:16 2026 /usr/local/bin/claude\n").unwrap();
-        assert_eq!(st.ppid, 812);
-        assert_eq!(st.comm, "claude");
-        assert_eq!(st.start, "Sat Oct 3 09:17:16 2026"); // words joined by one space
+        let (st, start) =
+            parse_ps_stat("  812 Sat Oct  3 09:17:16 2026 /usr/local/bin/claude\n").unwrap();
+        assert_eq!((st.ppid, st.comm.as_str()), (812, "claude"));
+        assert_eq!(start, "Sat Oct 3 09:17:16 2026"); // words joined by one space
         // a command path with a space: the Python's start token takes the first part, kept as is
-        let st = parse_ps_stat("1 Sat Oct 17 18:26:02 2026 /Applications/My App/bin/node").unwrap();
+        let (st, start) =
+            parse_ps_stat("1 Sat Oct 17 18:26:02 2026 /Applications/My App/bin/node").unwrap();
         assert_eq!(st.comm, "node");
-        assert_eq!(st.start, "Sat Oct 17 18:26:02 2026 /Applications/My");
-        assert_eq!(parse_ps_stat(""), None);
+        assert_eq!(start, "Sat Oct 17 18:26:02 2026 /Applications/My");
+        // lstart in a locale with 4 or 6 words: every word between ppid and comm
+        assert_eq!(
+            parse_ps_stat("1 2026/10/17 18:26:02 Sat 2026 claude")
+                .unwrap()
+                .1,
+            "2026/10/17 18:26:02 Sat 2026"
+        );
+        assert_eq!(parse_ps_stat("").map(|x| x.1), None);
         assert_eq!(parse_ps_stat("x Sat Oct 17 18:26:02 2026 sh"), None);
-        let st = parse_ps_stat("7").unwrap();
-        assert_eq!((st.ppid, st.comm.as_str(), st.start.as_str()), (7, "7", ""));
+        let (st, start) = parse_ps_stat("7").unwrap();
+        assert_eq!((st.ppid, st.comm.as_str(), start.as_str()), (7, "7", ""));
     }
 
     #[test]
     fn a_ps_table() {
-        let names = "    1     0 Wed Oct 14 09:17:16 2026 /sbin/launchd\n\
-                     812     1 Sat Oct  3 09:17:16 2026 /Applications/My App/claude\n\
-                     900   812 Sat Oct 17 18:26:02 2026 zsh\n\
+        let names = "    1     0 /sbin/launchd\n\
+                     812     1 /Applications/My App/claude\n\
+                     900   812 -zsh\n\
                      bad line\n\
-                     901   900 Sat Oct 17 18:26:02 2026\n";
+                     901   900\n\
+                     902   900   \n";
         let argvs = "  1 /sbin/launchd\n812 claude --resume\n900 -zsh\n";
         let t = PsTable::parse(names, argvs).0;
-        assert_eq!(t.len(), 3);
+        assert_eq!(t.keys().copied().collect::<Vec<_>>(), [1, 812, 900]);
         let (st, argv) = &t[&812];
         assert_eq!((st.ppid, st.comm.as_str()), (1, "claude"));
-        assert_eq!(st.start, "Sat Oct 3 09:17:16 2026 /Applications/My");
         assert_eq!(argv, &["claude", "--resume"]);
-        assert_eq!(
-            parse_ps_stat("1 Sat Oct  3 09:17:16 2026 /Applications/My App/claude")
-                .unwrap()
-                .start,
-            st.start,
-            "the table and the one-pid read give one start token"
-        );
-        assert_eq!(t[&900].0.comm, "zsh");
+        assert_eq!(t[&900].0.comm, "-zsh");
         assert_eq!(t[&900].1, ["-zsh"]);
     }
 
@@ -453,19 +474,14 @@ mod tests {
         let (st, argv) = table.get(&me).expect("ps lists this process");
         assert_eq!(st.ppid, parent_pid());
         assert!(!argv.is_empty());
-        // and the one-pid ps read gives the same start token as the table
-        let one =
-            parse_ps_stat(&run_ps(&["-o", "ppid=,lstart=,comm=", "-p", &me.to_string()]).unwrap())
-                .unwrap();
-        assert_eq!(one.start, st.start);
-        assert_eq!(one.ppid, st.ppid);
     }
 
     thread_local! {
         static PS_CALLS: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
     }
 
-    /// inbox `test_without_procfs_a_walk_reads_the_process_table_once`'s chain.
+    /// inbox `test_without_procfs_a_walk_reads_the_process_table_once`'s
+    /// chain; the one-pid `lstart` read answers in a 4-word locale.
     fn fake_ps(args: &[&str]) -> Option<String> {
         let chain: [(Pid, Pid, &str, &str); 6] = [
             (100, 101, "python3", "python3 -I hooks.py"),
@@ -487,54 +503,110 @@ mod tests {
             (105, 1, "/bin/zsh", "-zsh"),
         ];
         PS_CALLS.with(|c| c.borrow_mut().push(args.join(" ")));
-        let out = if args.contains(&"pid=,ppid=,lstart=,comm=") {
-            chain
+        let out = match args {
+            ["-A", "-o", "pid=,ppid=,comm="] => chain
                 .iter()
-                .map(|(p, pp, comm, _)| format!("{p:>6} {pp:>6} Sat Oct  3 09:17:16 2026 {comm}\n"))
-                .collect()
-        } else {
-            chain
+                .map(|(p, pp, comm, _)| format!("{p:>6} {pp:>6} {comm}\n"))
+                .collect(),
+            ["-A", "-o", "pid=,command="] => chain
                 .iter()
                 .map(|(p, _, _, cmd)| format!("{p:>6} {cmd}\n"))
-                .collect()
+                .collect(),
+            ["-o", "ppid=,lstart=,comm=", "-p", pid] => chain
+                .iter()
+                .filter(|(p, ..)| p.to_string() == *pid)
+                .map(|(_, pp, comm, _)| format!("{pp:>6} 2026/10/03 9:17:16 Sat {comm}\n"))
+                .collect(),
+            _ => return None,
         };
         Some(out)
     }
 
-    fn no_procfs() -> SystemProcesses {
+    fn no_procfs(run: PsRunner) -> SystemProcesses {
         SystemProcesses {
             proc: "/nonexistent-procfs",
-            run: fake_ps,
+            run,
             ps: OnceCell::new(),
         }
+    }
+
+    fn ps_calls() -> usize {
+        PS_CALLS.with(|c| c.borrow().len())
     }
 
     /// inbox `test_without_procfs_a_walk_reads_the_process_table_once`: two
     /// `ps` calls per walk, whatever its depth; a new walk reads a fresh table.
     #[test]
     fn test_without_procfs_a_walk_reads_the_process_table_once() {
-        let calls = || PS_CALLS.with(|c| c.borrow().len());
-        assert!(super::super::nested_claude(&no_procfs(), 100));
-        assert_eq!(calls(), 2);
-        assert_eq!(super::super::owning_claude(&no_procfs(), 100), Some(102));
-        assert_eq!(calls(), 4);
-        let table = no_procfs();
+        let before = ps_calls();
+        assert!(super::super::nested_claude(&no_procfs(fake_ps), 100));
+        assert_eq!(ps_calls() - before, 2);
+        assert_eq!(
+            super::super::owning_claude(&no_procfs(fake_ps), 100),
+            Some(102)
+        );
+        assert_eq!(ps_calls() - before, 4);
+        let table = no_procfs(fake_ps);
         let st = table.stat(104).unwrap();
         assert_eq!((st.ppid, st.comm.as_str()), (105, "claude"));
         assert!(table.cmdline(102)[0].ends_with("/2.1.301"));
-        assert_eq!(calls(), 6);
+        assert_eq!(ps_calls() - before, 6);
         assert_eq!(table.stat(999), None);
-        assert_eq!(calls(), 6);
+        assert_eq!(ps_calls() - before, 6);
+    }
+
+    /// The found Claude's start token comes from the one-pid `ps` read
+    /// (panorama `_stat`), whatever the locale's `lstart` looks like.
+    #[test]
+    fn without_procfs_the_claude_token_is_the_one_pid_read() {
+        assert_eq!(
+            super::super::claude_process(&no_procfs(fake_ps), 100),
+            Some((102, "2026/10/03 9:17:16 Sat".to_owned()))
+        );
+        assert_eq!(no_procfs(fake_ps).start(999), None);
+    }
+
+    /// inbox `_ps_table`: when the first `ps` fails the second is not run.
+    #[test]
+    fn a_failed_ps_skips_the_second_call() {
+        fn first_fails(args: &[&str]) -> Option<String> {
+            PS_CALLS.with(|c| c.borrow_mut().push(args.join(" ")));
+            None
+        }
+        let before = ps_calls();
+        assert!(!super::super::nested_claude(&no_procfs(first_fails), 100));
+        assert_eq!(ps_calls() - before, 1);
+    }
+
+    #[test]
+    fn a_slow_command_is_killed_at_the_timeout() {
+        let t = Instant::now();
+        let out = run_with_timeout(
+            "sh",
+            &["-c", "echo started; exec sleep 5"],
+            Duration::from_millis(200),
+        );
+        assert_eq!(out, None);
+        assert!(t.elapsed() < Duration::from_secs(2), "{:?}", t.elapsed());
+        assert_eq!(
+            run_with_timeout("sh", &["-c", "echo ok"], Duration::from_secs(5)).as_deref(),
+            Some("ok\n")
+        );
+        assert_eq!(
+            run_with_timeout("/nonexistent/ps", &[], Duration::from_secs(1)),
+            None
+        );
     }
 
     #[test]
     fn this_process_reads_back() {
         let me = std::process::id();
-        let st = stat(me).expect("own stat");
-        assert_eq!(st.ppid, parent_pid());
         let table = SystemProcesses::new();
-        assert_eq!(table.stat(me), Some(st));
+        let st = table.stat(me).expect("own stat");
+        assert_eq!(st.ppid, parent_pid());
         assert!(!table.cmdline(me).is_empty());
+        assert_eq!(table.start(me), start_token(me));
+        assert!(start_token(me).is_some());
     }
 
     #[test]
@@ -559,7 +631,7 @@ mod tests {
     fn a_gone_process_is_dead_and_another_namespace_is_unknown() {
         let mut child = Command::new("true").spawn().unwrap();
         let pid = child.id();
-        let start = stat(pid).map(|s| s.start).unwrap_or_default();
+        let start = start_token(pid).unwrap_or_default();
         child.wait().unwrap();
         // reaped: no process has this pid (until it is reused, which a start token catches)
         assert_eq!(
@@ -568,7 +640,7 @@ mod tests {
         );
         assert!(!pid_alive(Some(pid)));
         let me = std::process::id();
-        let mine = stat(me).unwrap().start;
+        let mine = start_token(me).unwrap();
         assert_eq!(
             process_alive(&ProcessIdentity::new(
                 me,
@@ -578,7 +650,7 @@ mod tests {
             None
         );
         assert_eq!(
-            process_alive(&ProcessIdentity::new(me, mine.clone(), own_pidns())),
+            process_alive(&ProcessIdentity::new(me, mine, own_pidns())),
             Some(true)
         );
         assert!(pid_alive(Some(me)));
@@ -588,14 +660,14 @@ mod tests {
 
     #[test]
     fn a_process_we_may_not_signal_is_alive_by_its_start_token() {
-        // pid 1 belongs to root: kill says EPERM (unless the tests run as root), the stat decides
-        let Some(init) = stat(1) else { return };
+        // pid 1 belongs to root: kill says EPERM (unless the tests run as root), the token decides
+        let Some(init) = start_token(1) else { return };
         assert_eq!(
-            process_alive(&ProcessIdentity::new(1, init.start.clone(), None)),
+            process_alive(&ProcessIdentity::new(1, init.clone(), None)),
             Some(true)
         );
         assert_eq!(
-            process_alive(&ProcessIdentity::new(1, format!("{}x", init.start), None)),
+            process_alive(&ProcessIdentity::new(1, format!("{init}x"), None)),
             Some(false)
         );
         assert!(pid_alive(Some(1)));

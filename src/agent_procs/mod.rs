@@ -36,7 +36,7 @@ pub mod fake;
 pub use liveness::{Liveness, NoProcs, ProcessIdentity, SystemLiveness};
 pub use system::{
     SystemProcesses, descendants, live_tasks, own_pidns, parent_pid, pid_alive, process_alive,
-    stat, task_of,
+    start_token, task_of,
 };
 
 /// A process id, as the plugins record it.
@@ -59,11 +59,6 @@ pub struct ProcStat {
     pub ppid: Pid,
     /// The command name (`comm`): procfs's `comm`, or the base name of `ps`'s.
     pub comm: String,
-    /// The start token: procfs's `starttime` (clock ticks since boot), or
-    /// `ps`'s `lstart` words. Two processes with one pid have different
-    /// tokens, so a reused pid is not mistaken for the recorded process. The
-    /// plugins write it into hook records, so its format is a wire format.
-    pub start: String,
 }
 
 /// A view of the process table, for walking up from a process.
@@ -72,6 +67,10 @@ pub trait ProcessTable {
     fn stat(&self, pid: Pid) -> Option<ProcStat>;
     /// The argv of `pid`; empty if unknown.
     fn cmdline(&self, pid: Pid) -> Vec<String>;
+    /// The start token of `pid` ([`start_token`]); `None` if unknown. Two
+    /// processes with one pid have different tokens, so a reused pid is not
+    /// mistaken for a recorded process.
+    fn start(&self, pid: Pid) -> Option<String>;
 }
 
 /// The last `/`-separated component of `path` (Python's `os.path.basename`).
@@ -132,7 +131,8 @@ fn walk_is_claude(table: &impl ProcessTable, pid: Pid, comm: &str) -> bool {
 /// The nearest Claude at or above `parent` (pass [`parent_pid`]: a hook's
 /// parent): its pid and start token, or `None` (panorama
 /// `hooks.claude_process`). The walk stops at pid 1, at an unreadable process
-/// or after [`MAX_DEPTH`] steps.
+/// or after [`MAX_DEPTH`] steps; a Claude whose start token cannot be read is
+/// `None` too (the hook then records no pid, and nothing is called lost).
 pub fn claude_process(table: &impl ProcessTable, parent: Pid) -> Option<(Pid, String)> {
     let mut pid = parent;
     for _ in 0..MAX_DEPTH {
@@ -141,7 +141,7 @@ pub fn claude_process(table: &impl ProcessTable, parent: Pid) -> Option<(Pid, St
         }
         let st = table.stat(pid)?;
         if walk_is_claude(table, pid, &st.comm) {
-            return Some((pid, st.start));
+            return Some((pid, table.start(pid)?));
         }
         pid = st.ppid;
     }
@@ -194,6 +194,24 @@ pub fn nested_claude(table: &impl ProcessTable, parent: Pid) -> bool {
     false
 }
 
+/// [`claude_process`] for this process: a fresh [`SystemProcesses`], from
+/// [`parent_pid`].
+pub fn claude_process_here() -> Option<(Pid, String)> {
+    claude_process(&SystemProcesses::new(), parent_pid())
+}
+
+/// [`owning_claude`] for this process: a fresh [`SystemProcesses`], from
+/// [`parent_pid`].
+pub fn owning_claude_here() -> Option<Pid> {
+    owning_claude(&SystemProcesses::new(), parent_pid())
+}
+
+/// [`nested_claude`] for this process: a fresh [`SystemProcesses`], from
+/// [`parent_pid`].
+pub fn nested_claude_here() -> bool {
+    nested_claude(&SystemProcesses::new(), parent_pid())
+}
+
 #[cfg(test)]
 mod tests {
     use super::fake::FakeProcesses;
@@ -229,6 +247,46 @@ mod tests {
         t.insert(101 - depth, 100 - depth, "claude", "c", &["claude"]);
         assert_eq!(claude_process(&t, 100), Some((101 - depth, "c".into())));
         assert_eq!(owning_claude(&t, 100), Some(101 - depth));
+    }
+
+    #[test]
+    fn nested_claude_looks_at_32_processes() {
+        let depth = MAX_DEPTH as Pid;
+        let mut t = chain(100);
+        t.insert(100, 99, "claude", "a", &["claude"]);
+        t.insert(100 - depth, 99 - depth, "claude", "c", &["claude"]); // the 33rd
+        assert!(!nested_claude(&t, 100));
+        t.insert(101 - depth, 100 - depth, "claude", "c", &["claude"]); // the 32nd
+        assert!(nested_claude(&t, 100));
+    }
+
+    #[test]
+    fn pid_1_is_never_a_claude() {
+        // a container whose init is claude: hooks below a pane's claude
+        let mut t = FakeProcesses::default();
+        t.insert(1, 0, "claude", "init", &["claude"]);
+        t.insert(30, 1, "zsh", "z", &["zsh"]);
+        t.insert(20, 30, "sh", "s", &["sh"]);
+        t.insert(10, 20, "python3", "p", &["python3", "hook.py"]);
+        assert_eq!(claude_process(&t, 10), None);
+        assert_eq!(owning_claude(&t, 10), Some(20)); // the grandparent, not init
+        assert!(!nested_claude(&t, 10));
+        t.insert(30, 1, "claude", "pane", &["claude"]);
+        assert_eq!(claude_process(&t, 10), Some((30, "pane".into())));
+        assert_eq!(owning_claude(&t, 10), Some(30));
+        assert!(!nested_claude(&t, 10)); // one Claude, not two
+        // a walk that starts at init stops at once
+        assert_eq!(claude_process(&t, 1), None);
+        assert_eq!(owning_claude(&t, 1), None);
+    }
+
+    #[test]
+    fn a_claude_without_a_start_token_is_not_recorded() {
+        let mut t = FakeProcesses::default();
+        t.insert(10, 1, "claude", "a", &["claude"]);
+        t.forget_start(10);
+        assert_eq!(claude_process(&t, 10), None);
+        assert_eq!(owning_claude(&t, 10), Some(10));
     }
 
     #[test]
