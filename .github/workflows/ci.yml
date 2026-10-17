@@ -8,7 +8,8 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Only PR runs are superseded; every main commit keeps its own result.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -26,6 +27,18 @@ jobs:
       - name: Install the pinned toolchain (rust-toolchain.toml)
         run: rustup toolchain install
       - run: cargo fmt --all --check
+
+  doc:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned toolchain (rust-toolchain.toml)
+        run: rustup toolchain install
+      - run: cargo doc --locked --no-deps --all-features
+      - run: cargo doc --locked --no-deps --no-default-features
 
   test:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
@@ -54,6 +67,13 @@ jobs:
       - name: test
         run: cargo test --locked ${{ matrix.features.flags }}
 
+  # A compile check for the plugins' four targets. The kit is a library, so
+  # this builds an rlib: it proves cfg-compilation and, once C dependencies
+  # land (rusqlite `bundled`), that their C code builds for the target. It is
+  # not a release build; the kit ships source only. Each target builds on a
+  # runner of its own architecture, so no cross C compiler is needed.
+  # aarch64-apple-darwin is also the native target of the macOS `test` rows;
+  # it stays here so the target list matches the plugins' release list.
   targets:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: build (${{ matrix.target }})
@@ -63,11 +83,14 @@ jobs:
       matrix:
         include:
           - { os: ubuntu-latest, target: x86_64-unknown-linux-musl }
-          - { os: ubuntu-latest, target: aarch64-unknown-linux-musl }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl }
           - { os: macos-latest, target: x86_64-apple-darwin }
           - { os: macos-latest, target: aarch64-apple-darwin }
     steps:
       - uses: actions/checkout@v4
+      - name: Install musl-tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq musl-tools
       - name: Install the pinned toolchain (rust-toolchain.toml) and the target
         run: |
           rustup toolchain install
@@ -98,11 +121,6 @@ jobs:
           path: plugin
       - name: Test the plugin against this kit
         working-directory: plugin
-        run: |
-          if [ ! -f Cargo.toml ]; then
-            echo "::notice::${{ matrix.plugin }} has no Cargo workspace yet; skipping"
-            exit 0
-          fi
-          rustup toolchain install
-          cargo test --workspace --all-features \
-            --config 'patch."https://github.com/LeaveMyYard/herdr-agent-kit".herdr-agent-kit.path="../kit"'
+        env:
+          PATCH: 'patch."https://github.com/LeaveMyYard/herdr-agent-kit".herdr-agent-kit.path="../kit"'
+        run: bash ../kit/.github/scripts/plugin-suite.sh "${{ matrix.plugin }}"

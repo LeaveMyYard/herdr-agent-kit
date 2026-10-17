@@ -10,10 +10,6 @@ repository = "https://github.com/LeaveMyYard/herdr-agent-kit"
 readme = "README.md"
 # Consumed as a git dependency pinned by tag, never from crates.io (yet).
 publish = false
-include = ["src/**", "fixtures/**", "Cargo.toml", "Cargo.lock", "LICENSE", "README.md"]
-
-[lib]
-path = "src/lib.rs"
 
 [features]
 default = []

@@ -2,6 +2,10 @@ name: Release
 
 # Push a tag vX.Y.Z on a main commit whose Cargo.toml version is X.Y.Z.
 # The kit ships source only: the release has generated notes and no binaries.
+#
+# Two jobs for least privilege: `verify` builds and runs code (every build
+# script of every dependency) with a read-only token that is not persisted;
+# `release` holds the write token and runs no repo code at all.
 
 on:
   push:
@@ -11,14 +15,13 @@ permissions:
   contents: read
 
 jobs:
-  release:
+  verify:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Install the pinned toolchain (rust-toolchain.toml)
         run: rustup toolchain install
       - name: Tag matches Cargo.toml and is on main
@@ -37,8 +40,15 @@ jobs:
           fi
       - name: Test
         run: cargo test --locked --all-features
+
+  release:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
       - name: Create the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
-        run: gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes
+        run: gh release create "$TAG" -R "$GITHUB_REPOSITORY" --verify-tag --title "$TAG" --generate-notes
