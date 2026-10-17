@@ -119,6 +119,7 @@ name = "herdr-agent-kit"
 version = "0.0.0"
 dependencies = [
  "libc",
+ "memchr",
  "rusqlite",
  "serde_json",
  "sha1_smol",

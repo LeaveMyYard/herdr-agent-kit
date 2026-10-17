@@ -24,6 +24,8 @@ sqlite = ["dep:rusqlite"]
 
 [dependencies]
 libc = "0.2.191"
+memchr = "2"
+serde_json = { version = "1", features = ["float_roundtrip"] }
 sha1_smol = "1.0.1"
 toml = { version = "0.9", default-features = false, features = ["parse", "serde", "std"] }
 # The event parser under `toml`, for the TOML 1.0 check (`plugin_env::toml10`).
