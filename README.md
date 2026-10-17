@@ -4,6 +4,11 @@ Shared Rust library for the herdr plugins
 [herdr-panorama](https://github.com/LeaveMyYard/herdr-panorama) and
 [herdr-inbox](https://github.com/LeaveMyYard/herdr-inbox).
 
+Rust building blocks for tools around coding agents in [herdr](https://herdr.dev). Claude Code is
+the first supported harness; other harnesses are planned, not built yet. The API is 0.x and follows
+semver: before 1.0 a breaking change bumps the minor version. The kit is pre-0.1.0 and has no
+tag yet; the plugins will depend on it by tag.
+
 The two plugins are separate repos and each runs without the other. The code
 whose rules must not drift between them lives here, once: the herdr API client,
 Claude Code session parsing, agent process checks, the plugin environment,
@@ -72,7 +77,7 @@ cargo test --config 'patch."https://github.com/LeaveMyYard/herdr-agent-kit".herd
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build, test and send a PR, and follow the [Code of Conduct](CODE_OF_CONDUCT.md). Report security problems as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
