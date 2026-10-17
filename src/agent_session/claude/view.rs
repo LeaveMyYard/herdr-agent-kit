@@ -100,21 +100,9 @@ mod tests {
     fn successors_are_the_hops_after_the_session_with_their_times() {
         let s = Session::new(id(OWN));
         let chain = [
-            Hop {
-                id: id(OWN),
-                found: true,
-                at: None,
-            },
-            Hop {
-                id: id(NEXT),
-                found: true,
-                at: Some(Ts(10.0)),
-            },
-            Hop {
-                id: id(LAST),
-                found: false,
-                at: None,
-            },
+            Hop::new(id(OWN), true, None),
+            Hop::new(id(NEXT), true, Some(Ts(10.0))),
+            Hop::new(id(LAST), false, None),
         ];
         let v = s.view(Status::Done, Some(id(LAST)), vec![id(NEXT)], &chain);
         assert_eq!(v.id, id(OWN));
@@ -125,11 +113,7 @@ mod tests {
             v.successors,
             vec![(id(NEXT), Some(Ts(10.0))), (id(LAST), None)]
         );
-        let other = [Hop {
-            id: id(NEXT),
-            found: true,
-            at: None,
-        }];
+        let other = [Hop::new(id(NEXT), true, None)];
         assert!(
             s.view(Status::Done, None, vec![], &other)
                 .successors

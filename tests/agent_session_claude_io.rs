@@ -304,16 +304,8 @@ fn transcripts_follow_a_chain_forward_and_notice_a_next_session_appearing() {
     assert_eq!(
         chain(&id(SID), &mut files, MAX_HOPS),
         vec![
-            Hop {
-                id: id(SID),
-                found: true,
-                at: None
-            },
-            Hop {
-                id: id(NEXT),
-                found: false,
-                at: Some(Ts((BASE + 10) as f64))
-            }
+            Hop::new(id(SID), true, None),
+            Hop::new(id(NEXT), false, Some(Ts((BASE + 10) as f64)))
         ]
     );
     let mut b = proj.main(NEXT);
@@ -341,11 +333,7 @@ fn transcripts_follow_a_chain_forward_and_notice_a_next_session_appearing() {
     assert_eq!(files.continued_in(&id(SID)), Some(None));
     assert_eq!(
         chain(&id(SID), &mut files, MAX_HOPS),
-        vec![Hop {
-            id: id(SID),
-            found: true,
-            at: None
-        }]
+        vec![Hop::new(id(SID), true, None)]
     );
 }
 

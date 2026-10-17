@@ -191,6 +191,7 @@ pub trait TranscriptFiles {
 
 /// One session on a forward chain.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct Hop {
     /// The session.
     pub id: SessionId,
@@ -201,6 +202,14 @@ pub struct Hop {
     /// The time of the continuation that led here from the previous hop
     /// ([`TranscriptFiles::continued_at`]); always `None` on the first hop.
     pub at: Option<Ts>,
+}
+
+impl Hop {
+    /// A hop: session `id`, whether its transcript was `found`, and the time
+    /// of the continuation that led to it (`at`).
+    pub fn new(id: SessionId, found: bool, at: Option<Ts>) -> Hop {
+        Hop { id, found, at }
+    }
 }
 
 /// `start` and every session its conversation continued in, in order:
@@ -351,21 +360,9 @@ mod tests {
         assert_eq!(
             hops,
             vec![
-                Hop {
-                    id: sid(1),
-                    found: true,
-                    at: None
-                },
-                Hop {
-                    id: sid(2),
-                    found: true,
-                    at: None
-                },
-                Hop {
-                    id: sid(3),
-                    found: false,
-                    at: None
-                }
+                Hop::new(sid(1), true, None),
+                Hop::new(sid(2), true, None),
+                Hop::new(sid(3), false, None)
             ]
         );
         // forward only: from the middle, the ancestor is not part of the chain
@@ -392,11 +389,7 @@ mod tests {
         let mut none = Map(HashMap::new());
         assert_eq!(
             chain(&sid(1), &mut none, MAX_HOPS),
-            vec![Hop {
-                id: sid(1),
-                found: false,
-                at: None
-            }]
+            vec![Hop::new(sid(1), false, None)]
         );
     }
 }

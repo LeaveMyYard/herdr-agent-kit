@@ -330,6 +330,7 @@ pub fn process_info(pane: &PaneId) -> Call<ProcessInfo> {
 
 /// Where [`move_pane`] puts a pane.
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub enum MoveTo {
     /// Into a tab, split right (of `target_pane` when given). panorama
     /// `move_pane_to_tab`.
@@ -511,6 +512,7 @@ pub fn invoke_action(action_id: &str) -> Call<()> {
 
 /// Where [`OpenPluginPane`] opens the pane.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Placement {
     /// A popup (herdr answers no pane for it).
     Popup,
@@ -532,6 +534,7 @@ impl Placement {
 
 /// A split's direction.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Direction {
     /// To the right.
     Right,

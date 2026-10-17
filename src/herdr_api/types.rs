@@ -75,6 +75,7 @@ fn argv<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<String>, D::Error> {
 /// [`AgentStatus::Unknown`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[non_exhaustive]
 pub enum AgentStatus {
     /// At its prompt, waiting for input.
     Idle,
@@ -92,6 +93,7 @@ pub enum AgentStatus {
 
 /// `agent_session`: the session herdr was told the agent runs.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct AgentSession {
     /// The kind of value (`id`); absent means `id`.
     #[serde(default, deserialize_with = "lenient")]
@@ -122,6 +124,7 @@ impl AgentSession {
 
 /// An agent (`agent.get`, `agent.list`, snapshot `agents`).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct AgentInfo {
     /// Its pane.
     #[serde(default, deserialize_with = "lenient")]
@@ -172,6 +175,7 @@ impl AgentInfo {
 
 /// A pane (`pane.get`, `pane.list`, snapshot `panes`, a plugin pane).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct PaneInfo {
     /// The pane.
     #[serde(default, deserialize_with = "lenient")]
@@ -207,6 +211,7 @@ pub struct PaneInfo {
 
 /// A tab (`tab.get`, `tab.list`, `tab.create`, snapshot `tabs`).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct TabInfo {
     /// The tab.
     #[serde(default, deserialize_with = "lenient")]
@@ -227,6 +232,7 @@ pub struct TabInfo {
 
 /// A workspace (`workspace.list`, snapshot `workspaces`).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct WorkspaceInfo {
     /// The workspace.
     #[serde(default, deserialize_with = "lenient")]
@@ -244,6 +250,7 @@ pub struct WorkspaceInfo {
 
 /// `session.snapshot`: the whole session.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Snapshot {
     /// herdr's version.
     #[serde(default, deserialize_with = "lenient")]
@@ -282,6 +289,7 @@ pub struct Snapshot {
 
 /// One foreground process of a pane.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ForegroundProc {
     /// Its pid.
     #[serde(default, deserialize_with = "lenient")]
@@ -299,6 +307,7 @@ pub struct ForegroundProc {
 
 /// `pane.process_info`.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ProcessInfo {
     /// The pane.
     #[serde(default, deserialize_with = "lenient")]
@@ -317,6 +326,7 @@ pub struct ProcessInfo {
 
 /// `pane.move`'s `move_result`.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct MoveResult {
     /// Whether anything moved.
     #[serde(default, deserialize_with = "lenient")]
@@ -334,6 +344,7 @@ pub struct MoveResult {
 
 /// `pane.swap`'s `swap`.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct SwapResult {
     /// Whether the panes were swapped. herdr says `false` with a `reason`
     /// (`cross_tab`) instead of an error.
@@ -357,6 +368,7 @@ impl SwapResult {
 /// A tab's layout (`layout.export`, `layout.apply`, `layout.set_split_ratio`,
 /// `pane.layout`).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct LayoutInfo {
     /// The tab.
     #[serde(default, deserialize_with = "lenient")]
@@ -377,6 +389,7 @@ pub struct LayoutInfo {
 
 /// A plugin as `plugin.list` lists it.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct PluginInfo {
     /// Its id (`leavemyyard.herdr-inbox`).
     #[serde(default, deserialize_with = "lenient")]
@@ -397,6 +410,7 @@ pub struct PluginInfo {
 
 /// `notification.show`'s answer.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct NotificationResult {
     /// Whether it was shown.
     #[serde(default, deserialize_with = "lenient")]
@@ -411,6 +425,7 @@ pub struct NotificationResult {
 
 /// A saved SSH machine (`herdr machine list --json`).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Machine {
     /// Its stable id.
     #[serde(default, deserialize_with = "lenient")]

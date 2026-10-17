@@ -103,6 +103,7 @@ pub fn sanitize_cwd(cwd: &str) -> String {
 
 /// One subagent transcript of a session.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct AgentFile {
     /// The agent id (`agent-<id>.jsonl`).
     pub agent_id: String,
@@ -190,6 +191,7 @@ pub const MAX_PARTIAL: usize = 8 * 1024 * 1024;
 
 /// What one [`Tailer::read`] found.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Tail {
     /// The file does not exist or cannot be read.
     Missing,

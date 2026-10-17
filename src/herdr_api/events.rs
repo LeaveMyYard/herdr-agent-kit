@@ -51,6 +51,7 @@ impl fmt::Display for EventKind {
 
 /// One event's `data`: `{"type": "tab_focused", "tab_id", "workspace_id"}`.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct Event {
     /// `data.type` (`tab_focused`, `pane_focused`), or empty.
     pub kind: String,
@@ -77,6 +78,7 @@ impl Event {
 /// What [`Events::next`] yields: herdr's events plus two markers of its own
 /// (panorama's `_connected` and `_disconnected`).
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum HerdrEvent {
     /// herdr acknowledged the subscription (or sent an event) on a new
     /// connection: the stream is live. Events may have been missed while it

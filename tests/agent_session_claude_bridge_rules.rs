@@ -170,30 +170,15 @@ fn a_continuation_named_in_uppercase_is_found_and_followed() {
     assert_eq!(
         hops,
         vec![
-            Hop {
-                id: id(SID),
-                found: true,
-                at: None
-            },
-            Hop {
-                id: id(HEX),
-                found: true,
-                at: Some(Ts((BASE + 10) as f64))
-            }
+            Hop::new(id(SID), true, None),
+            Hop::new(id(HEX), true, Some(Ts((BASE + 10) as f64)))
         ]
     );
     assert_eq!(files.find(&hops[1].id), Some(new.path.clone()));
     // herdr naming the new session in uppercase
     assert_eq!(files.find(&id(&HEX.to_uppercase())), Some(new.path.clone()));
     let hops = chain(&id(&HEX.to_uppercase()), &mut files, MAX_HOPS);
-    assert_eq!(
-        hops,
-        vec![Hop {
-            id: id(HEX),
-            found: true,
-            at: None
-        }]
-    );
+    assert_eq!(hops, vec![Hop::new(id(HEX), true, None)]);
 }
 
 // -- the continuation rule (D6) -------------------------------------------------------------

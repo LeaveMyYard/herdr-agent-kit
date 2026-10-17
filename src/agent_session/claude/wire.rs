@@ -652,6 +652,7 @@ impl Line {
 /// What one transcript line says, borrowed from its [`Line`]. The time is
 /// [`Line::ts`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Record<'a> {
     /// A model turn: its model and content blocks.
     Assistant {
@@ -695,6 +696,7 @@ pub enum Record<'a> {
 
 /// The three title records.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum TitleKind {
     /// `custom-title` (`customTitle`): set by the user.
     Custom,
@@ -706,6 +708,7 @@ pub enum TitleKind {
 
 /// `message.content` of a user record.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Content<'a> {
     /// A string (a typed prompt, a notification, a local command).
     Text(&'a str),
@@ -717,6 +720,7 @@ pub enum Content<'a> {
 
 /// The `attachment` of an attachment record.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Attachment<'a> {
     /// `queued_command`: a prompt typed while the model was busy.
     QueuedCommand {
@@ -734,6 +738,7 @@ pub enum Attachment<'a> {
 
 /// One object block of `message.content`.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Block<'a> {
     /// `text`.
     Text(Option<&'a str>),
@@ -821,6 +826,7 @@ impl Ending {
 
 /// One task a `<task-notification>` names: panorama's `parse_notice` dict.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Notice {
     /// The task (an agent id, a background task id, a workflow task id).
     pub task: String,
@@ -1121,6 +1127,7 @@ pub fn summarize_tool(name: &str, input: Option<&Map<String, Value>>, cwd: Optio
 
 /// One tool call still waiting for its result (or the last call made).
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct ToolCall {
     /// The tool name (`"?"` when the record has none).
     pub name: String,
@@ -1134,6 +1141,7 @@ pub struct ToolCall {
 /// model and times. Panorama's `TailInfo`, read by
 /// [`super::io::summarize_tail`].
 #[derive(Clone, Debug, Default, PartialEq)]
+#[non_exhaustive]
 pub struct TailInfo {
     /// The first line's own time.
     pub first_ts: Option<Ts>,

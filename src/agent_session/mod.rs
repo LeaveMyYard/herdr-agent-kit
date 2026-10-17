@@ -127,6 +127,7 @@ impl Ts {
 /// Computed harness-side (for Claude Code by
 /// [`claude::Session::status_of`]); the cores only read it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Status {
     /// Running.
     Run,
@@ -163,14 +164,17 @@ impl Status {
 /// [`claude::Session::view`]); the cores consume it and never call harness
 /// code, so their rules are the same for every harness.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct SessionView {
     /// The session.
     pub id: SessionId,
     /// Its status.
     pub status: Status,
-    /// The session it was started from, when known.
+    /// The session it was started from; `None` when there is none or it is
+    /// not known (the view does not tell the two apart).
     pub parent: Option<SessionId>,
-    /// The sessions started from it, when known.
+    /// The sessions known to be started from it. Empty means none are known:
+    /// the view does not tell "no children" from "not known".
     pub children: Vec<SessionId>,
     /// Its title, when it has one.
     pub title: Option<String>,
@@ -178,4 +182,27 @@ pub struct SessionView {
     /// the time of the continuation that led to it (`None`: the harness
     /// recorded no time). The session itself is not in the list.
     pub successors: Vec<(SessionId, Option<Ts>)>,
+}
+
+impl SessionView {
+    /// A view of session `id`. Every field is public; this constructor exists
+    /// because the struct is `#[non_exhaustive]` (fields can be added in a
+    /// minor release), so a harness module outside this crate can build one.
+    pub fn new(
+        id: SessionId,
+        status: Status,
+        parent: Option<SessionId>,
+        children: Vec<SessionId>,
+        title: Option<String>,
+        successors: Vec<(SessionId, Option<Ts>)>,
+    ) -> SessionView {
+        SessionView {
+            id,
+            status,
+            parent,
+            children,
+            title,
+            successors,
+        }
+    }
 }

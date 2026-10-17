@@ -123,6 +123,7 @@ pub enum Owner {
 
 /// A spawning call (`Agent`, `Task`).
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct Spawn {
     /// The call's `tool_use.id`.
     pub call: String,
@@ -143,6 +144,7 @@ pub struct Spawn {
 
 /// A spawning call's result, naming the agent (`toolUseResult.agentId`).
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct Ack {
     /// The spawning call.
     pub call: String,
@@ -162,6 +164,7 @@ pub struct Ack {
 
 /// A `Workflow` call's result (`toolUseResult.runId`).
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct WorkflowLaunch {
     /// The call.
     pub call: String,
@@ -177,6 +180,7 @@ pub struct WorkflowLaunch {
 
 /// What kind of background task.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum BgKind {
     /// A Bash run in the background (or moved there by its timeout).
     Bash,
@@ -196,6 +200,7 @@ impl BgKind {
 
 /// A background task's start.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct BgLaunch {
     /// The task id.
     pub task: String,
@@ -215,6 +220,7 @@ pub struct BgLaunch {
 
 /// A hook `start` record of an agent.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct HookStart {
     /// When.
     pub ts: f64,
@@ -228,6 +234,7 @@ pub struct HookStart {
 
 /// One agent of the session, as its files tell.
 #[derive(Clone, Debug, Default, PartialEq)]
+#[non_exhaustive]
 pub struct AgentRec {
     /// Its transcript (`agent-<id>.jsonl`).
     pub transcript: PathBuf,
@@ -239,6 +246,7 @@ pub struct AgentRec {
 
 /// What the reader knows of one transcript beyond its records.
 #[derive(Clone, Debug, Default, PartialEq)]
+#[non_exhaustive]
 pub struct FileFacts {
     /// The stream time: the last record time of the lines read (an undated
     /// record inherits it).
@@ -252,6 +260,7 @@ pub struct FileFacts {
 
 /// The session's titles.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Titles {
     /// `custom-title`.
     pub custom: Option<String>,
@@ -273,6 +282,7 @@ impl From<Ending> for Status {
 
 /// [`Session::status_of`]'s answer: panorama's `(status, ended_at, inferred)`.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct StatusOf {
     /// The status.
     pub status: Status,
