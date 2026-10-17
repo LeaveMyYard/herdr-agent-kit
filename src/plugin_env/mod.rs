@@ -22,7 +22,7 @@
 //!   next to its database), and both keep doing so.
 //! - [`lock`]: `flock(2)` locks with the Python plugins' open modes and probes.
 //! - [`config`]: `config.toml` in the plugin config directory, re-read when it
-//!   changes.
+//!   changes, parsed as TOML 1.0 by [`toml10`] (what Python's `tomllib` reads).
 //! - [`private_dir`]: the private (0700) directory a Unix socket lives in.
 
 pub mod config;
@@ -30,6 +30,7 @@ pub mod inbox;
 pub mod lock;
 pub mod panorama;
 pub mod private_dir;
+pub mod toml10;
 pub mod vars;
 
 pub use config::ConfigFile;

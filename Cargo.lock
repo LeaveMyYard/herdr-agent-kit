@@ -63,6 +63,7 @@ dependencies = [
  "sha1_smol",
  "tempfile",
  "toml",
+ "toml_parser",
 ]
 
 [[package]]

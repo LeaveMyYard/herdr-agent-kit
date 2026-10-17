@@ -13,9 +13,10 @@
 //! parse is an empty table too, with the error kept in
 //! [`ConfigFile::error`] (until the file changes again) for the caller to log.
 //!
-//! Known difference: the `toml` crate accepts TOML 1.1 (for example a trailing
-//! comma in an inline table), Python's `tomllib` only 1.0. A file that only
-//! TOML 1.1 accepts is applied here and ignored whole by a Python process.
+//! The file is parsed as TOML 1.0 ([`super::toml10`]), as Python's `tomllib`
+//! does: a file that uses TOML 1.1 (a trailing comma in an inline table, say)
+//! is ignored whole, here as in the Python plugins, with the same
+//! `ignoring <path>: <reason>` diagnostic.
 
 use std::fs;
 use std::os::unix::fs::MetadataExt;
@@ -102,7 +103,7 @@ impl ConfigFile {
         if self.stamp.as_ref() != Some(&stamp) {
             let parsed = fs::read_to_string(path)
                 .map_err(|e| e.to_string())
-                .and_then(|text| text.parse::<Table>().map_err(|e| e.to_string()));
+                .and_then(|text| super::toml10::parse(&text));
             match parsed {
                 Ok(table) => {
                     self.table = table;
@@ -179,6 +180,15 @@ mod tests {
         assert!(cfg.load().is_empty());
         let err = cfg.error().unwrap().to_owned();
         assert!(err.starts_with("ignoring "), "{err}");
+
+        // TOML 1.1 is ignored whole, as tomllib (TOML 1.0) does.
+        fs::write(&path, "tab_prefix = \"Z\"\nhome = { tab = false, }\n").unwrap();
+        assert!(cfg.load().is_empty());
+        let err = cfg.error().unwrap().to_owned();
+        assert!(
+            err.contains("a TOML 1.1 trailing comma in an inline table"),
+            "{err}"
+        );
 
         // A replacement (new inode) of the same size is seen too.
         let tmp = dir.path().join("tmp.toml");
