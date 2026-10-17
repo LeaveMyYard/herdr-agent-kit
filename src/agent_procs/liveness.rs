@@ -75,6 +75,12 @@ impl SystemLiveness {
     /// pane's foreground Claude, [`super::first_claude`]). Its descendants
     /// are where the session's background tasks run; with `None`, tasks are
     /// unknown.
+    ///
+    /// The caller must make sure `claude` is still the pane's Claude: a pid
+    /// cached from an earlier pass may have been reused by another process,
+    /// whose tree would call every running task finished. Compare its
+    /// [`super::start_token`] with the one taken when it was found (panorama
+    /// `collect._live_tasks`), and look it up again on a mismatch.
     pub fn new(claude: Option<Pid>) -> Self {
         Self {
             claude,

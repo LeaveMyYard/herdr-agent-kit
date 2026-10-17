@@ -104,6 +104,8 @@ fn run_with_timeout(program: &str, args: &[&str], timeout: Duration) -> Option<S
             }
         }
     }
+    // the program exited: its stdout is closed unless a grandchild still holds
+    // it (`ps` starts none), so this join does not wait for long
     let out = reader.join().ok()?.ok()?;
     Some(String::from_utf8_lossy(&out).into_owned())
 }
@@ -350,6 +352,11 @@ pub fn descendants(pid: Pid) -> Option<Vec<Pid>> {
     if !fs::metadata(format!("{PROC}/{pid}/task")).is_ok_and(|m| m.is_dir()) {
         return None;
     }
+    Some(below(pid, children))
+}
+
+/// Every pid below `pid` by `children`, ascending, at most [`MAX_PROCS`].
+fn below(pid: Pid, children: impl Fn(Pid) -> Vec<Pid>) -> Vec<Pid> {
     let mut seen = HashSet::new();
     let mut stack = children(pid);
     while seen.len() < MAX_PROCS {
@@ -360,7 +367,7 @@ pub fn descendants(pid: Pid) -> Option<Vec<Pid>> {
     }
     let mut out: Vec<Pid> = seen.into_iter().collect();
     out.sort_unstable();
-    Some(out)
+    out
 }
 
 /// The task id of a background task's output file, `…/tasks/<id>.output`
@@ -465,6 +472,11 @@ mod tests {
         assert_eq!(argv, &["claude", "--resume"]);
         assert_eq!(t[&900].0.comm, "-zsh");
         assert_eq!(t[&900].1, ["-zsh"]);
+        // inbox's rule: the base name of the whole rest of the line, so a
+        // space in the program's own file name stays in the name (panorama's
+        // `_stat` took the last word only: "claude" here)
+        let t = PsTable::parse("  77     1 /opt/my claude\n", "").0;
+        assert_eq!(t[&77].0.comm, "my claude");
     }
 
     #[test]
@@ -607,6 +619,29 @@ mod tests {
         assert!(!table.cmdline(me).is_empty());
         assert_eq!(table.start(me), start_token(me));
         assert!(start_token(me).is_some());
+    }
+
+    #[test]
+    fn a_runaway_tree_is_cut_at_max_procs() {
+        // a shell that forked 10 000 children
+        let all = below(1, |p| {
+            if p == 1 {
+                (2..10_002).collect()
+            } else {
+                vec![]
+            }
+        });
+        assert_eq!(all.len(), MAX_PROCS);
+        let small = below(1, |p| {
+            if p < 4 {
+                vec![p * 2, p * 2 + 1]
+            } else {
+                vec![]
+            }
+        });
+        assert_eq!(small, [2, 3, 4, 5, 6, 7]);
+        // a cycle is visited once
+        assert_eq!(below(1, |p| vec![p % 3 + 1]), [1, 2, 3]);
     }
 
     #[test]
