@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Structure check (COMMON.md "Code structure"): every `src/` file has at most
-300 lines of non-test code, and no inline test module.
+300 lines of non-test code, no inline test module and no test function.
 
 An inline test module is a `mod x { ... }` under an outer cfg that names
 `test` (`#[cfg(test)]`, `#[cfg(all(test, unix))]`, also when rustfmt wraps the
-attribute over several lines), one whose body starts with an inner
-`#![cfg(test)]`, or any inline `mod tests {`. Comments (`//` and `/* */`),
-blank lines and other attributes may sit between the cfg and the module.
+attribute over several lines; a `test` under `not(...)` does not count), one
+whose body starts with an inner `#![cfg(test)]`, or any inline `mod tests {`
+(also `mod r#tests`, and with the `{` on the next line). Comments (`//` and
+`/* */`), blank lines and other attributes may sit between the cfg and the
+module. A test function is any `#[test]` or `#[<path>::test]` (`tokio::test`)
+outside a test module.
 Comments and the insides of string and char literals are blanked before
 anything is matched, so a brace or a `test` in them counts for nothing.
 
@@ -28,9 +31,27 @@ MAX_LINES = 300
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 ALLOWLIST_REL = ".github/structure-allowlist.txt"
 ALLOWLIST = ROOT / ALLOWLIST_REL
-INLINE = re.compile(r"^(pub(\([^)]*\))?\s+)?mod\s+(\w+)\s*\{")
+# `mod x {`, `mod r#x {`, or `mod x` with its `{` on the next line (`#[rustfmt::skip]`)
+INLINE = re.compile(r"^(pub(\([^)]*\))?\s+)?mod\s+(r#)?(\w+)\s*(\{|$)")
 # An attribute whose cfg predicate names `test`: cfg(test), cfg(all(test, unix)), ...
 TEST_CFG = re.compile(r"^#!?\[\s*cfg\s*\(.*\btest\b")
+NOT = re.compile(r"\bnot\s*\(")
+# A test function's attribute: #[test], #[tokio::test], #[tokio::test(flavor = ...)]
+TEST_FN = re.compile(r"^#\[\s*(\w+\s*::\s*)*test\s*[(\]]")
+
+
+def is_test_cfg(attr: str) -> bool:
+    """Does the attribute's cfg predicate name `test` other than under a
+    `not(...)` (`cfg(not(test))` is code that is *not* compiled for tests)?"""
+    while m := NOT.search(attr):
+        depth, end = 0, len(attr)
+        for at in range(m.end() - 1, len(attr)):
+            depth += {"(": 1, ")": -1}.get(attr[at], 0)
+            if depth == 0:
+                end = at + 1
+                break
+        attr = attr[: m.start()] + attr[end:]
+    return bool(TEST_CFG.match(attr))
 RAW_STRING = re.compile(r'(?<![\w])[bc]?r(#*)"')
 
 
@@ -94,13 +115,14 @@ def split_attribute(text: str) -> tuple[str, str] | None:
 
 
 def problems_in(lines: list[str]) -> list[str]:
-    """The violations in a file's lines: inline test modules, and more than
-    MAX_LINES lines outside them."""
+    """The violations in a file's lines: inline test modules, test functions,
+    and more than MAX_LINES lines outside test modules."""
     out = []
     code = 0
     depth = 0  # brace depth inside an inline test module (0: not in one)
     pending_test_cfg = False
     attr = ""  # an attribute still open on an earlier line
+    head = None  # (line, is a test module) of a `mod x` whose `{` is still to come
     opened = None  # (line, depth) of an inline module whose body may still start with #![cfg(test)]
 
     def test_module(start: int, n: int, braces: int) -> None:
@@ -109,6 +131,13 @@ def problems_in(lines: list[str]) -> list[str]:
         code -= n - start + 1
         depth, opened = braces, None
 
+    def enter_module(start: int, n: int, body: str, braces: int, is_test: bool) -> None:
+        nonlocal opened
+        if is_test or (body.startswith("#!") and is_test_cfg(body)):
+            test_module(start, n, braces)
+        elif not body:
+            opened = (start, braces)
+
     for n, line in enumerate(blank_comments_and_literals(lines), 1):
         if depth:
             depth += line.count("{") - line.count("}")
@@ -116,30 +145,36 @@ def problems_in(lines: list[str]) -> list[str]:
         code += 1
         s = f"{attr} {line.strip()}".strip() if attr else line.strip()
         attr = ""
+        braces = line.count("{") - line.count("}")
+        if head and s:
+            start, is_test = head
+            head = None
+            if s.startswith("{"):
+                enter_module(start, n, s[1:].strip(), braces, is_test)
+                continue
         while s.startswith("#"):
             split = split_attribute(s)
             if split is None:
                 attr = s
                 break
-            head, s = split
-            if not head.startswith("#!"):
-                pending_test_cfg = pending_test_cfg or bool(TEST_CFG.match(head))
+            item_attr, s = split
+            if not item_attr.startswith("#!"):
+                pending_test_cfg = pending_test_cfg or is_test_cfg(item_attr)
                 opened = None
-            elif opened and TEST_CFG.match(head):
-                test_module(opened[0], n, opened[1] + line.count("{") - line.count("}"))
-        if attr or not s or depth:
+                if TEST_FN.match(item_attr):
+                    out.append(f"test function at line {n}")
+            elif opened and is_test_cfg(item_attr):
+                test_module(opened[0], n, opened[1] + braces)
+        if attr or not s or depth or head:
             continue  # an attribute goes on, or a blank or comment line: a pending cfg still applies
         opened = None
         m = INLINE.match(s)
-        if m and (pending_test_cfg or m.group(3) == "tests"):
-            test_module(n, n, line.count("{") - line.count("}"))
-        elif m:
-            body = s[m.end() :].strip()
-            braces = line.count("{") - line.count("}")
-            if body.startswith("#!") and TEST_CFG.match(body):
-                test_module(n, n, braces)
-            elif not body:
-                opened = (n, braces)
+        if m:
+            is_test = pending_test_cfg or m.group(4) == "tests"
+            if m.group(5):
+                enter_module(n, n, s[m.end() :].strip(), braces, is_test)
+            else:
+                head = (n, is_test)
         pending_test_cfg = False
     if code > MAX_LINES:
         out.append(f"{code} non-test lines (max {MAX_LINES})")
@@ -200,6 +235,17 @@ SELF_TEST = [
     ("x test in a string", '#[cfg(feature = "test")]\nmod inner {\n}', False),
     ("y cfg(test) in a block comment", "/* #[cfg(test)] */\nmod inner {\n}", False),
     ("z a lifetime is not a char", "#[cfg(test)]\nfn f<'a>(x: &'a str) {}\nmod inner {\n}", False),
+    ("not(test) is not a test module", "#[cfg(not(test))]\nmod real {\n}", False),
+    ("not(all(test, unix)) neither", "#[cfg(not(all(test, unix)))]\nmod real {\n}", False),
+    ("all(unix, not(test)) neither", "#[cfg(all(unix, not(test)))]\nmod real {\n}", False),
+    ("any(test, not(unix)) is", "#[cfg(any(test, not(unix)))]\nmod helpers {\n}", True),
+    ("inner not(test) is not", "mod real {\n    #![cfg(not(test))]\n}", False),
+    ("brace on the next line", "#[cfg(test)]\n#[rustfmt::skip]\nmod helpers\n{\n}", True),
+    ("bare tests, brace on the next line", "mod tests\n{\n}", True),
+    ("inner cfg, brace on the next line", "mod helpers\n{\n    #![cfg(test)]\n}", True),
+    ("mod r#tests", "mod r#tests {\n}", True),
+    ("cfg(test) mod r#x", "#[cfg(test)]\nmod r#helpers {\n}", True),
+    ("no brace: a file module", "mod helpers\n;", False),
 ]
 
 # (case, lines, expected problems): where a test module ends, and what counts
@@ -220,6 +266,11 @@ SELF_TEST_LINES = [
         ["mod helpers {", "    #![cfg(test)]"] + ["    // t"] * MAX_LINES + ["}"],
         ["inline test module at line 1"],
     ),
+    ("a test function", ["#[test]", "fn t() {}"], ["test function at line 1"]),
+    ("a tokio test", ["#[tokio::test(flavor = \"current_thread\")]", "async fn t() {}"], ["test function at line 1"]),
+    ("a wrapped test attribute", ["#[tokio::test(", "    flavor = \"x\"", ")]", "async fn t() {}"], ["test function at line 3"]),
+    ("cfg(test) and other attributes are not tests", ["#[cfg(test)]", "fn h() {}", "#[test_case]", "#[cfg_attr(test, derive(Debug))]", "struct S;"], []),
+    ("a test inside a test module counts once", ["mod tests {", "    #[test]", "    fn t() {}", "}"], ["inline test module at line 1"]),
     (
         "an escaped quote and a multi-line string",
         ["#[cfg(test)]", 'const A: &str = "a\\"', "mod tests { }", '";', "mod inner {", "}"],
