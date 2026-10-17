@@ -1,7 +1,7 @@
 {
  "source": {
-  "herdr-inbox": "e2099399c309b5da0e3888b6ff9b20950cc3abfc",
-  "herdr-panorama": "92f6d4c4541d7397e76a115425db7c7ff4a7d744",
+  "herdr-inbox": "8771a493a2e1a299f60b36813f141a375159266f",
+  "herdr-panorama": "83590dccbf478ed7927a450a3198ffae54ef88f5",
   "node": "v24.12.0",
   "captured": "2026-10-17"
  },
@@ -392,7 +392,7 @@
    "exit": 1,
    "request": {
     "kind": "question",
-    "value": "laptop:Q12"
+    "value": "laptop:12"
    }
   },
   {
@@ -647,7 +647,7 @@
    "exit": 1,
    "request": {
     "kind": "question",
-    "value": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm:Q1"
+    "value": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm:1"
    }
   },
   {
@@ -674,7 +674,7 @@
    "exit": 1,
    "request": {
     "kind": "question",
-    "value": "nap:Q12"
+    "value": "qnap:12"
    }
   },
   {
@@ -730,6 +730,270 @@
    ],
    "exit": 2,
    "error": "inbox: error: --pane 'a\\u3000b': expected an id"
+  },
+  {
+   "argv": [
+    "--question",
+    "qnap:q12"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "question",
+    "value": "qnap:12"
+   }
+  },
+  {
+   "argv": [
+    "--question",
+    "qnap:12"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "question",
+    "value": "qnap:12"
+   }
+  },
+  {
+   "argv": [
+    "--question",
+    "Qnap:Q7"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "question",
+    "value": "Qnap:7"
+   }
+  },
+  {
+   "argv": [
+    "--question",
+    "box:Q12"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "question",
+    "value": "box:12"
+   }
+  },
+  {
+   "argv": [
+    "--question",
+    "box:12"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "question",
+    "value": "box:12"
+   }
+  },
+  {
+   "argv": [
+    "--question",
+    "q12"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "question",
+    "value": "12"
+   }
+  },
+  {
+   "argv": [
+    "--question",
+    "qq12"
+   ],
+   "exit": 2,
+   "error": "inbox: error: --question 'qq12': expected Qn or n"
+  },
+  {
+   "argv": [
+    "--question",
+    "QQ12"
+   ],
+   "exit": 2,
+   "error": "inbox: error: --question 'QQ12': expected Qn or n"
+  }
+ ],
+ "question_ref": [
+  {
+   "value": "qnap:Q12",
+   "ref": "qnap:12",
+   "id": null,
+   "describe": "qnap:Q12"
+  },
+  {
+   "value": "qnap:q12",
+   "ref": "qnap:12",
+   "id": null,
+   "describe": "qnap:Q12"
+  },
+  {
+   "value": "qnap:12",
+   "ref": "qnap:12",
+   "id": null,
+   "describe": "qnap:Q12"
+  },
+  {
+   "value": "Qnap:Q7",
+   "ref": "Qnap:7",
+   "id": null,
+   "describe": "Qnap:Q7"
+  },
+  {
+   "value": "box:Q12",
+   "ref": "box:12",
+   "id": null,
+   "describe": "box:Q12"
+  },
+  {
+   "value": "box:12",
+   "ref": "box:12",
+   "id": null,
+   "describe": "box:Q12"
+  },
+  {
+   "value": "Q12",
+   "ref": "12",
+   "id": 12,
+   "describe": "Q12"
+  },
+  {
+   "value": "q12",
+   "ref": "12",
+   "id": 12,
+   "describe": "Q12"
+  },
+  {
+   "value": "12",
+   "ref": "12",
+   "id": 12,
+   "describe": "Q12"
+  },
+  {
+   "value": "QQ12",
+   "ref": "Q12",
+   "id": null,
+   "describe": "QQ12"
+  },
+  {
+   "value": "qq12",
+   "ref": "q12",
+   "id": null,
+   "describe": "Qq12"
+  },
+  {
+   "value": "",
+   "ref": "",
+   "id": null,
+   "describe": "Q"
+  },
+  {
+   "value": "nap",
+   "ref": "nap",
+   "id": null,
+   "describe": "Qnap"
+  },
+  {
+   "value": "Q",
+   "ref": "",
+   "id": null,
+   "describe": "Q"
+  },
+  {
+   "value": "a:b:Q12",
+   "ref": "a:b:12",
+   "id": null,
+   "describe": "a:b:Q12"
+  },
+  {
+   "value": "a:Q1:Q2",
+   "ref": "a:Q1:2",
+   "id": null,
+   "describe": "a:Q1:Q2"
+  },
+  {
+   "value": "Q 12",
+   "ref": " 12",
+   "id": 12,
+   "describe": "Q 12"
+  },
+  {
+   "value": "Q+12",
+   "ref": "+12",
+   "id": 12,
+   "describe": "Q+12"
+  },
+  {
+   "value": "Q1_2",
+   "ref": "1_2",
+   "id": 12,
+   "describe": "Q1_2"
+  },
+  {
+   "value": "Q-0",
+   "ref": "-0",
+   "id": 0,
+   "describe": "Q-0"
+  },
+  {
+   "value": "Q-1",
+   "ref": "-1",
+   "id": -1,
+   "describe": "Q-1"
+  },
+  {
+   "value": "Q007",
+   "ref": "007",
+   "id": 7,
+   "describe": "Q007"
+  },
+  {
+   "value": "Q 12",
+   "ref": " 12",
+   "id": 12,
+   "describe": "Q 12"
+  },
+  {
+   "value": "Q12\n",
+   "ref": "12\n",
+   "id": 12,
+   "describe": "Q12\n"
+  },
+  {
+   "value": "Q\t12\u001c",
+   "ref": "\t12\u001c",
+   "id": null,
+   "describe": "Q\t12\u001c"
+  },
+  {
+   "value": "Q1__2",
+   "ref": "1__2",
+   "id": null,
+   "describe": "Q1__2"
+  },
+  {
+   "value": "Q_1",
+   "ref": "_1",
+   "id": null,
+   "describe": "Q_1"
+  },
+  {
+   "value": "Q1_",
+   "ref": "1_",
+   "id": null,
+   "describe": "Q1_"
+  },
+  {
+   "value": "Q+",
+   "ref": "+",
+   "id": null,
+   "describe": "Q+"
+  },
+  {
+   "value": "Q99999999999999999999999",
+   "ref": "99999999999999999999999",
+   "id": 99999999999999999999999,
+   "describe": "Q99999999999999999999999"
   }
  ]
 }

@@ -5,9 +5,9 @@ The canonical goldens of herdr-inbox's published formats, read by `inbox_contrac
 `herdr-inbox-ui` mod's tests and checks it against the pinned kit tag.
 
 Captured 2026-10-17 by `capture/run.sh` from clean `git archive` exports of herdr-inbox
-`e2099399c309b5da0e3888b6ff9b20950cc3abfc` and herdr-panorama
-`92f6d4c4541d7397e76a115425db7c7ff4a7d744` (both `main`, after the P0b bridge rules merged),
-with node v24.12.0. Each file's `source` repeats this. Nothing was edited by hand.
+`8771a493a2e1a299f60b36813f141a375159266f` and herdr-panorama
+`83590dccbf478ed7927a450a3198ffae54ef88f5` (both `main`, after herdr-inbox#57 fixed question
+references, #55), with node v24.12.0. Each file's `source` repeats this. Nothing was edited by hand.
 
 **The inputs are chosen, the outputs are captured.** `capture/capture.py` lists every input
 (questions, answers, texts to parse, argument lists); every expected value is what the
@@ -24,6 +24,7 @@ shipped code returned for it. The parse inputs also include every text the mod's
 | `receipts.json` `question_ids_extra`, `constants` | more `question_ids` inputs; `service.UNAVAILABLE` / `NOT_MIGRATED` | inbox `service.py` | panorama `scan/wire.py` |
 | `open-args.json` `encode` | the `inbox open` arguments panorama passes (`args` raw, `argv` after panorama's `herdr.clean`), or the plain `open` action | | panorama `inbox_link.py` |
 | `open-args.json` `parse` | per argument list: the focus request `inbox open` wrote, or its argparse error (exit 2) | | inbox `cli.py`, `deeplink.py` |
+| `open-args.json` `question_ref` | per reference: `question_ref`, `question_id` (`null`: refused) and `describe` | inbox `deeplink.py` | inbox `cli.py`, `deeplink.py` |
 | `questions-db/*.sql` | databases made by the inbox's code: `current` (the receipts session's), `v01` (0.1's `store.py`, kept in inbox `tests/compat_v01_store.py`), `no-table` | inbox | |
 | `questions-db/expected.json` | panorama's reader on each, plus a missing file, a directory and the 0.1 database while a writer holds its lock (WAL: reads; rollback journal: "no inbox") | | panorama `inbox.py` |
 
@@ -52,11 +53,14 @@ Re-capture: `sh capture/run.sh <empty work dir> <inbox export> <panorama export>
 
 ## Known differences in the Rust port
 
-Documented in the module docs; none occurs in these goldens or in anything the inbox writes:
+Documented in the module docs; none occurs in anything the inbox writes, and only the negative and
+the too-large id (`question_ref`, `Q-1` and `Q99999999999999999999999`) occur in these goldens:
 
 - Ids and versions are ASCII digits. Python's `\d` also matches other scripts' digits (the
   mod's TypeScript does not).
-- An id over `u64::MAX` is dropped (Python's ints have no limit).
+- An id over `u64::MAX` is dropped (Python's ints have no limit). A negative one (`Q-1`,
+  which Python's `int()` reads as -1 and no question has) is refused by `question_id`; so is
+  `Q99999999999999999999999`.
 - `\b` next to a `Q` id uses Rust's alphanumeric set, which also counts the combining marks
   with the Alphabetic property.
 - `parse_open_args` takes the flags in full: argparse would also accept an abbreviation
