@@ -1,12 +1,12 @@
-//! `plugin_env::toml10::parse` against what Python's `tomllib` made of the same
+//! `toml10::parse` against what Python's `tomllib` made of the same
 //! inputs, captured by `fixtures/toml10/capture/capture_tomllib.py`.
 
-use herdr_agent_kit::plugin_env::toml10;
+use super::parse;
 use serde_json::{Value as Json, json};
 use toml::Value;
 use toml::value::{Datetime, Offset};
 
-const CASES: &str = include_str!("../fixtures/toml10/cases.json");
+const CASES: &str = include_str!("../../fixtures/toml10/cases.json");
 
 /// Inputs `tomllib` accepts and the `toml` crate cannot: integers outside
 /// i64, a float literal beyond f64 (`tomllib` makes it infinite) and nesting
@@ -93,7 +93,7 @@ fn parses_as_tomllib_does() {
         let python = &case["python"];
         let rust = input(case)
             .map_err(|()| "not UTF-8".to_owned())
-            .and_then(|t| toml10::parse(&t));
+            .and_then(|t| parse(&t));
         match (python.get("ok"), &rust) {
             (Some(expected), Ok(table)) => {
                 let got = tag(&Value::Table(table.clone()));

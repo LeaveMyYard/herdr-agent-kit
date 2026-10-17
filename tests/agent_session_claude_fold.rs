@@ -20,7 +20,7 @@ use herdr_agent_kit::agent_session::claude::Scanner;
 use herdr_agent_kit::agent_session::claude::fold::{
     ACTIVE, ASYNC_QUIET, BG_CAP, MONITOR_SLACK, Owner, PENDING_CAP, REOPEN_MARGIN,
 };
-use herdr_agent_kit::agent_session::{SessionId, Status};
+use herdr_agent_kit::agent_session::{SessionId, Status, Ts};
 use serde_json::{Map, Value, json};
 
 const SID: &str = "55555555-5555-4555-8555-555555555555";
@@ -1395,14 +1395,14 @@ fn the_status_rules() {
         let live = (row.live)();
         let got = match row.agent {
             Some(agent) => {
-                let s = scanner.session().status_of(agent, now, &live);
+                let s = scanner.session().status_of(agent, Ts(now), &live);
                 (s.status, s.inferred)
             }
             // no agent: the row is about main's own background work
             None => {
                 let waiting = !scanner
                     .session()
-                    .waiting_bg(&Owner::Main, now, &live)
+                    .waiting_bg(&Owner::Main, Ts(now), &live)
                     .is_empty();
                 (if waiting { Status::Bg } else { Status::Done }, !waiting)
             }
@@ -1424,7 +1424,9 @@ fn a_resume_is_counted_and_restarts_the_clock() {
     sc.main.resume(B + 3.0 * M, "a1");
     let s = sc.load();
     assert_eq!(s.session().resumes("a1").len(), 1);
-    let st = s.session().status_of("a1", B + 3.0 * M + 30.0, &NoProcs);
+    let st = s
+        .session()
+        .status_of("a1", Ts(B + 3.0 * M + 30.0), &NoProcs);
     assert_eq!((st.status, st.ended), (Status::Run, None));
 }
 
@@ -1435,8 +1437,8 @@ fn ended_at_is_the_evidence_time() {
     sc.main
         .notify(B + 3.0 * M, "a1", &call, "completed", &["queue"]);
     let s = sc.load();
-    let st = s.session().status_of("a1", B + 30.0 * M, &NoProcs);
-    assert_eq!(st.ended, Some(B + 3.0 * M));
+    let st = s.session().status_of("a1", Ts(B + 30.0 * M), &NoProcs);
+    assert_eq!(st.ended, Some(Ts(B + 3.0 * M)));
 }
 
 #[test]
@@ -1537,13 +1539,13 @@ fn the_fold_does_not_depend_on_the_order_files_are_read() {
             let when = line.ts();
             let facts = pure.file_mut(owner.clone());
             if let Some(t) = when {
-                facts.last_ts = Some(t.secs());
+                facts.last_ts = Some(t);
             }
             pure.apply(owner.clone(), &line, when);
         }
     }
-    let want = s.session().status_of("a1", B + 30.0 * M, &NoProcs);
-    let got = pure.status_of("a1", B + 30.0 * M, &NoProcs);
+    let want = s.session().status_of("a1", Ts(B + 30.0 * M), &NoProcs);
+    let got = pure.status_of("a1", Ts(B + 30.0 * M), &NoProcs);
     assert_eq!(
         (got.status, got.ended, got.inferred),
         (want.status, want.ended, want.inferred)
@@ -1570,7 +1572,9 @@ fn liveness_is_only_asked_about_what_the_rules_need() {
         .bash(B + M, "work", false);
     let s = sc.load();
     assert_eq!(
-        s.session().status_of("a1", B + 10.0 * M, &Panics).status,
+        s.session()
+            .status_of("a1", Ts(B + 10.0 * M), &Panics)
+            .status,
         Status::Run
     );
 }
@@ -1620,7 +1624,7 @@ fn set_mtime(path: &Path, t: f64) {
 
 /// The newest time read from agent `id`'s file: `None` while it is unread.
 fn read_ts(s: &Scanner, id: &str) -> Option<f64> {
-    s.session().last_ts(id)
+    s.session().last_ts(id).map(Ts::secs)
 }
 
 /// panorama `test_incremental_reads_partial_lines_and_rewrites`.
@@ -1629,7 +1633,11 @@ fn an_update_reads_partial_lines_and_a_rewrite_rebuilds() {
     let mut sc = Sc::new("incremental");
     let call = bg_agent(&mut sc, "a1", "x");
     let mut s = sc.load();
-    let status = |s: &Scanner| s.session().status_of("a1", B + 4.0 * M, &NoProcs).status;
+    let status = |s: &Scanner| {
+        s.session()
+            .status_of("a1", Ts(B + 4.0 * M), &NoProcs)
+            .status
+    };
     assert_eq!(status(&s), Status::Run);
     let old = std::fs::read_to_string(&sc.main.path).unwrap();
     sc.main
@@ -1656,11 +1664,11 @@ fn an_old_agent_file_is_skipped_until_it_changes() {
     let mut s = sc.write_all();
     let path = sc.agents["a1"].0.path.clone();
     set_mtime(&path, B);
-    s.update(Some(B + 3600.0));
+    s.update(Some(Ts(B + 3600.0)));
     assert_eq!(read_ts(&s, "a1"), None); // not read
     sc.tx("a1").bash(B + 7200.0, "again", false);
     Sc::write(&path, &sc.agents["a1"].0.lines);
-    s.update(Some(B + 3600.0));
+    s.update(Some(Ts(B + 3600.0)));
     assert_eq!(read_ts(&s, "a1"), Some(B + 7201.0));
 }
 
@@ -1671,13 +1679,13 @@ fn a_file_once_read_is_followed_even_with_an_old_mtime() {
     let mut sc = Sc::new("followed");
     bg_agent(&mut sc, "a1", "x");
     let mut s = sc.write_all();
-    s.update(Some(B + 3600.0)); // written now: read
+    s.update(Some(Ts(B + 3600.0))); // written now: read
     assert_eq!(read_ts(&s, "a1"), Some(B));
     sc.tx("a1").bash(B + 2.0 * M, "more", false);
     let path = sc.agents["a1"].0.path.clone();
     Sc::write(&path, &sc.agents["a1"].0.lines);
     set_mtime(&path, B); // appended, but its mtime is old (a restored or copied file)
-    s.update(Some(B + 3600.0));
+    s.update(Some(Ts(B + 3600.0)));
     assert_eq!(read_ts(&s, "a1"), Some(B + 2.0 * M + 1.0));
 }
 
@@ -1695,16 +1703,16 @@ fn an_old_agent_file_is_still_read_when_its_agent_never_ended() {
     for id in ["a4", "a5"] {
         set_mtime(&sc.agents[id].0.path, B + 2.0 * M);
     }
-    s.update(Some(B + 3.0 * 3600.0)); // both files are older than the window
+    s.update(Some(Ts(B + 3.0 * 3600.0))); // both files are older than the window
     assert_eq!(
         s.session()
-            .status_of("a4", B + 4.0 * 3600.0, &NoProcs)
+            .status_of("a4", Ts(B + 4.0 * 3600.0), &NoProcs)
             .status,
         Status::Bg
     );
     assert_eq!(read_ts(&s, "a5"), None); // a finished one is still skipped
     // read once per file version: a second update does not read it again
-    s.update(Some(B + 3.0 * 3600.0));
+    s.update(Some(Ts(B + 3.0 * 3600.0)));
     assert_eq!(read_ts(&s, "a5"), None);
 }
 
@@ -1716,10 +1724,10 @@ fn hook_records_survive_a_rebuild() {
     sc.hook("stop", "a1", B + 2.0 * M, 4242, "s1");
     let mut s = sc.load();
     let got = |s: &Scanner| {
-        let st = s.session().status_of("a1", B + 3.0 * M, &NoProcs);
+        let st = s.session().status_of("a1", Ts(B + 3.0 * M), &NoProcs);
         (st.status, st.ended, st.inferred)
     };
-    let want = (Status::Done, Some(B + 2.0 * M), false);
+    let want = (Status::Done, Some(Ts(B + 2.0 * M)), false);
     assert_eq!(got(&s), want);
     let full = std::fs::read_to_string(&sc.main.path).unwrap();
     let first = &full[..=full.find('\n').unwrap()];
@@ -1742,11 +1750,11 @@ fn a_meta_read_mid_write_is_retried() {
     std::fs::write(&meta, &good[..10]).unwrap();
     set_mtime(&meta, B);
     s.update(None);
-    assert!(s.session().agents()["a1"].meta.is_empty());
+    assert!(s.session().agent("a1").unwrap().meta.is_empty());
     std::fs::write(&meta, &good).unwrap();
     set_mtime(&meta, B + 1.0);
     s.update(None);
-    assert_eq!(s.session().agents()["a1"].meta["description"], "x");
+    assert_eq!(s.session().agent("a1").unwrap().meta["description"], "x");
 }
 
 /// `meta.json` and run summaries are read as Python's `json.load` reads
@@ -1782,9 +1790,12 @@ fn metas_and_summaries_take_a_lone_surrogate_like_python() {
     .unwrap();
     s.update(None);
     let sess = s.session();
-    assert_eq!(sess.agents()["a1"].meta["description"], "cut \u{fffd}");
+    assert_eq!(
+        sess.agent("a1").unwrap().meta["description"],
+        "cut \u{fffd}"
+    );
     assert_eq!(sess.parent_of("a1"), Some(Owner::Main));
-    assert!(sess.agents()["b1"].meta.is_empty());
+    assert!(sess.agent("b1").unwrap().meta.is_empty());
     assert_eq!(
         sess.wf_summary("wf_1").map(|m| m["status"].clone()),
         Some(json!("killed"))
@@ -1830,7 +1841,7 @@ fn a_fork_of_a_subagent_nests_under_it_when_only_its_own_copy_is_read() {
     k1.prompt(B + 2.0 * M, "brief");
     let mut s = sc.write_all();
     set_mtime(&sc.agents["p1"].0.path, B); // the parent's file is old: skipped
-    s.update(Some(B + 60.0));
+    s.update(Some(Ts(B + 60.0)));
     assert_eq!(read_ts(&s, "p1"), None);
     let sess = s.session();
     assert_eq!(sess.parent_of("k1"), Some(Owner::Agent("p1".into())));
@@ -1855,10 +1866,10 @@ fn evidence_at_one_instant_ties_like_pythons_status_strings() {
                 sc.main.notify(B + 2.0 * M, "a1", &call, status, &["queue"]);
             }
             let s = sc.load();
-            let st = s.session().status_of("a1", B + 3.0 * M, &NoProcs);
+            let st = s.session().status_of("a1", Ts(B + 3.0 * M), &NoProcs);
             assert_eq!(
                 (st.status, st.ended),
-                (want, Some(B + 2.0 * M)),
+                (want, Some(Ts(B + 2.0 * M))),
                 "{order:?}"
             );
             let _ = std::fs::remove_dir_all(&sc.root);
@@ -1878,8 +1889,11 @@ fn evidence_at_one_instant_ties_like_pythons_status_strings() {
     sc.main
         .notify(B + 2.0 * M, "f1", &call, "failed", &["queue"]);
     let s = sc.load();
-    let st = s.session().status_of("f1", B + 3.0 * M, &NoProcs);
-    assert_eq!((st.status, st.ended), (Status::Failed, Some(B + 2.0 * M)));
+    let st = s.session().status_of("f1", Ts(B + 3.0 * M), &NoProcs);
+    assert_eq!(
+        (st.status, st.ended),
+        (Status::Failed, Some(Ts(B + 2.0 * M)))
+    );
 }
 
 /// Folds `tx`'s lines from `from` on into `s` as `owner`'s records.
@@ -1952,7 +1966,7 @@ fn a_kept_scanner_keeps_a_silent_parent_running_while_its_new_child_runs() {
     let p1 = Owner::Agent("p1".into());
     let now = B + 60.0 * M;
     let mut s = sc.load();
-    let st = s.session().status_of("p1", now, &NoProcs);
+    let st = s.session().status_of("p1", Ts(now), &NoProcs);
     assert_eq!((st.status, st.inferred), (Status::Done, true));
     assert!(s.session().children(&p1).is_empty());
 
@@ -1969,11 +1983,11 @@ fn a_kept_scanner_keeps_a_silent_parent_running_while_its_new_child_runs() {
     s.update(None);
     assert_eq!(s.session().children(&p1), vec!["c1"]);
     assert_eq!(
-        s.session().status_of("c1", now, &NoProcs).status,
+        s.session().status_of("c1", Ts(now), &NoProcs).status,
         Status::Run
     );
     assert_eq!(
-        s.session().status_of("p1", now, &NoProcs).status,
+        s.session().status_of("p1", Ts(now), &NoProcs).status,
         Status::Run
     );
 }
@@ -2015,7 +2029,11 @@ fn a_rewritten_hook_file_forgets_its_old_records() {
     sc.hook("stop", "a1", B + 2.0 * M, 4242, "s1");
     sc.hook("stop", "a2", B + 2.0 * M, 4242, "s1");
     let mut s = sc.load();
-    let status = |s: &Scanner| s.session().status_of("a1", B + 3.0 * M, &NoProcs).status;
+    let status = |s: &Scanner| {
+        s.session()
+            .status_of("a1", Ts(B + 3.0 * M), &NoProcs)
+            .status
+    };
     assert_eq!(status(&s), Status::Done);
     let hooks = sc.root.join("hooks").join(format!("{SID}.jsonl"));
     let kept = sc.hooks[1].clone();
@@ -2034,7 +2052,7 @@ fn agents_keep_their_discovery_order_across_updates() {
     bg_agent(&mut sc, "a1", "later");
     let _ = sc.write_all();
     s.update(None);
-    let ids: Vec<&str> = s.session().agents().keys().map(String::as_str).collect();
+    let ids: Vec<&str> = s.session().agents().map(|(id, _)| id).collect();
     assert_eq!(ids, ["b1", "a1"]);
     assert_eq!(s.session().children(&Owner::Main), ["b1", "a1"]);
 }
@@ -2058,7 +2076,7 @@ fn a_deep_parent_chain_is_answered() {
         };
         s.set_meta(&format!("a{i}"), meta);
     }
-    let st = s.status_of("a0", B, &NoProcs);
+    let st = s.status_of("a0", Ts(B), &NoProcs);
     assert_eq!((st.status, st.inferred), (Status::Done, true));
     // within the cap, a running descendant still keeps its ancestors running
     let mut s =
@@ -2071,6 +2089,6 @@ fn a_deep_parent_chain_is_answered() {
         s.set_meta(&format!("a{i}"), meta.as_object().unwrap().clone());
     }
     let leaf = Owner::Agent(format!("a{}", NESTING_CAP - 1));
-    s.file_mut(leaf).last_ts = Some(B);
-    assert_eq!(s.status_of("a0", B + 1.0, &NoProcs).status, Status::Run);
+    s.file_mut(leaf).last_ts = Some(Ts(B));
+    assert_eq!(s.status_of("a0", Ts(B + 1.0), &NoProcs).status, Status::Run);
 }

@@ -32,8 +32,8 @@ const ASSISTANT: &[u8] = br#""type":"assistant""#;
 
 /// A file's modification time in epoch seconds, `0.0` when it cannot be read
 /// (panorama's `_mtime`; computed as CPython's `st_mtime`).
-pub fn mtime(path: &Path) -> f64 {
-    fs::metadata(path).map_or(0.0, |m| mtime_of(&m))
+pub fn mtime(path: &Path) -> Ts {
+    Ts(fs::metadata(path).map_or(0.0, |m| mtime_of(&m)))
 }
 
 fn mtime_of(meta: &fs::Metadata) -> f64 {
@@ -126,7 +126,7 @@ impl Scanner {
     /// window that starts later; the main transcript is always read in full),
     /// unless the agent was never seen to end and its file holds a
     /// background launch. Skipped files are read once they change.
-    pub fn update(&mut self, since: Option<f64>) {
+    pub fn update(&mut self, since: Option<Ts>) {
         if self.files.is_empty() {
             // main is always the first file
             self.add_file(self.root.clone(), Owner::Main);
@@ -137,11 +137,10 @@ impl Scanner {
                 .set_agent(&af.agent_id, af.transcript.clone(), af.workflow.clone());
             let unread = self
                 .session
-                .agents()
-                .get(&af.agent_id)
+                .agent(&af.agent_id)
                 .is_none_or(|r| r.meta.is_empty());
             if unread {
-                let m = mtime(&af.meta);
+                let m = mtime(&af.meta).0;
                 if self.meta_mtime.get(&af.agent_id) != Some(&m) {
                     // an empty or half-written meta is retried when it changes
                     let meta = read_object(&af.meta).unwrap_or_default();
@@ -172,7 +171,7 @@ impl Scanner {
                 && f.tail.identity().is_none()
             {
                 match fs::metadata(&f.path) {
-                    Ok(m) if mtime_of(&m) < since => {
+                    Ok(m) if mtime_of(&m) < since.0 => {
                         skipped.push(i);
                         continue;
                     }
@@ -200,7 +199,7 @@ impl Scanner {
             let path = self.files[i].path.clone();
             if !self
                 .bg_scanned
-                .insert((path.clone(), mtime(&path).to_bits()))
+                .insert((path.clone(), mtime(&path).0.to_bits()))
             {
                 continue;
             }
@@ -278,13 +277,13 @@ impl Scanner {
             let facts = self.session.file_mut(owner.clone());
             // `ts or last_ts`: an undated record (or one dated 0) takes the stream time
             let when = match rec.ts() {
-                Some(t) if t.secs() != 0.0 => Some(t.secs()),
+                Some(t) if t.secs() != 0.0 => Some(t),
                 _ => facts.last_ts,
             };
             if when.is_some() {
                 facts.last_ts = when;
             }
-            self.session.apply(owner.clone(), &rec, when.map(Ts));
+            self.session.apply(owner.clone(), &rec, when);
         }
         if owner == Owner::Main {
             self.session.feed_main(&lines);
@@ -316,7 +315,7 @@ impl Scanner {
         let Ok(meta) = fs::metadata(&path) else {
             return;
         };
-        let m = mtime_of(&meta);
+        let m = Ts(mtime_of(&meta));
         if self.session.summary_mtime(run) == Some(m) {
             return;
         }

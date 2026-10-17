@@ -131,7 +131,7 @@ pub struct Spawn {
     /// repeats its parent's history).
     pub owner: Owner,
     /// Its time.
-    pub ts: Option<f64>,
+    pub ts: Option<Ts>,
     /// The `description` input.
     pub description: String,
     /// The `model` input.
@@ -149,7 +149,7 @@ pub struct Ack {
     /// The spawning call.
     pub call: String,
     /// The result's time.
-    pub ts: Option<f64>,
+    pub ts: Option<Ts>,
     /// The agent it started.
     pub agent_id: String,
     /// `async_launched`, `completed`, …
@@ -169,7 +169,7 @@ pub struct WorkflowLaunch {
     /// The call.
     pub call: String,
     /// The result's time.
-    pub ts: Option<f64>,
+    pub ts: Option<Ts>,
     /// The run.
     pub run_id: String,
     /// The run's task id: notices about it end the run.
@@ -207,7 +207,7 @@ pub struct BgLaunch {
     /// Whose file launched it.
     pub owner: Owner,
     /// The result's time.
-    pub ts: Option<f64>,
+    pub ts: Option<Ts>,
     /// Bash or Monitor.
     pub kind: BgKind,
     /// The call that started it.
@@ -223,7 +223,7 @@ pub struct BgLaunch {
 #[non_exhaustive]
 pub struct HookStart {
     /// When.
-    pub ts: f64,
+    pub ts: Ts,
     /// The Claude Code process that ran it.
     pub pid: Option<Pid>,
     /// That process's start token.
@@ -250,7 +250,7 @@ pub struct AgentRec {
 pub struct FileFacts {
     /// The stream time: the last record time of the lines read (an undated
     /// record inherits it).
-    pub last_ts: Option<f64>,
+    pub last_ts: Option<Ts>,
     /// The agent's own tool calls (`"type":"tool_use"` in its assistant
     /// records; main's are not counted).
     pub tool_calls: u64,
@@ -287,13 +287,14 @@ pub struct StatusOf {
     /// The status.
     pub status: Status,
     /// When it ended (`None` while running).
-    pub ended: Option<f64>,
+    pub ended: Option<Ts>,
     /// Guessed from silence, not recorded.
     pub inferred: bool,
 }
 
 impl StatusOf {
     fn new(status: Status, ended: Option<f64>, inferred: bool) -> StatusOf {
+        let ended = ended.map(Ts);
         StatusOf {
             status,
             ended,
@@ -421,7 +422,7 @@ fn better_owner(owner: &Owner, when: Option<f64>, old: &Spawn) -> bool {
     if *owner == Owner::Main {
         return true;
     }
-    or_inf(when) < or_inf(old.ts)
+    or_inf(when) < or_inf(old.ts.map(Ts::secs))
 }
 
 impl Session {
@@ -613,7 +614,7 @@ impl Session {
                 Spawn {
                     call: id.to_string(),
                     owner: owner.clone(),
-                    ts: when,
+                    ts: when.map(Ts),
                     description: str_or_empty(inp, "description"),
                     model: text("model"),
                     subagent_type: text("subagent_type"),
@@ -661,7 +662,7 @@ impl Session {
                 call.to_string(),
                 Ack {
                     call: call.to_string(),
-                    ts: when,
+                    ts: when.map(Ts),
                     agent_id: agent.clone(),
                     status: py_str(status),
                     is_error,
@@ -679,7 +680,7 @@ impl Session {
                 call.to_string(),
                 WorkflowLaunch {
                     call: call.to_string(),
-                    ts: when,
+                    ts: when.map(Ts),
                     run_id: py_str(run),
                     task_id: tur
                         .get("taskId")
@@ -734,7 +735,7 @@ impl Session {
                 None => true,
                 Some(old) => {
                     old.owner != Owner::Main
-                        && (*owner == Owner::Main || or_inf(when) < or_inf(old.ts))
+                        && (*owner == Owner::Main || or_inf(when) < or_inf(old.ts.map(Ts::secs)))
                 }
             };
             if replace {
@@ -743,7 +744,7 @@ impl Session {
                     BgLaunch {
                         task: task.to_string(),
                         owner: owner.clone(),
-                        ts: when,
+                        ts: when.map(Ts),
                         kind,
                         call: call.to_string(),
                         timeout,
@@ -812,13 +813,13 @@ impl Session {
 
     /// Records workflow run `run`'s summary (`workflows/<run>.json`) and the
     /// file's modification time.
-    pub fn set_summary(&mut self, run: &str, summary: Map<String, Value>, mtime: f64) {
-        self.wf_summary.insert(run.to_string(), (summary, mtime));
+    pub fn set_summary(&mut self, run: &str, summary: Map<String, Value>, mtime: Ts) {
+        self.wf_summary.insert(run.to_string(), (summary, mtime.0));
     }
 
     /// The modification time of run `run`'s summary when it was read.
-    pub fn summary_mtime(&self, run: &str) -> Option<f64> {
-        self.wf_summary.get(run).map(|(_, m)| *m)
+    pub fn summary_mtime(&self, run: &str) -> Option<Ts> {
+        self.wf_summary.get(run).map(|(_, m)| Ts(*m))
     }
 
     /// Forgets the hook records (the hook file was rewritten).
@@ -864,7 +865,7 @@ impl Session {
                     .entry(agent.to_string())
                     .or_default()
                     .push(HookStart {
-                        ts,
+                        ts: Ts(ts),
                         pid,
                         start: pstart,
                         pidns,
@@ -881,10 +882,16 @@ impl Session {
 
     // -- queries ------------------------------------------------------------------------------
 
-    /// The agents, in the order they were first recorded ([`Session::set_agent`]
-    /// or [`Session::set_meta`]), as panorama's `Session.agents`.
-    pub fn agents(&self) -> &IndexMap<String, AgentRec> {
-        &self.agents
+    /// The agents by id, in the order they were first recorded
+    /// ([`Session::set_agent`] or [`Session::set_meta`]), as panorama's
+    /// `Session.agents`.
+    pub fn agents(&self) -> impl ExactSizeIterator<Item = (&str, &AgentRec)> + '_ {
+        self.agents.iter().map(|(id, rec)| (id.as_str(), rec))
+    }
+
+    /// Agent `id`, once recorded.
+    pub fn agent(&self, id: &str) -> Option<&AgentRec> {
+        self.agents.get(id)
     }
 
     /// The facts of `owner`'s transcript, once it was read.
@@ -912,14 +919,14 @@ impl Session {
 
     /// The human prompts of the main transcript, `(time, first line)`, in
     /// time order (equal ones once).
-    pub fn prompts(&self) -> impl Iterator<Item = (f64, &str)> {
-        self.prompts.iter().map(|(t, s)| (t.0, s.as_str()))
+    pub fn prompts(&self) -> impl Iterator<Item = (Ts, &str)> {
+        self.prompts.iter().map(|(t, s)| (Ts(t.0), s.as_str()))
     }
 
     /// The latest human prompt at or before `when`: its index among
     /// [`Session::prompts`] and its text (zoetrope's `prompt_for_ts`).
-    pub fn prompt_before(&self, when: Option<f64>) -> Option<(usize, &str)> {
-        let when = when?;
+    pub fn prompt_before(&self, when: Option<Ts>) -> Option<(usize, &str)> {
+        let when = when?.0;
         self.prompts
             .iter()
             .enumerate()
@@ -929,18 +936,18 @@ impl Session {
     }
 
     /// The notices about `task`: `(time, ending, tool uses)`, oldest first.
-    pub fn notices(&self, task: &str) -> Vec<(f64, Ending, Option<u64>)> {
+    pub fn notices(&self, task: &str) -> Vec<(Ts, Ending, Option<u64>)> {
         self.notices
             .get(task)
-            .map(|n| n.iter().map(|x| (x.0.0, x.1, x.2)).collect())
+            .map(|n| n.iter().map(|x| (Ts(x.0.0), x.1, x.2)).collect())
             .unwrap_or_default()
     }
 
     /// The times agent `id` was resumed by `SendMessage`, oldest first.
-    pub fn resumes(&self, id: &str) -> Vec<f64> {
+    pub fn resumes(&self, id: &str) -> Vec<Ts> {
         self.resumes
             .get(id)
-            .map(|r| r.iter().map(|t| t.0).collect())
+            .map(|r| r.iter().map(|t| Ts(t.0)).collect())
             .unwrap_or_default()
     }
 
@@ -1049,33 +1056,37 @@ impl Session {
     }
 
     /// The newest time in agent `id`'s transcript (its tail's or its stream's).
-    pub fn last_ts(&self, id: &str) -> Option<f64> {
+    pub fn last_ts(&self, id: &str) -> Option<Ts> {
         let f = self.file_of(id)?;
-        max_opt(f.info.last_ts.map(Ts::secs), f.last_ts)
+        max_opt(f.info.last_ts.map(Ts::secs), f.last_ts.map(Ts::secs)).map(Ts)
     }
 
     /// The newest time in any file read: a prompt, a reply, a tool call, a
     /// notice.
-    pub fn last_activity(&self) -> Option<f64> {
+    pub fn last_activity(&self) -> Option<Ts> {
         self.files
             .values()
-            .flat_map(|f| [f.info.last_ts.map(Ts::secs), f.last_ts])
+            .flat_map(|f| [f.info.last_ts.map(Ts::secs), f.last_ts.map(Ts::secs)])
             .flatten()
             .reduce(f64::max)
+            .map(Ts)
     }
 
     /// The `(time, ending)` of the latest notice about the run's latest
     /// launch, if any.
-    pub fn run_end(&self, run: &str) -> Option<(f64, Ending)> {
+    pub fn run_end(&self, run: &str) -> Option<(Ts, Ending)> {
         let mut launches: Vec<&WorkflowLaunch> = self
             .wf_launches
             .values()
             .filter(|w| w.run_id == run)
             .collect();
-        launches.sort_by(|a, b| a.ts.unwrap_or(0.0).total_cmp(&b.ts.unwrap_or(0.0)));
+        launches.sort_by(|a, b| {
+            a.ts.map_or(0.0, Ts::secs)
+                .total_cmp(&b.ts.map_or(0.0, Ts::secs))
+        });
         let task = launches.last()?.task_id.as_deref().unwrap_or("");
         let last = self.notices.get(task)?.last()?;
-        Some((last.0.0, last.1))
+        Some((Ts(last.0.0), last.1))
     }
 
     /// Whether run `run` is still running: `None` when no launch of it is
@@ -1096,10 +1107,14 @@ impl Session {
 
     /// `owner`'s background tasks with no ending in the transcripts, oldest
     /// first.
-    pub fn open_bg(&self, owner: &Owner, now: f64) -> Vec<&BgLaunch> {
+    pub fn open_bg(&self, owner: &Owner, now: Ts) -> Vec<&BgLaunch> {
+        self.open_bg_at(owner, now.0)
+    }
+
+    fn open_bg_at(&self, owner: &Owner, now: f64) -> Vec<&BgLaunch> {
         let expired = |l: &BgLaunch| match (l.kind, l.persistent, l.timeout, l.ts) {
             (BgKind::Monitor, false, Some(to), Some(ts)) => {
-                to != 0.0 && now > ts + to + MONITOR_SLACK
+                to != 0.0 && now > ts.0 + to + MONITOR_SLACK
             }
             _ => false,
         };
@@ -1110,22 +1125,29 @@ impl Session {
             .filter(|l| !self.notices.contains_key(&l.task) && !self.bg_stops.contains_key(&l.task))
             .filter(|l| !expired(l))
             .collect();
-        out.sort_by(|a, b| a.ts.unwrap_or(0.0).total_cmp(&b.ts.unwrap_or(0.0)));
+        out.sort_by(|a, b| {
+            a.ts.map_or(0.0, Ts::secs)
+                .total_cmp(&b.ts.map_or(0.0, Ts::secs))
+        });
         out
     }
 
     /// The open tasks that are still running: their process lives, or, when
     /// that cannot be checked, they started at most [`BG_CAP`] ago. A
     /// Monitor's process is never checked (its timeout decides).
-    pub fn waiting_bg(&self, owner: &Owner, now: f64, live: &dyn Liveness) -> Vec<&BgLaunch> {
-        self.open_bg(owner, now)
+    pub fn waiting_bg(&self, owner: &Owner, now: Ts, live: &dyn Liveness) -> Vec<&BgLaunch> {
+        self.waiting_bg_at(owner, now.0, live)
+    }
+
+    fn waiting_bg_at(&self, owner: &Owner, now: f64, live: &dyn Liveness) -> Vec<&BgLaunch> {
+        self.open_bg_at(owner, now)
             .into_iter()
             .filter(|l| {
                 let alive = match l.kind {
                     BgKind::Bash => live.task_alive(&l.task),
                     BgKind::Monitor => None,
                 };
-                alive.unwrap_or_else(|| l.ts.is_some_and(|ts| now - ts <= BG_CAP))
+                alive.unwrap_or_else(|| l.ts.is_some_and(|ts| now - ts.0 <= BG_CAP))
             })
             .collect()
     }
@@ -1145,15 +1167,15 @@ impl Session {
     /// nothing about how it ended.
     fn resumed_after(&self, start: &HookStart) -> bool {
         self.hook_procs.iter().any(|(t, p, s)| {
-            *t > start.ts && (Some(*p), Some(s.as_str())) != (start.pid, start.start.as_deref())
+            *t > start.ts.0 && (Some(*p), Some(s.as_str())) != (start.pid, start.start.as_deref())
         })
     }
 
     /// Agent `id`'s status at `now`: the status rules (module docs), with
     /// `live` answering the process checks. An agent that ended its turn
     /// silently but has a running descendant is waiting on it: running.
-    pub fn status_of(&self, id: &str, now: f64, live: &dyn Liveness) -> StatusOf {
-        self.status_seen(id, now, live, &[])
+    pub fn status_of(&self, id: &str, now: Ts, live: &dyn Liveness) -> StatusOf {
+        self.status_seen(id, now.0, live, &[])
     }
 
     fn status_seen(&self, id: &str, now: f64, live: &dyn Liveness, seen: &[&str]) -> StatusOf {
@@ -1185,7 +1207,7 @@ impl Session {
     fn status(&self, id: &str, now: f64, live: &dyn Liveness) -> StatusOf {
         let rec = self.agents.get(id);
         let f = self.file_of(id);
-        let mut last = self.last_ts(id);
+        let mut last = self.last_ts(id).map(Ts::secs);
         let run = rec.and_then(|r| r.workflow.as_deref());
         let notices: Vec<(f64, Ending)> = self
             .notices
@@ -1198,7 +1220,7 @@ impl Session {
         let ack = self.ack(id);
         if let Some(a) = ack
             && a.status == "completed"
-            && let Some(t) = a.ts
+            && let Some(t) = a.ts.map(Ts::secs)
         {
             evidence.push((
                 t,
@@ -1216,7 +1238,7 @@ impl Session {
             if self.journal_done.get(run).is_some_and(|s| s.contains(id)) {
                 return StatusOf::new(Status::Done, last, false);
             }
-            if let Some((t, end)) = self.run_end(run) {
+            if let Some((Ts(t), end)) = self.run_end(run) {
                 let end = match end {
                     Ending::Cancelled | Ending::Failed => Ending::Cancelled,
                     Ending::Done => Ending::Done,
@@ -1245,7 +1267,8 @@ impl Session {
         let reopen_times: Vec<f64> = self
             .resumes(id)
             .into_iter()
-            .chain(starts.iter().map(|s| s.ts))
+            .map(Ts::secs)
+            .chain(starts.iter().map(|s| s.ts.0))
             .collect();
         let mut reopened = false;
         let newest = evidence
@@ -1267,12 +1290,12 @@ impl Session {
                 _ => Some(s),
             });
         if let Some(hs) = latest_start
-            && !evidence.iter().any(|(t, _)| *t >= hs.ts)
+            && !evidence.iter().any(|(t, _)| *t >= hs.ts.0)
             && !self.resumed_after(hs)
             && self.process_gone(hs, live)
         {
             // started, never stopped, its Claude process is gone
-            return StatusOf::new(Status::Lost, or_time(last, Some(hs.ts)), false);
+            return StatusOf::new(Status::Lost, or_time(last, Some(hs.ts.0)), false);
         }
         if let Some(r) = reopen_times.iter().copied().reduce(f64::max)
             && last.is_none_or(|l| r > l)
@@ -1281,7 +1304,10 @@ impl Session {
         }
         // no standing terminal evidence: liveness
         let Some(last) = last else {
-            let started = or_time(ack.and_then(|a| a.ts), self.spawn_of(id).and_then(|s| s.ts));
+            let started = or_time(
+                ack.and_then(|a| a.ts).map(Ts::secs),
+                self.spawn_of(id).and_then(|s| s.ts).map(Ts::secs),
+            );
             if started.is_some_and(|s| now - s <= ASYNC_QUIET) {
                 return StatusOf::new(Status::Run, None, true);
             }
@@ -1294,7 +1320,7 @@ impl Session {
                 .wf_launches
                 .values()
                 .filter(|w| w.run_id == run)
-                .filter_map(|w| w.ts)
+                .filter_map(|w| w.ts.map(Ts::secs))
                 .reduce(f64::max);
             let first = f.and_then(|f| f.info.first_ts).map(Ts::secs);
             if let (Some(launch), Some(first)) = (newest_launch, first)
@@ -1312,7 +1338,7 @@ impl Session {
         if let Some(sp) = self.spawn_of(id)
             && !sp.background
             && !self.spawn_results.contains(&sp.call)
-            && now - sp.ts.map_or(last, |t| t.max(last)) <= PENDING_CAP
+            && now - sp.ts.map_or(last, |t| t.0.max(last)) <= PENDING_CAP
         {
             // foreground: the parent still waits on the spawning call; that is ground truth
             return StatusOf::new(Status::Run, None, false);
@@ -1327,7 +1353,7 @@ impl Session {
             return StatusOf::new(Status::Run, None, false);
         }
         if !self
-            .waiting_bg(&Owner::Agent(id.to_string()), now, live)
+            .waiting_bg_at(&Owner::Agent(id.to_string()), now, live)
             .is_empty()
         {
             return StatusOf::new(Status::Bg, None, false); // its turn ended, its background work runs

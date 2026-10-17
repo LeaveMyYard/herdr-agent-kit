@@ -2,7 +2,7 @@
 
 What Python's `tomllib` (TOML 1.0) makes of each input, for `plugin_env::toml10` (the
 Rust plugins read `config.toml` as the Python plugins do while both run, plan §5.4).
-`tests/toml10_goldens.rs` checks every case. Captured 2026-10-17 with CPython 3.13.0;
+`src/plugin_env/toml10_goldens.rs` (a unit test) checks every case. Captured 2026-10-17 with CPython 3.13.0;
 nothing in `cases.json` was edited by hand.
 
 ## How they were captured

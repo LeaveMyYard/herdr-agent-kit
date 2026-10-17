@@ -15,8 +15,8 @@ use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 
 use herdr_agent_kit::agent_procs::NoProcs;
-use herdr_agent_kit::agent_session::SessionId;
 use herdr_agent_kit::agent_session::claude::{Owner, Scanner};
+use herdr_agent_kit::agent_session::{SessionId, Ts};
 use serde_json::{Map, Value, json};
 
 fn answer(req: &Value) -> Result<Value, String> {
@@ -30,26 +30,27 @@ fn answer(req: &Value) -> Result<Value, String> {
         .map(PathBuf::from)
         .ok_or("root: missing")?;
     let hooks = req.get("hooks").and_then(Value::as_str).map(PathBuf::from);
-    let since = req.get("since").and_then(Value::as_f64);
+    let since = req.get("since").and_then(Value::as_f64).map(Ts);
     let now = req
         .get("now")
         .and_then(Value::as_f64)
+        .map(Ts)
         .ok_or("now: missing")?;
     let mut scanner = Scanner::new(id, root, None, hooks);
     scanner.update(since);
     let session = scanner.session();
     let mut agents = Map::new();
-    for agent in session.agents().keys() {
+    for (agent, _) in session.agents() {
         let st = session.status_of(agent, now, &NoProcs);
         let parent = session.parent_of(agent).map(|o| match o {
             Owner::Main => "main".to_string(),
             Owner::Agent(a) => a,
         });
         agents.insert(
-            agent.clone(),
+            agent.to_owned(),
             json!({
                 "status": st.status.code(),
-                "ended": st.ended,
+                "ended": st.ended.map(Ts::secs),
                 "inferred": st.inferred,
                 "parent": parent,
             }),

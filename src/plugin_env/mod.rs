@@ -13,13 +13,13 @@
 //! - [`vars`]: [`PluginEnv`], a snapshot of the environment taken once.
 //! - [`lock`]: `flock(2)` locks with the Python plugins' open modes and probes.
 //! - [`config`]: `config.toml` in the plugin config directory, re-read when it
-//!   changes, parsed as TOML 1.0 by [`toml10`] (what Python's `tomllib` reads).
+//!   changes, parsed as TOML 1.0 (what Python's `tomllib` reads).
 //! - [`private_dir`]: the private (0700) directory a Unix socket lives in.
 
 pub mod config;
 pub mod lock;
 pub mod private_dir;
-pub mod toml10;
+mod toml10;
 pub mod vars;
 
 pub use config::ConfigFile;
