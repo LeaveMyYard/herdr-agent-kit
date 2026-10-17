@@ -1,0 +1,643 @@
+{
+ "source": {
+  "herdr-inbox": "e2099399c309b5da0e3888b6ff9b20950cc3abfc",
+  "herdr-panorama": "92f6d4c4541d7397e76a115425db7c7ff4a7d744",
+  "node": "v24.12.0",
+  "captured": "2026-10-17"
+ },
+ "encode": [
+  {
+   "question": 7,
+   "version": "0.10.6",
+   "help": "usage: inbox open [--no-hold]",
+   "calls": [
+    {
+     "args": [
+      "open",
+      "--question",
+      "Q7",
+      "--no-hold"
+     ],
+     "argv": [
+      "open",
+      "--question",
+      "Q7",
+      "--no-hold"
+     ]
+    }
+   ]
+  },
+  {
+   "question": 7,
+   "version": "0.10.6",
+   "help": "usage: inbox open",
+   "calls": [
+    {
+     "args": [
+      "open",
+      "--question",
+      "Q7"
+     ],
+     "argv": [
+      "open",
+      "--question",
+      "Q7"
+     ]
+    }
+   ]
+  },
+  {
+   "question": 0,
+   "version": "0.10.6",
+   "help": "usage: inbox open [--no-hold]",
+   "calls": [
+    {
+     "args": [
+      "open",
+      "--question",
+      "Q0",
+      "--no-hold"
+     ],
+     "argv": [
+      "open",
+      "--question",
+      "Q0",
+      "--no-hold"
+     ]
+    }
+   ]
+  },
+  {
+   "pane": "w1:p2",
+   "version": "0.10.6",
+   "help": "usage: inbox open [--no-hold]",
+   "calls": [
+    {
+     "args": [
+      "open",
+      "--pane",
+      "w1:p2",
+      "--no-hold"
+     ],
+     "argv": [
+      "open",
+      "--pane",
+      "w1:p2",
+      "--no-hold"
+     ]
+    }
+   ]
+  },
+  {
+   "pane": "w1:p2",
+   "version": "0.10.6",
+   "help": null,
+   "calls": [
+    {
+     "args": [
+      "open",
+      "--pane",
+      "w1:p2"
+     ],
+     "argv": [
+      "open",
+      "--pane",
+      "w1:p2"
+     ]
+    }
+   ]
+  },
+  {
+   "pane": "w1:p2\nnext\u001b",
+   "version": "0.10.6",
+   "help": "--no-hold",
+   "calls": [
+    {
+     "args": [
+      "open",
+      "--pane",
+      "w1:p2\nnext\u001b",
+      "--no-hold"
+     ],
+     "argv": [
+      "open",
+      "--pane",
+      "w1:p2 next",
+      "--no-hold"
+     ]
+    }
+   ]
+  },
+  {
+   "question": 7,
+   "pane": "w1:p2",
+   "version": "0.10.6",
+   "help": "--no-hold",
+   "calls": [
+    {
+     "args": [
+      "open",
+      "--question",
+      "Q7",
+      "--no-hold"
+     ],
+     "argv": [
+      "open",
+      "--question",
+      "Q7",
+      "--no-hold"
+     ]
+    }
+   ]
+  },
+  {
+   "version": "0.10.6",
+   "help": "--no-hold",
+   "calls": [
+    {
+     "action": "leavemyyard.herdr-inbox.open"
+    }
+   ]
+  },
+  {
+   "pane": "",
+   "version": "0.10.6",
+   "help": "--no-hold",
+   "calls": [
+    {
+     "action": "leavemyyard.herdr-inbox.open"
+    }
+   ]
+  },
+  {
+   "question": 7,
+   "version": "0.6.0",
+   "help": null,
+   "calls": [
+    {
+     "args": [
+      "open",
+      "--question",
+      "Q7"
+     ],
+     "argv": [
+      "open",
+      "--question",
+      "Q7"
+     ]
+    }
+   ]
+  },
+  {
+   "question": 7,
+   "version": "0.6",
+   "help": null,
+   "calls": [
+    {
+     "args": [
+      "open",
+      "--question",
+      "Q7"
+     ],
+     "argv": [
+      "open",
+      "--question",
+      "Q7"
+     ]
+    }
+   ]
+  },
+  {
+   "question": 7,
+   "version": "0.5.9",
+   "help": "usage: inbox open [--pane PANE_ID]",
+   "calls": [
+    {
+     "args": [
+      "open",
+      "--question",
+      "Q7"
+     ],
+     "argv": [
+      "open",
+      "--question",
+      "Q7"
+     ]
+    }
+   ]
+  },
+  {
+   "question": 7,
+   "version": "0.5.9",
+   "help": "usage: inbox open",
+   "calls": [
+    {
+     "action": "leavemyyard.herdr-inbox.open"
+    }
+   ]
+  },
+  {
+   "question": 7,
+   "version": "0.5.9",
+   "help": null,
+   "calls": [
+    {
+     "action": "leavemyyard.herdr-inbox.open"
+    }
+   ]
+  },
+  {
+   "pane": "w1:p2",
+   "version": "1.0.0-rc1",
+   "help": null,
+   "calls": [
+    {
+     "args": [
+      "open",
+      "--pane",
+      "w1:p2"
+     ],
+     "argv": [
+      "open",
+      "--pane",
+      "w1:p2"
+     ]
+    }
+   ]
+  },
+  {
+   "pane": "w1:p2",
+   "version": "v1.0.0",
+   "help": null,
+   "calls": [
+    {
+     "action": "leavemyyard.herdr-inbox.open"
+    }
+   ]
+  },
+  {
+   "pane": "w1:p2",
+   "version": "",
+   "help": "--pane --no-hold",
+   "calls": [
+    {
+     "args": [
+      "open",
+      "--pane",
+      "w1:p2",
+      "--no-hold"
+     ],
+     "argv": [
+      "open",
+      "--pane",
+      "w1:p2",
+      "--no-hold"
+     ]
+    }
+   ]
+  },
+  {
+   "pane": "w1:p2",
+   "version": "10.0",
+   "help": null,
+   "calls": [
+    {
+     "args": [
+      "open",
+      "--pane",
+      "w1:p2"
+     ],
+     "argv": [
+      "open",
+      "--pane",
+      "w1:p2"
+     ]
+    }
+   ]
+  },
+  {
+   "pane": "w1:p2",
+   "version": "0.10",
+   "help": null,
+   "calls": [
+    {
+     "args": [
+      "open",
+      "--pane",
+      "w1:p2"
+     ],
+     "argv": [
+      "open",
+      "--pane",
+      "w1:p2"
+     ]
+    }
+   ]
+  }
+ ],
+ "parse": [
+  {
+   "argv": [],
+   "exit": 1
+  },
+  {
+   "argv": [
+    "--question",
+    "Q7"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "question",
+    "value": "7"
+   }
+  },
+  {
+   "argv": [
+    "--question",
+    "q7"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "question",
+    "value": "7"
+   }
+  },
+  {
+   "argv": [
+    "--question",
+    "7"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "question",
+    "value": "7"
+   }
+  },
+  {
+   "argv": [
+    "--question",
+    "Q007"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "question",
+    "value": "007"
+   }
+  },
+  {
+   "argv": [
+    "--question",
+    "laptop:Q12"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "question",
+    "value": "laptop:Q12"
+   }
+  },
+  {
+   "argv": [
+    "--question",
+    "my-box.local:12"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "question",
+    "value": "my-box.local:12"
+   }
+  },
+  {
+   "argv": [
+    "--question",
+    "Q"
+   ],
+   "exit": 2,
+   "error": "inbox: error: --question 'Q': expected Qn or n"
+  },
+  {
+   "argv": [
+    "--question",
+    "Q7x"
+   ],
+   "exit": 2,
+   "error": "inbox: error: --question 'Q7x': expected Qn or n"
+  },
+  {
+   "argv": [
+    "--question",
+    "QQ7"
+   ],
+   "exit": 2,
+   "error": "inbox: error: --question 'QQ7': expected Qn or n"
+  },
+  {
+   "argv": [
+    "--question",
+    " Q7"
+   ],
+   "exit": 2,
+   "error": "inbox: error: --question ' Q7': expected Qn or n"
+  },
+  {
+   "argv": [
+    "--question",
+    "-1"
+   ],
+   "exit": 2,
+   "error": "inbox: error: --question '-1': expected Qn or n"
+  },
+  {
+   "argv": [
+    "--question=Q8"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "question",
+    "value": "8"
+   }
+  },
+  {
+   "argv": [
+    "--group",
+    "3"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "group",
+    "value": "3"
+   }
+  },
+  {
+   "argv": [
+    "--group",
+    "G3"
+   ],
+   "exit": 2,
+   "error": "inbox: error: --group 'G3': expected a group number"
+  },
+  {
+   "argv": [
+    "--group",
+    "03"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "group",
+    "value": "03"
+   }
+  },
+  {
+   "argv": [
+    "--pane",
+    "w1:p2"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "pane",
+    "value": "w1:p2"
+   }
+  },
+  {
+   "argv": [
+    "--pane",
+    "has space"
+   ],
+   "exit": 2,
+   "error": "inbox: error: --pane 'has space': expected an id"
+  },
+  {
+   "argv": [
+    "--pane",
+    ""
+   ],
+   "exit": 1
+  },
+  {
+   "argv": [
+    "--pane",
+    "w1:p2",
+    "--no-hold"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "pane",
+    "value": "w1:p2",
+    "hold": false
+   }
+  },
+  {
+   "argv": [
+    "--session",
+    "5f0c2a8e-3b1d-4c6e-9a7f-1e2d3c4b5a69"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "session",
+    "value": "5f0c2a8e-3b1d-4c6e-9a7f-1e2d3c4b5a69"
+   }
+  },
+  {
+   "argv": [
+    "--session",
+    "5F0C2A8E-3B1D-4C6E-9A7F-1E2D3C4B5A69"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "session",
+    "value": "5F0C2A8E-3B1D-4C6E-9A7F-1E2D3C4B5A69"
+   }
+  },
+  {
+   "argv": [
+    "--session",
+    "not-a-uuid"
+   ],
+   "exit": 2,
+   "error": "inbox: error: --session 'not-a-uuid': expected an id"
+  },
+  {
+   "argv": [
+    "--session",
+    "5f0c2a8e-3b1d-4c6e-9a7f-1e2d3c4b5a69x"
+   ],
+   "exit": 2,
+   "error": "inbox: error: --session '5f0c2a8e-3b1d-4c6e-9a7f-1e2d3c4b5a69x': expected an id"
+  },
+  {
+   "argv": [
+    "--question",
+    "Q7",
+    "--pane",
+    "w1:p2"
+   ],
+   "exit": 2,
+   "error": "inbox open: error: argument --pane: not allowed with argument --question"
+  },
+  {
+   "argv": [
+    "--question",
+    "Q7",
+    "--no-hold"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "question",
+    "value": "7",
+    "hold": false
+   }
+  },
+  {
+   "argv": [
+    "--no-hold"
+   ],
+   "exit": 1
+  },
+  {
+   "argv": [
+    "--no-hold",
+    "--group",
+    "4"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "group",
+    "value": "4",
+    "hold": false
+   }
+  },
+  {
+   "argv": [
+    "--question"
+   ],
+   "exit": 2,
+   "error": "inbox open: error: argument --question: expected one argument"
+  },
+  {
+   "argv": [
+    "--bogus"
+   ],
+   "exit": 2,
+   "error": "inbox: error: unrecognized arguments: --bogus"
+  },
+  {
+   "argv": [
+    "extra"
+   ],
+   "exit": 2,
+   "error": "inbox: error: unrecognized arguments: extra"
+  },
+  {
+   "argv": [
+    "--question",
+    "Q7",
+    "--question",
+    "Q8"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "question",
+    "value": "8"
+   }
+  }
+ ]
+}
