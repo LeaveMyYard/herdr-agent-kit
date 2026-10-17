@@ -1,0 +1,356 @@
+{
+ "source": {
+  "herdr-inbox": "e2099399c309b5da0e3888b6ff9b20950cc3abfc",
+  "herdr-panorama": "92f6d4c4541d7397e76a115425db7c7ff4a7d744",
+  "node": "v24.12.0",
+  "captured": "2026-10-17"
+ },
+ "constants": {
+  "unavailable": {
+   "status": "unavailable",
+   "message": "The operator inbox only serves the top-level agent of a herdr pane, and this session is not one (not in herdr, or nested inside another agent). Ask in chat, or ask your caller, instead."
+  },
+  "not_migrated": {
+   "status": "unavailable",
+   "message": "The operator inbox is being upgraded (its delivery worker migrates the database); call this tool again in a few seconds, or ask in chat if it stays unavailable."
+  }
+ },
+ "calls": [
+  {
+   "name": "open",
+   "arguments": {
+    "question": "Which database should the service use?",
+    "options": [
+     "Postgres",
+     "SQLite"
+    ],
+    "asked_by": "capture"
+   },
+   "result": {
+    "content": [
+     {
+      "text": "{\n  \"id\": 1,\n  \"status\": \"open\",\n  \"message\": \"Recorded as Q1. The operator will answer asynchronously; the answer will arrive in this conversation as a message starting with `[inbox]` that names Q1. Continue with work that does not depend on it. Do not repeat the question in chat or call ask_operator for it again. If an answer seems overdue, call check_answers.\"\n}",
+      "type": "text"
+     }
+    ],
+    "isError": false,
+    "structuredContent": {
+     "id": 1,
+     "status": "open",
+     "message": "Recorded as Q1. The operator will answer asynchronously; the answer will arrive in this conversation as a message starting with `[inbox]` that names Q1. Continue with work that does not depend on it. Do not repeat the question in chat or call ask_operator for it again. If an answer seems overdue, call check_answers."
+    }
+   },
+   "text": "{\n  \"id\": 1,\n  \"status\": \"open\",\n  \"message\": \"Recorded as Q1. The operator will answer asynchronously; the answer will arrive in this conversation as a message starting with `[inbox]` that names Q1. Continue with work that does not depend on it. Do not repeat the question in chat or call ask_operator for it again. If an answer seems overdue, call check_answers.\"\n}",
+   "question_ids": [
+    1
+   ]
+  },
+  {
+   "name": "already-open",
+   "arguments": {
+    "question": "Which database should the service use?",
+    "options": [
+     "Postgres",
+     "SQLite"
+    ]
+   },
+   "result": {
+    "content": [
+     {
+      "text": "{\n  \"id\": 1,\n  \"status\": \"already_open\",\n  \"message\": \"Q1 is already with the operator. Do not ask again; keep working.\"\n}",
+      "type": "text"
+     }
+    ],
+    "isError": false,
+    "structuredContent": {
+     "id": 1,
+     "status": "already_open",
+     "message": "Q1 is already with the operator. Do not ask again; keep working."
+    }
+   },
+   "text": "{\n  \"id\": 1,\n  \"status\": \"already_open\",\n  \"message\": \"Q1 is already with the operator. Do not ask again; keep working.\"\n}",
+   "question_ids": [
+    1
+   ]
+  },
+  {
+   "name": "group-open",
+   "arguments": {
+    "title": "Release",
+    "questions": [
+     {
+      "question": "Ship today?"
+     },
+     {
+      "question": "Which region?",
+      "header": "Region",
+      "options": [
+       {
+        "label": "eu-west-1",
+        "description": "Ireland"
+       },
+       "us-east-1"
+      ]
+     }
+    ]
+   },
+   "result": {
+    "content": [
+     {
+      "text": "{\n  \"group\": 2,\n  \"questions\": [\n    {\n      \"id\": 2,\n      \"status\": \"open\",\n      \"message\": \"Recorded as Q2. The operator will answer asynchronously; the answer will arrive in this conversation as a message starting with `[inbox]` that names Q2. Continue with work that does not depend on it. Do not repeat the question in chat or call ask_operator for it again. If an answer seems overdue, call check_answers.\"\n    },\n    {\n      \"id\": 3,\n      \"status\": \"open\",\n      \"message\": \"Recorded as Q3. The operator will answer asynchronously; the answer will arrive in this conversation as a message starting with `[inbox]` that names Q3. Continue with work that does not depend on it. Do not repeat the question in chat or call ask_operator for it again. If an answer seems overdue, call check_answers.\"\n    }\n  ],\n  \"message\": \"Filed Q2 (open), Q3 (open). Answers arrive later as `[inbox]` messages naming the Q ids; keep working and do not ask these again. If an answer seems overdue, call check_answers.\"\n}",
+      "type": "text"
+     }
+    ],
+    "isError": false,
+    "structuredContent": {
+     "group": 2,
+     "questions": [
+      {
+       "id": 2,
+       "status": "open",
+       "message": "Recorded as Q2. The operator will answer asynchronously; the answer will arrive in this conversation as a message starting with `[inbox]` that names Q2. Continue with work that does not depend on it. Do not repeat the question in chat or call ask_operator for it again. If an answer seems overdue, call check_answers."
+      },
+      {
+       "id": 3,
+       "status": "open",
+       "message": "Recorded as Q3. The operator will answer asynchronously; the answer will arrive in this conversation as a message starting with `[inbox]` that names Q3. Continue with work that does not depend on it. Do not repeat the question in chat or call ask_operator for it again. If an answer seems overdue, call check_answers."
+      }
+     ],
+     "message": "Filed Q2 (open), Q3 (open). Answers arrive later as `[inbox]` messages naming the Q ids; keep working and do not ask these again. If an answer seems overdue, call check_answers."
+    }
+   },
+   "text": "{\n  \"group\": 2,\n  \"questions\": [\n    {\n      \"id\": 2,\n      \"status\": \"open\",\n      \"message\": \"Recorded as Q2. The operator will answer asynchronously; the answer will arrive in this conversation as a message starting with `[inbox]` that names Q2. Continue with work that does not depend on it. Do not repeat the question in chat or call ask_operator for it again. If an answer seems overdue, call check_answers.\"\n    },\n    {\n      \"id\": 3,\n      \"status\": \"open\",\n      \"message\": \"Recorded as Q3. The operator will answer asynchronously; the answer will arrive in this conversation as a message starting with `[inbox]` that names Q3. Continue with work that does not depend on it. Do not repeat the question in chat or call ask_operator for it again. If an answer seems overdue, call check_answers.\"\n    }\n  ],\n  \"message\": \"Filed Q2 (open), Q3 (open). Answers arrive later as `[inbox]` messages naming the Q ids; keep working and do not ask these again. If an answer seems overdue, call check_answers.\"\n}",
+   "question_ids": [
+    2,
+    3
+   ]
+  },
+  {
+   "name": "group-mixed",
+   "arguments": {
+    "questions": [
+     {
+      "question": "Which database should the service use?"
+     },
+     {
+      "question": "Run the migration now?"
+     }
+    ]
+   },
+   "result": {
+    "content": [
+     {
+      "text": "{\n  \"group\": 4,\n  \"questions\": [\n    {\n      \"id\": 1,\n      \"status\": \"already_open\",\n      \"message\": \"Q1 is already with the operator. Do not ask again; keep working.\"\n    },\n    {\n      \"id\": 4,\n      \"status\": \"open\",\n      \"message\": \"Recorded as Q4. The operator will answer asynchronously; the answer will arrive in this conversation as a message starting with `[inbox]` that names Q4. Continue with work that does not depend on it. Do not repeat the question in chat or call ask_operator for it again. If an answer seems overdue, call check_answers.\"\n    }\n  ],\n  \"message\": \"Filed Q1 (already_open), Q4 (open). Answers arrive later as `[inbox]` messages naming the Q ids; keep working and do not ask these again. If an answer seems overdue, call check_answers.\"\n}",
+      "type": "text"
+     }
+    ],
+    "isError": false,
+    "structuredContent": {
+     "group": 4,
+     "questions": [
+      {
+       "id": 1,
+       "status": "already_open",
+       "message": "Q1 is already with the operator. Do not ask again; keep working."
+      },
+      {
+       "id": 4,
+       "status": "open",
+       "message": "Recorded as Q4. The operator will answer asynchronously; the answer will arrive in this conversation as a message starting with `[inbox]` that names Q4. Continue with work that does not depend on it. Do not repeat the question in chat or call ask_operator for it again. If an answer seems overdue, call check_answers."
+      }
+     ],
+     "message": "Filed Q1 (already_open), Q4 (open). Answers arrive later as `[inbox]` messages naming the Q ids; keep working and do not ask these again. If an answer seems overdue, call check_answers."
+    }
+   },
+   "text": "{\n  \"group\": 4,\n  \"questions\": [\n    {\n      \"id\": 1,\n      \"status\": \"already_open\",\n      \"message\": \"Q1 is already with the operator. Do not ask again; keep working.\"\n    },\n    {\n      \"id\": 4,\n      \"status\": \"open\",\n      \"message\": \"Recorded as Q4. The operator will answer asynchronously; the answer will arrive in this conversation as a message starting with `[inbox]` that names Q4. Continue with work that does not depend on it. Do not repeat the question in chat or call ask_operator for it again. If an answer seems overdue, call check_answers.\"\n    }\n  ],\n  \"message\": \"Filed Q1 (already_open), Q4 (open). Answers arrive later as `[inbox]` messages naming the Q ids; keep working and do not ask these again. If an answer seems overdue, call check_answers.\"\n}",
+   "question_ids": [
+    1,
+    4
+   ]
+  },
+  {
+   "name": "answered",
+   "arguments": {
+    "question": "Which database should the service use?"
+   },
+   "result": {
+    "content": [
+     {
+      "text": "{\n  \"id\": 1,\n  \"status\": \"answered\",\n  \"answer\": \"Postgres\",\n  \"message\": \"Q1 was already answered by the operator: Postgres\"\n}",
+      "type": "text"
+     }
+    ],
+    "isError": false,
+    "structuredContent": {
+     "id": 1,
+     "status": "answered",
+     "answer": "Postgres",
+     "message": "Q1 was already answered by the operator: Postgres"
+    }
+   },
+   "text": "{\n  \"id\": 1,\n  \"status\": \"answered\",\n  \"answer\": \"Postgres\",\n  \"message\": \"Q1 was already answered by the operator: Postgres\"\n}",
+   "question_ids": [
+    1
+   ]
+  },
+  {
+   "name": "error-both",
+   "arguments": {
+    "question": "x?",
+    "questions": [
+     {
+      "question": "y?"
+     }
+    ]
+   },
+   "result": {
+    "content": [
+     {
+      "text": "{\n  \"status\": \"error\",\n  \"message\": \"Pass either `question` or `questions` (not both).\"\n}",
+      "type": "text"
+     }
+    ],
+    "isError": false,
+    "structuredContent": {
+     "status": "error",
+     "message": "Pass either `question` or `questions` (not both)."
+    }
+   },
+   "text": "{\n  \"status\": \"error\",\n  \"message\": \"Pass either `question` or `questions` (not both).\"\n}",
+   "question_ids": []
+  },
+  {
+   "name": "error-neither",
+   "arguments": {},
+   "result": {
+    "content": [
+     {
+      "text": "{\n  \"status\": \"error\",\n  \"message\": \"Pass either `question` or `questions` (not both).\"\n}",
+      "type": "text"
+     }
+    ],
+    "isError": false,
+    "structuredContent": {
+     "status": "error",
+     "message": "Pass either `question` or `questions` (not both)."
+    }
+   },
+   "text": "{\n  \"status\": \"error\",\n  \"message\": \"Pass either `question` or `questions` (not both).\"\n}",
+   "question_ids": []
+  },
+  {
+   "name": "error-options",
+   "arguments": {
+    "question": "Too many?",
+    "options": [
+     "0",
+     "1",
+     "2",
+     "3",
+     "4",
+     "5",
+     "6",
+     "7",
+     "8",
+     "9",
+     "10",
+     "11",
+     "12",
+     "13",
+     "14",
+     "15",
+     "16",
+     "17",
+     "18",
+     "19",
+     "20",
+     "21",
+     "22",
+     "23",
+     "24",
+     "25",
+     "26",
+     "27",
+     "28",
+     "29"
+    ]
+   },
+   "result": {
+    "content": [
+     {
+      "text": "{\n  \"status\": \"error\",\n  \"message\": \"At most 9 options; ask fewer or split the question.\"\n}",
+      "type": "text"
+     }
+    ],
+    "isError": false,
+    "structuredContent": {
+     "status": "error",
+     "message": "At most 9 options; ask fewer or split the question."
+    }
+   },
+   "text": "{\n  \"status\": \"error\",\n  \"message\": \"At most 9 options; ask fewer or split the question.\"\n}",
+   "question_ids": []
+  },
+  {
+   "name": "unavailable",
+   "arguments": {
+    "question": "Anyone there?"
+   },
+   "result": {
+    "content": [
+     {
+      "text": "{\n  \"status\": \"unavailable\",\n  \"message\": \"The operator inbox only serves the top-level agent of a herdr pane, and this session is not one (not in herdr, or nested inside another agent). Ask in chat, or ask your caller, instead.\"\n}",
+      "type": "text"
+     }
+    ],
+    "isError": false,
+    "structuredContent": {
+     "status": "unavailable",
+     "message": "The operator inbox only serves the top-level agent of a herdr pane, and this session is not one (not in herdr, or nested inside another agent). Ask in chat, or ask your caller, instead."
+    }
+   },
+   "text": "{\n  \"status\": \"unavailable\",\n  \"message\": \"The operator inbox only serves the top-level agent of a herdr pane, and this session is not one (not in herdr, or nested inside another agent). Ask in chat, or ask your caller, instead.\"\n}",
+   "question_ids": []
+  }
+ ],
+ "question_ids_extra": [
+  {
+   "text": "{\"id\": 6, \"status\": \"opened\"}",
+   "ids": []
+  },
+  {
+   "text": "{\"id\": 7, \"status\": \"answered\"}",
+   "ids": []
+  },
+  {
+   "text": "\"id\" : 8 ,\n \"status\":\"already_open\"",
+   "ids": [
+    8
+   ]
+  },
+  {
+   "text": "\"id\": 9, \"status\": \"open",
+   "ids": []
+  },
+  {
+   "text": "xQ5 Q5x _Q5 Q (Q7) Q8,Q9 Q10_ Q11é éQ12",
+   "ids": [
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "text": "Recorded as Q13x and Recorded as Q14.",
+   "ids": [
+    14
+   ]
+  },
+  {
+   "text": "Q99999999999999999999999 is too big",
+   "ids": [
+    99999999999999999999999
+   ]
+  }
+ ]
+}
