@@ -1,4 +1,6 @@
 use super::*;
+use crate::agent_session::SessionId;
+use crate::agent_session::claude::wire::Content;
 
 #[test]
 fn bad_and_odd_lines_never_parse() {

@@ -50,4 +50,5 @@ pub use record::{Attachment, BOOKKEEPING, Block, Content, Record, TitleKind, tex
 pub use tail::{TailInfo, ToolCall};
 pub use timestamp::ts;
 pub use tool_summary::{SUMMARY_MAX, short_path, summarize_tool, truncate_summary};
+pub(crate) use tools::{BASH, MONITOR};
 pub use tools::{BG_STOP_TOOLS, SPAWN_TOOLS};

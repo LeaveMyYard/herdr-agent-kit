@@ -2,9 +2,13 @@
 
 use serde_json::{Map, Value};
 
+use super::tools::SUBAGENT_HANDBACK;
 use super::{Block, Line, summarize_tool};
 use crate::agent_session::Ts;
 use crate::pytext::{blank, py_strip};
+
+mod calls;
+use calls::Calls;
 
 /// One tool call still waiting for its result (or the last call made).
 #[derive(Clone, Debug, PartialEq)]
@@ -53,81 +57,69 @@ impl TailInfo {
             first_ts: head.and_then(Line::parse).and_then(|l| l.ts()),
             ..TailInfo::default()
         };
-        // first-insertion order, as a Python dict keeps it when a key is set again
-        let mut order: Vec<String> = Vec::new();
-        let mut uses: std::collections::HashMap<String, ToolCall> =
-            std::collections::HashMap::new();
-        let mut done: std::collections::HashSet<String> = std::collections::HashSet::new();
-        let mut last_use: Option<String> = None;
+        let mut calls = Calls::default();
         for raw in lines {
             let raw = raw.as_ref();
             if blank(raw) {
                 continue;
             }
-            let Some(rec) = Line::parse(raw) else {
-                continue;
-            };
-            let when = rec.ts();
-            let kind = rec.kind();
-            if when.is_some() && matches!(kind, Some("user" | "assistant" | "system")) {
-                info.last_ts = when;
-            }
-            let assistant = kind == Some("assistant");
-            if assistant
-                && let Some(model) = rec
-                    .message()
-                    .and_then(|m| m.get("model"))
-                    .and_then(Value::as_str)
-                && !model.starts_with('<')
-            {
-                info.model = Some(model.to_string());
-            }
-            for b in rec.blocks() {
-                match b {
-                    Block::ToolUse {
-                        id: Some(id),
-                        name,
-                        input,
-                    } if assistant => {
-                        let call = ToolCall {
-                            name: name.unwrap_or("?").to_string(),
-                            input: input.cloned().unwrap_or_default(),
-                            ts: when,
-                        };
-                        if uses.insert(id.to_string(), call).is_none() {
-                            order.push(id.to_string());
-                        }
-                        last_use = Some(id.to_string());
-                        if name == Some("SubagentHandback") {
-                            info.handback = true;
-                        }
-                    }
-                    Block::Text(Some(text)) if assistant && !py_strip(text).is_empty() => {
-                        info.last_text = py_strip(text).to_string();
-                    }
-                    Block::ToolResult {
-                        tool_use_id: Some(id),
-                        ..
-                    } => {
-                        done.insert(id.to_string());
-                    }
-                    _ => {}
-                }
+            if let Some(rec) = Line::parse(raw) {
+                info.fold(&rec, &mut calls);
             }
         }
-        info.pending = order
-            .iter()
-            .filter(|id| !done.contains(*id))
-            .filter_map(|id| uses.get(id).cloned())
-            .collect();
-        let current = info
-            .pending
-            .last()
-            .cloned()
-            .or_else(|| last_use.and_then(|id| uses.remove(&id)));
+        let (pending, current) = calls.finish();
+        info.pending = pending;
         if let Some(call) = current {
             info.activity = summarize_tool(&call.name, Some(&call.input), cwd);
         }
         info
+    }
+
+    /// Folds one record: its time, model, text and tool blocks.
+    fn fold(&mut self, rec: &Line, calls: &mut Calls) {
+        let when = rec.ts();
+        let kind = rec.kind();
+        if when.is_some() && matches!(kind, Some("user" | "assistant" | "system")) {
+            self.last_ts = when;
+        }
+        let assistant = kind == Some("assistant");
+        if assistant
+            && let Some(model) = rec
+                .message()
+                .and_then(|m| m.get("model"))
+                .and_then(Value::as_str)
+            && !model.starts_with('<')
+        {
+            self.model = Some(model.to_string());
+        }
+        for b in rec.blocks() {
+            match b {
+                Block::ToolUse {
+                    id: Some(id),
+                    name,
+                    input,
+                } if assistant => {
+                    calls.made(
+                        id,
+                        ToolCall {
+                            name: name.unwrap_or("?").to_string(),
+                            input: input.cloned().unwrap_or_default(),
+                            ts: when,
+                        },
+                    );
+                    if name == Some(SUBAGENT_HANDBACK) {
+                        self.handback = true;
+                    }
+                }
+                Block::Text(Some(text)) if assistant && !py_strip(text).is_empty() => {
+                    self.last_text = py_strip(text).to_string();
+                }
+                Block::ToolResult {
+                    tool_use_id: Some(id),
+                    ..
+                } => calls.answered(id),
+                _ => {}
+            }
+        }
     }
 }

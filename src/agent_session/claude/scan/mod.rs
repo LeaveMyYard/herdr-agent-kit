@@ -20,9 +20,13 @@ use crate::agent_session::tail::Tailer;
 // The scanner itself: construction and accessors.
 mod lifecycle;
 
-// Reading: one pass, and one reader per file kind.
+// Reading: one pass in phases (discover, read with the done window,
+// rebuild after a rewrite), and one reader per file kind.
+mod discover;
 mod readers;
+mod rebuild;
 mod update;
+mod window;
 
 // Supports: modification times and JSON object files.
 mod disk;
