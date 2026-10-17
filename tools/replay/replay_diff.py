@@ -13,8 +13,8 @@ read the same copy with ``now = T`` and ``since = T - 3600 - 600``:
 Panorama's hook records of the session are included, cut at T, for both sides.
 
 Only counts and disagreements are printed: session and agent ids, field names, status codes,
-parents and times. Never transcript content, prompts or paths. Exit status 1 when any status
-or parent disagrees (the exit criterion), else 0.
+parents and times. Never transcript content, prompts or paths. Exit status 1 when any field
+disagrees (present, status, parent, inferred, ended), else 0.
 
     <panorama>/.venv/bin/python tools/replay/replay_diff.py --panorama <panorama checkout> \\
         --rust <target>/release/examples/replay_scan --scratch <dir> [--instants 24] \\
@@ -34,7 +34,6 @@ import sys
 
 WINDOW = 3600.0
 FIELDS = ("present", "status", "parent", "inferred", "ended")
-GATING = {"present", "status", "parent"}
 
 
 def parse_args(argv):
@@ -45,6 +44,12 @@ def parse_args(argv):
     ap.add_argument("--projects", default=os.path.join(os.path.expanduser("~"), ".claude", "projects"))
     ap.add_argument("--hooks-dir", default=None, help="panorama's hook records (default: its own default)")
     ap.add_argument("--instants", type=int, default=24, help="K spread instants plus K gap instants per session")
+    ap.add_argument(
+        "--boundary-agents",
+        type=int,
+        default=4,
+        help="agents per session given instants at the timing boundaries (0: none)",
+    )
     ap.add_argument("--newest", type=int, default=0, help="only the N newest sessions with subagents (0: all)")
     ap.add_argument("prefixes", nargs="*", help="session id prefixes to add")
     return ap.parse_args(argv)
@@ -89,6 +94,29 @@ def set_mtimes(truth, dest, T):
             os.utime(p, (m, m))
 
 
+def boundary_instants(truth, rng, n, limits):
+    """Instants 1 s either side of each timing limit (ACTIVE, ASYNC_QUIET, PENDING_CAP) after
+    a write, for up to ``n`` agents (seeded). A rule whose limit moves flips the status at these
+    instants. Half the agents have a *silent* write: no write, notice or other terminal evidence
+    of theirs follows it within the largest limit but one (``ASYNC_QUIET``), so the silence
+    rules decide there; their base is such a write. For the rest, the base is the last write and
+    one random write."""
+    quiet = sorted(limits)[-2]
+
+    def silent(a):
+        w = truth.writes[a]
+        after = sorted(w + truth.terminal.get(a, []) + truth.notices.get(a, []))
+        return [x for x in w if not any(x < y <= x + quiet + 1 for y in after)]
+
+    agents = sorted(a for a, w in truth.writes.items() if w)
+    with_silent = [a for a in agents if silent(a)]
+    picked = [(a, rng.choice(silent(a))) for a in rng.sample(with_silent, min(n // 2, len(with_silent)))]
+    rest = [a for a in agents if a not in {p for p, _ in picked}]
+    for a in rng.sample(rest, min(n - len(picked), len(rest))):
+        picked += [(a, truth.writes[a][-1]), (a, rng.choice(truth.writes[a]))]
+    return [base + lim + d for _, base in picked for lim in limits for d in (-1.0, 1.0)]
+
+
 def python_side(session_mod, sid, root, hooks, since, now):
     s = session_mod.Session(sid, root)
     s.hook_file = session_mod.FileState(hooks, "hooks")
@@ -130,18 +158,29 @@ def main(argv=None) -> int:
     # a past instant's processes cannot be checked: unknown on both sides (Rust: NoProcs)
     hookmod.process_alive = lambda *a, **k: None
 
-    with_subs = [r for r in glob.glob(os.path.join(args.projects, "*", "*.jsonl"))
-                 if os.path.isdir(r[:-6] + "/subagents")]
+    with_subs = [
+        r for r in glob.glob(os.path.join(args.projects, "*", "*.jsonl")) if os.path.isdir(r[:-6] + "/subagents")
+    ]
     roots = sorted(with_subs, key=os.path.getmtime, reverse=True)
     if args.newest:
-        roots = roots[:args.newest]
+        roots = roots[: args.newest]
     for p in args.prefixes:
         roots += [r for r in glob.glob(os.path.join(args.projects, "*", f"{p}*.jsonl")) if r not in roots]
 
     scratch = os.path.abspath(args.scratch)
     dest = os.path.join(scratch, "copy")
     proc = subprocess.Popen([args.rust], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
-    total = {"sessions": 0, "instants": 0, "agent_instants": 0, **{f"diff_{f}": 0 for f in FIELDS}, "statuses": {}}
+    limits = (session_mod.ACTIVE, session_mod.ASYNC_QUIET, session_mod.PENDING_CAP)
+    total = {
+        "sessions": 0,
+        "instants": 0,
+        "boundary_instants": 0,
+        "hook_instants": 0,
+        "agent_instants": 0,
+        "not_done": 0,
+        **{f"diff_{f}": 0 for f in FIELDS},
+        "statuses": {},
+    }
     try:
         for root in roots:
             truth = replay_oracle.Truth(root)
@@ -152,11 +191,14 @@ def main(argv=None) -> int:
             c = dict.fromkeys(total, 0)
             c["statuses"] = {}
             c["sessions"] = 1
-            rng = random.Random(root)  # seeded: the same instants every run
+            rng = random.Random(root)  # seeded: the same instants every run (of an ended session)
             k = args.instants
             writes = [x for w in truth.writes.values() for x in w]
             gaps = [rng.choice(writes) + rng.uniform(130, 1800) for _ in range(k)] if writes else []
             instants = [lo + (hi - lo) * i / (k + 1) for i in range(1, k + 1)] + sorted(gaps) + [hi, hi + WINDOW]
+            boundary = boundary_instants(truth, rng, args.boundary_agents, limits)
+            c["boundary_instants"] = len(boundary)
+            instants += boundary
             hooks_src = str(hookmod.hooks_path(sid))
             for T in instants:
                 truth.truncate(T, dest)
@@ -166,6 +208,7 @@ def main(argv=None) -> int:
                     os.remove(hooks)
                 kept = hook_lines(hooks_src, T)
                 if kept:
+                    c["hook_instants"] += 1
                     with open(hooks, "wb") as fh:
                         fh.write(b"".join(kept))
                 copy_root = os.path.join(dest, os.path.basename(root))
@@ -181,11 +224,14 @@ def main(argv=None) -> int:
                         print(f"  {sid[:8]} T+{T - lo:.0f}s agent={a} present py={p is not None} rs={r is not None}")
                         continue
                     c["statuses"][p["status"]] = c["statuses"].get(p["status"], 0) + 1
+                    c["not_done"] += p["status"] != "done"
                     for f in FIELDS[1:]:
                         if not same(f, p[f], r[f]):
                             c[f"diff_{f}"] += 1
-                            print(f"  {sid[:8]} T+{T - lo:.0f}s agent={a} {f} py={p[f]} rs={r[f]}"
-                                  + (f" (status py={p['status']} rs={r['status']})" if f != "status" else ""))
+                            print(
+                                f"  {sid[:8]} T+{T - lo:.0f}s agent={a} {f} py={p[f]} rs={r[f]}"
+                                + (f" (status py={p['status']} rs={r['status']})" if f != "status" else "")
+                            )
             shutil.rmtree(dest, ignore_errors=True)
             print(sid, json.dumps(c))
             for key, n in c.items():
@@ -203,7 +249,13 @@ def main(argv=None) -> int:
         except OSError:
             pass
     print("TOTAL", json.dumps(total))
-    return 1 if any(total[f"diff_{f}"] for f in GATING) else 0
+    if total["hook_instants"] == 0:
+        print(
+            "LIMITS no hook records at any instant: the hook rules (stop, start reopen, resumed_after, lost) "
+            "were not compared; they are covered by the kit's unit tests (tests/claude_session_fold.rs)"
+        )
+    print("LIMITS process liveness unknown on both sides: 'lost' and live-task 'bg' are not compared")
+    return 1 if any(total[f"diff_{f}"] for f in FIELDS) else 0
 
 
 if __name__ == "__main__":

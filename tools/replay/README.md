@@ -20,8 +20,20 @@ cut at instant `T`. For each session with subagents (default: all of them;
 
 1. The instants are the oracle's: K spread over the session and K inside
    activity gaps (a random agent write plus 2 to 30 minutes), seeded by the
-   session path, so every run uses the same ones. Two more instants are added:
-   the session's last record, and one hour after it.
+   session path. Two more instants are added: the session's last record, and
+   one hour after it. Then come the **boundary instants**, for up to `--boundary-agents` agents
+   per session (default 6, seeded). After each base write chosen below, add
+   1 s before and 1 s after each timing limit of the status rules (`ACTIVE`,
+   `ASYNC_QUIET`, `PENDING_CAP`, read from panorama's `scan.session`).
+   Those are the instants where a moved limit flips a status. The base writes:
+   - Half the agents are ones with a *silent* write: within `ASYNC_QUIET`
+     after it, no write, notice or other terminal evidence of that agent
+     follows. The silence rules decide there, so one such write is the base.
+   - For the other half, the bases are the agent's last write and one random
+     write of it.
+   An ended session gets the same instants on every run. A session still being
+   written does not: its last record moves, and with it the spread instants and
+   the instants of its last writes. Its counts then vary a little between runs.
 2. At each instant the files are copied, cut at `T`, into `--scratch`. Each
    copy's mtime is set to what it was at `T` (a transcript's last kept record
    time, any other file's own mtime capped at `T`), because both scanners read
@@ -44,8 +56,26 @@ Counts only, plus one line per disagreement with the session id prefix, the
 instant (seconds after the session's first record), the agent id, the field
 and the two values. Never content, prompts or paths. One summary line per
 session and a `TOTAL` line, which includes how many agent-instants had each
-Python status. Exit status 1 when any `present`, `status` or `parent`
-disagreement remains, else 0.
+Python status. Exit status 1 when any field disagrees
+(`present`, `status`, `parent`, `inferred`, `ended`), else 0. The plan's
+exit criterion asks only for status and parent. The other three fields gate
+too, because the UI shows them.
+
+The `TOTAL` line also counts:
+
+- `boundary_instants`;
+- `hook_instants`, the instants with at least one hook record;
+- `not_done`, the agent-instants whose Python status is not `done`. Most
+  agent-instants are `done`, so this count is the meaningful denominator.
+
+`LIMITS` lines then name the rules the run did not compare:
+
+- Process liveness is unknown on both sides, so `lost`, and `bg` from a live
+  task, never come up.
+- With `hook_instants` 0, the hook rules were not compared at all: stop
+  evidence, start reopen, `resumed_after` and `lost`. Those rules are covered
+  only by the kit's unit tests: the hook cases in `tests/claude_session_fold.rs`
+  (from #13).
 
 ## Running it
 
