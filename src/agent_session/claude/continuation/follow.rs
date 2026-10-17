@@ -9,7 +9,14 @@ pub const MAX_HOPS: usize = 8;
 
 /// What a session's transcript says about where its conversation went: one
 /// answer of [`TranscriptFiles::lookup`].
+///
+/// `#[non_exhaustive]`: another harness may need an answer these three do not
+/// cover, so a later minor version may add one. A match outside this crate
+/// needs a `_` arm; an implementor builds the variants as usual. [`chain`]
+/// treats any answer other than [`Lookup::NotFound`] as a found transcript
+/// and follows only [`Lookup::ContinuedIn`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Lookup {
     /// No transcript of the session is found (not written yet, or on another
     /// machine).
