@@ -36,7 +36,7 @@ The kit's tests use a fake herdr and fixtures. As a habit, unset every `HERDR_*`
 shell you test from, so nothing can reach a live herdr session:
 
 ```sh
-unset $(env | sed -n 's/^\(HERDR_[A-Za-z0-9_]*\)=.*/\1/p')
+unset $(env | sed -n 's/^\(HERDR_[A-Za-z0-9_]*\)=.*/\1/p') 2>/dev/null || true
 ```
 
 ## Pull requests

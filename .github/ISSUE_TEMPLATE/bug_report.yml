@@ -20,7 +20,7 @@ body:
     id: kit
     attributes:
       label: herdr-agent-kit version
-      description: The tag you depend on, for example v0.1.0
+      description: The commit or tag you depend on
     validations:
       required: true
   - type: input
