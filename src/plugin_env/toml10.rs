@@ -21,9 +21,11 @@
 //! The goldens in `fixtures/toml10/cases.json` were captured from `tomllib`
 //! (`fixtures/toml10/capture/capture_tomllib.py`) and pin that every input
 //! `tomllib` rejects is rejected here, and that what it accepts parses to the
-//! same values. Two inputs still differ, the other way round: integers outside
-//! the 64-bit range (`tomllib` keeps them as Python integers, the `toml` crate
-//! refuses them) and a file that is not UTF-8 (`tomllib` raises
+//! same values. Some inputs still differ, all the other way round (Rust
+//! ignores the file, Python applies it or raises): integers outside the
+//! 64-bit range (Python integers in `tomllib`), a float literal beyond `f64`
+//! (`1e400`, infinite in `tomllib`), nesting deeper than the `toml` crate's
+//! recursion limit, and a file that is not UTF-8 (`tomllib` raises
 //! `UnicodeDecodeError`, which the plugins do not catch).
 
 use toml::Table;
@@ -56,6 +58,11 @@ pub fn parse(text: &str) -> Result<Table, String> {
 fn first_refused(text: &str) -> Option<(&'static str, usize)> {
     if text.starts_with('\u{feff}') {
         return Some(("a byte-order mark", 0));
+    }
+    // tomllib replaces CRLF once; a CR left over (`\r\r\n`, a lone `\r`) is
+    // illegal everywhere in its grammar, while the crate reads `\r\n` again.
+    if let Some(at) = text.find('\r') {
+        return Some(("a carriage return not followed by a newline", at));
     }
     let tokens = Source::new(text).lex().into_vec();
     let mut finder = Finder {
@@ -282,6 +289,11 @@ mod tests {
             ("x = 23:59:60\n", "second 60", "1, column 5"),
             ("x = 0000-01-01\n", "year 0", "1, column 5"),
             ("\u{feff}x = 1\n", "a byte-order mark", "1, column 1"),
+            (
+                "x = 1\r\r\ny = 2\n",
+                "a carriage return not followed by a newline",
+                "1, column 6",
+            ),
         ] {
             assert_eq!(refused(text), format!("{what}{tail} (at line {at})"));
         }

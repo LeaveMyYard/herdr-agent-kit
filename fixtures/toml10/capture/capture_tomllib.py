@@ -130,6 +130,13 @@ CASES: list[tuple[str, bytes]] = [
     ("crlf-line-ending-backslash", b'x = """a \\\r\n  b"""\n'),
     ("cr-in-multiline", b'x = """a\rb"""\n'),
     ("crlf-position", b'a = 1\r\nb = { c = 1, }\r\n'),
+    ("cr-cr-lf", b'x = 1\r\r\ny = 2\n'),
+    ("cr-cr-lf-end", b'x = 1\r\r\n'),
+    ("cr-cr-lf-comment", b'x = 1 # c\r\r\n'),
+    ("cr-cr-lf-multiline", b'x = """a\r\r\nb"""\n'),
+    ("cr-cr-lf-multiline-literal", b"x = '''a\r\r\nb'''\n"),
+    ("cr-cr-lf-after-inline", b'x = { a = 1 }\r\r\n'),
+    ("cr-lf-cr-lf", b'x = 1\r\n\r\ny = 2\r\n'),
     ("unicode-bare-key", 'é = 1\n'.encode()),
     ("deep-array", b'x = ' + b'[' * 100 + b']' * 100 + b'\n'),
     ("deep-inline", b'x = ' + b'{ a = ' * 100 + b'1' + b' }' * 100 + b'\n'),
@@ -139,7 +146,7 @@ CASES: list[tuple[str, bytes]] = [
         b'done_window = "1h"\nstale_after = "12h"\ntint = 0.15\nhome_tab = false\n'
         b'tab_prefix = "\xe2\x9d\x93"\n[colors]\nidle = "#888888"\n',
     ),
-    ("inbox-config", b'tab_prefix = "\xe2\x9d\x93 "\nprefix_unnamed = true\n'),
+    ("inbox-config", b'tab_prefix = "\xe2\x9d\x93 "\nprefix_unnamed_tabs = true\n'),
 ]
 
 
