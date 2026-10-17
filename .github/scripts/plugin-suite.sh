@@ -12,12 +12,18 @@ if [ ! -f Cargo.toml ]; then
   echo "::notice::$plugin has no Cargo workspace yet; skipped"
   exit 0
 fi
-if ! grep -rqs --include=Cargo.toml 'herdr-agent-kit' .; then
+# The plugin's own pinned toolchain (rust-toolchain.toml), before any cargo call.
+rustup toolchain install
+
+# Ask cargo, not grep: a comment that mentions the kit is not a dependency.
+# `--no-deps` lists the workspace members with their declared dependencies
+# (normal, dev and build) without resolving or fetching anything.
+deps=$(cargo metadata --no-deps --format-version 1 \
+  | jq '[.packages[].dependencies[] | select(.name == "herdr-agent-kit")] | length')
+if [ "$deps" -eq 0 ]; then
   echo "::notice::$plugin does not depend on herdr-agent-kit yet; skipped"
   exit 0
 fi
-
-rustup toolchain install
 
 # Move the lock to the patched kit. Without this, a patched kit whose version
 # no longer fits the plugin's Cargo.lock (any kit version bump) is ignored with
