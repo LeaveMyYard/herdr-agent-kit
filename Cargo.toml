@@ -23,8 +23,10 @@ remote = []
 sqlite = ["dep:rusqlite"]
 
 [dependencies]
+indexmap = "2"
 libc = "0.2.191"
 memchr = "2"
+regex = "1"
 # herdr's socket protocol is newline-delimited JSON (`herdr_api`).
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }

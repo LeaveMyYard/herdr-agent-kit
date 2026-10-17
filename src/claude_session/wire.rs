@@ -33,9 +33,11 @@
 //! - Text fields that are not strings (a numeric `text`, `name` or `id`) are
 //!   treated as absent; Python would use their `str()`.
 
+use std::collections::BTreeSet;
 use std::sync::OnceLock;
 
 use memchr::memmem::Finder;
+use regex::Regex;
 use serde_json::{Map, Value};
 
 use super::SessionId;
@@ -377,7 +379,7 @@ pub(crate) fn blank(raw: &[u8]) -> bool {
 }
 
 /// Python's `str.splitlines()` (without the line ends).
-fn py_splitlines(s: &str) -> Vec<&str> {
+pub(crate) fn py_splitlines(s: &str) -> Vec<&str> {
     let mut out = Vec::new();
     let mut start = 0;
     let mut iter = s.char_indices().peekable();
@@ -486,6 +488,11 @@ impl Line {
     /// A line built from an already parsed object.
     pub fn from_map(map: Map<String, Value>) -> Line {
         Line(map)
+    }
+
+    /// The whole object, owned.
+    pub fn into_map(self) -> Map<String, Value> {
+        self.0
     }
 
     /// The whole object.
@@ -785,6 +792,256 @@ impl<'a> Block<'a> {
             other => Block::Other(other),
         }
     }
+}
+
+// -- task notifications and question ids --------------------------------------------------------
+
+/// The tools that stop a background task (`TaskStop`, and
+/// `KillShell` from older Claude Code versions).
+pub const BG_STOP_TOOLS: [&str; 2] = ["TaskStop", "KillShell"];
+
+/// Claude Code's marker task id in the notice that lists the tasks a restart
+/// orphaned: never a task of its own.
+pub const ORPHAN: &str = "__orphan_summary__";
+
+/// How a task ended, from a `<task-notification>`'s `<status>`.
+///
+/// Ordered as panorama compares the status strings (`"cxl" < "done" <
+/// "fail"`), so the latest of two notices at the same time is picked the same
+/// way.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Ending {
+    /// `killed` or `stopped`.
+    Cancelled,
+    /// `completed`, or a Monitor's `[Monitor expired` event.
+    Done,
+    /// `failed` or `error`.
+    Failed,
+}
+
+impl Ending {
+    /// panorama's `NOTICE_STATUS`.
+    pub fn of_status(status: &str) -> Option<Ending> {
+        match status {
+            "completed" => Some(Ending::Done),
+            "failed" | "error" => Some(Ending::Failed),
+            "killed" | "stopped" => Some(Ending::Cancelled),
+            _ => None,
+        }
+    }
+}
+
+/// One task a `<task-notification>` names: panorama's `parse_notice` dict.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Notice {
+    /// The task (an agent id, a background task id, a workflow task id).
+    pub task: String,
+    /// The `<tool-use-id>` of the call that started it, when the notice names it.
+    pub tool_use: Option<String>,
+    /// How it ended; `None` when the notice does not say.
+    pub status: Option<Ending>,
+    /// Its `<tool_uses>` count, when that is a number.
+    pub tool_uses: Option<u64>,
+}
+
+struct NoticeRes {
+    block: Regex,
+    task_ids: Regex,
+    tags: [(&'static str, Regex); 4],
+    event: Regex,
+    qid: Regex,
+    qid_json: Regex,
+}
+
+fn notice_res() -> &'static NoticeRes {
+    static R: OnceLock<NoticeRes> = OnceLock::new();
+    // panorama's `_TAG` is one pattern with a backreference (`</\1>`), which
+    // `regex` does not have: one pattern per tag finds the same matches,
+    // because a match holds no `<` between its tags, so two can never overlap.
+    let tag = |name: &str| Regex::new(&format!(r"<{name}>\s*([^<]*?)\s*</{name}>")).expect("tag");
+    R.get_or_init(|| NoticeRes {
+        block: Regex::new(r"(?s)<task-notification>.*?</task-notification>").expect("block"),
+        task_ids: Regex::new(r"<task-id>\s*([^<]*?)\s*</task-id>").expect("task ids"),
+        tags: [
+            ("task-id", tag("task-id")),
+            ("tool-use-id", tag("tool-use-id")),
+            ("status", tag("status")),
+            ("tool_uses", tag("tool_uses")),
+        ],
+        event: Regex::new(r"<event>\s*\[Monitor expired").expect("event"),
+        qid: Regex::new(r"(?:Recorded as Q|\bQ)([0-9]+)\b").expect("qid"),
+        qid_json: Regex::new(r#""id"\s*:\s*([0-9]+)\s*,\s*"status"\s*:\s*"(?:open|already_open)""#)
+            .expect("qid json"),
+    })
+}
+
+fn starts_notice(text: &str) -> bool {
+    text.trim_start_matches(py_isspace)
+        .starts_with("<task-notification>")
+}
+
+/// Every task the `<task-notification>` blocks of a carrier name, one
+/// [`Notice`] per task: panorama's `wire.parse_notices`. A carrier can hold
+/// several blocks, and the notice a resumed session gets for the background
+/// tasks its previous process left names several `<task-id>`s (plus
+/// [`ORPHAN`], skipped). Text that does not start with a notice names none.
+pub fn parse_notices(text: &str) -> Vec<Notice> {
+    if !starts_notice(text) {
+        return Vec::new();
+    }
+    let r = notice_res();
+    let mut out = Vec::new();
+    for block in r.block.find_iter(text) {
+        let block = block.as_str();
+        let Some(notice) = parse_notice(block) else {
+            continue;
+        };
+        for id in task_ids(block) {
+            out.push(Notice {
+                task: id.to_string(),
+                ..notice.clone()
+            });
+        }
+    }
+    out
+}
+
+fn task_ids(block: &str) -> Vec<&str> {
+    notice_res()
+        .task_ids
+        .captures_iter(block)
+        .filter_map(|c| c.get(1).map(|m| m.as_str()))
+        .filter(|i| !i.is_empty() && !i.starts_with(ORPHAN))
+        .collect()
+}
+
+/// One `<task-notification>` block as a [`Notice`] about its first task, or
+/// `None` when it names no task: panorama's `wire.parse_notice`.
+///
+/// A tag given twice counts with its last value (Python's `dict` of the
+/// matches). `<tool_uses>` counts only when it is ASCII digits (Python's
+/// `str.isdigit` also takes other Unicode digits).
+pub fn parse_notice(block: &str) -> Option<Notice> {
+    if !starts_notice(block) {
+        return None;
+    }
+    let r = notice_res();
+    let first = *task_ids(block).first()?;
+    let tag = |name: &str| -> Option<&str> {
+        let re = &r.tags.iter().find(|(n, _)| *n == name)?.1;
+        re.captures_iter(block)
+            .last()
+            .and_then(|c| c.get(1))
+            .map(|m| m.as_str())
+    };
+    let mut status = tag("status").and_then(Ending::of_status);
+    if status.is_none() && r.event.is_match(block) {
+        status = Some(Ending::Done); // "[Monitor expired after 30m ...]": the watch is over
+    }
+    let uses = tag("tool_uses").unwrap_or("");
+    Some(Notice {
+        task: first.to_string(),
+        tool_use: tag("tool-use-id").map(str::to_string),
+        status,
+        tool_uses: (!uses.is_empty() && uses.bytes().all(|b| b.is_ascii_digit()))
+            .then(|| uses.parse().ok())
+            .flatten(),
+    })
+}
+
+/// The inbox question ids an `ask_operator` result names (`Recorded as Q12`,
+/// `Q12`, or a JSON receipt's `"id": 12, "status": "open"`): panorama's
+/// `wire.question_ids`. Only ASCII digits are read (Python's `\d` also takes
+/// other Unicode digits), and an id beyond `u64` is skipped.
+pub fn question_ids(text: &str) -> BTreeSet<u64> {
+    let r = notice_res();
+    r.qid
+        .captures_iter(text)
+        .chain(r.qid_json.captures_iter(text))
+        .filter_map(|c| c.get(1)?.as_str().parse().ok())
+        .collect()
+}
+
+/// The text of a `tool_result`'s `content`: a string as it is, a list of
+/// blocks as their `text`s joined by spaces (panorama's `wire.text_of`). A
+/// `text` that is not a string reads as Python's `str()` of it; anything else is no
+/// text.
+pub fn text_of(content: Option<&Value>) -> String {
+    match content {
+        Some(Value::String(s)) => s.clone(),
+        Some(Value::Array(items)) => items
+            .iter()
+            .filter_map(Value::as_object)
+            .map(|b| match b.get("text") {
+                Some(t) if truthy(t) => py_str(t),
+                _ => String::new(),
+            })
+            .collect::<Vec<_>>()
+            .join(" "),
+        _ => String::new(),
+    }
+}
+
+/// Python's `str()` of a JSON value, for the few places panorama converts a
+/// field it does not check: a string as it is, `None`, `True`/`False`, an
+/// integer, a float as Python's `repr`. An array or object reads as its JSON
+/// text (Python prints its `repr`; no field this is used for holds one in a
+/// real transcript).
+pub(crate) fn py_str(v: &Value) -> String {
+    match v {
+        Value::String(s) => s.clone(),
+        Value::Null => "None".to_string(),
+        Value::Bool(true) => "True".to_string(),
+        Value::Bool(false) => "False".to_string(),
+        Value::Number(n) => match (n.as_i64(), n.as_u64(), n.as_f64()) {
+            (Some(i), _, _) => i.to_string(),
+            (_, Some(u), _) => u.to_string(),
+            (_, _, Some(f)) => py_float_repr(f),
+            _ => n.to_string(),
+        },
+        other => other.to_string(),
+    }
+}
+
+/// Python's `repr` of a float: the shortest text that reads back as the same
+/// value, positional for exponents from -4 to 15, scientific otherwise.
+pub(crate) fn py_float_repr(f: f64) -> String {
+    if f.is_nan() {
+        return "nan".to_string();
+    }
+    if f.is_infinite() {
+        return if f > 0.0 { "inf" } else { "-inf" }.to_string();
+    }
+    // `{:e}` is the shortest round-trip digits in scientific form: "1.5e-5"
+    let sci = format!("{f:e}");
+    let (mantissa, exp) = sci.split_once('e').expect("{:e} has an exponent");
+    let exp: i32 = exp.parse().expect("{:e} exponent");
+    let (neg, mantissa) = match mantissa.strip_prefix('-') {
+        Some(m) => (true, m),
+        None => (false, mantissa),
+    };
+    let digits: String = mantissa.chars().filter(|c| *c != '.').collect();
+    let sign = if neg { "-" } else { "" };
+    if !(-4..16).contains(&exp) {
+        let (head, tail) = digits.split_at(1);
+        let frac = if tail.is_empty() {
+            String::new()
+        } else {
+            format!(".{tail}")
+        };
+        let esign = if exp < 0 { '-' } else { '+' };
+        return format!("{sign}{head}{frac}e{esign}{:02}", exp.abs());
+    }
+    let point = exp + 1; // digits before the decimal point
+    let body = if point <= 0 {
+        format!("0.{}{digits}", "0".repeat((-point) as usize))
+    } else if point as usize >= digits.len() {
+        format!("{digits}{}.0", "0".repeat(point as usize - digits.len()))
+    } else {
+        let (a, b) = digits.split_at(point as usize);
+        format!("{a}.{b}")
+    };
+    format!("{sign}{body}")
 }
 
 // -- summaries ---------------------------------------------------------------------------------
@@ -1177,5 +1434,94 @@ mod tests {
         assert_eq!(py_splitlines("a\n"), vec!["a"]);
         assert_eq!(py_splitlines(""), Vec::<&str>::new());
         assert_eq!(py_splitlines("\n"), vec![""]);
+    }
+
+    /// Expected values from panorama's `wire.parse_notices` / `question_ids`
+    /// / `text_of` on main (`83590dc`), run over the same inputs.
+    #[test]
+    fn notices_parse_as_panorama_reads_them() {
+        let n = |task: &str, tool_use: Option<&str>, status: Option<Ending>, uses: Option<u64>| {
+            Notice {
+                task: task.into(),
+                tool_use: tool_use.map(str::to_string),
+                status,
+                tool_uses: uses,
+            }
+        };
+        let cases: [(&str, Vec<Notice>); 7] = [
+            (
+                "<task-notification>\n<task-id>a1</task-id>\n<tool-use-id>toolu_1</tool-use-id>\n<status>completed</status>\n<usage><tool_uses>12</tool_uses></usage>\n</task-notification>",
+                vec![n("a1", Some("toolu_1"), Some(Ending::Done), Some(12))],
+            ),
+            (
+                // the notice a resumed session gets for its orphaned tasks: every id, not the marker
+                "  <task-notification><task-id>b1</task-id>\n<task-id>b2</task-id>\n<task-id>__orphan_summary__:shell</task-id>\n<status>stopped</status></task-notification>",
+                vec![
+                    n("b1", None, Some(Ending::Cancelled), None),
+                    n("b2", None, Some(Ending::Cancelled), None),
+                ],
+            ),
+            (
+                "<task-notification><task-id>m1</task-id><event>[Monitor expired after 30m]</event></task-notification>",
+                vec![n("m1", None, Some(Ending::Done), None)],
+            ),
+            (
+                "<task-notification><task-id>m1</task-id><event>line 4</event></task-notification>",
+                vec![n("m1", None, None, None)],
+            ),
+            (
+                // a repeated tag counts with its last value; two blocks in one carrier
+                "<task-notification><task-id> x1 </task-id><status>failed</status><status>killed</status><tool_uses>n/a</tool_uses></task-notification><task-notification><task-id>x2</task-id><status>error</status></task-notification>",
+                vec![
+                    n("x1", None, Some(Ending::Cancelled), None),
+                    n("x2", None, Some(Ending::Failed), None),
+                ],
+            ),
+            (
+                "text <task-notification><task-id>a1</task-id><status>completed</status></task-notification>",
+                vec![],
+            ),
+            (
+                "<task-notification><task-id>__orphan_summary__</task-id><status>stopped</status></task-notification>",
+                vec![],
+            ),
+        ];
+        for (text, want) in cases {
+            assert_eq!(parse_notices(text), want, "{text}");
+        }
+    }
+
+    #[test]
+    fn question_ids_and_result_text() {
+        let ids = |t: &str| question_ids(t).into_iter().collect::<Vec<_>>();
+        assert_eq!(ids("Recorded as Q12. Continue."), vec![12]);
+        assert_eq!(ids("Q3 and Q45, notQ7, Q8x"), vec![3, 45]);
+        assert_eq!(
+            ids(r#"{"id": 9, "status": "already_open"} {"id":10,"status":"answered"}"#),
+            vec![9]
+        );
+        let content = json!([{"type": "text", "text": "a"}, {"type": "image"}, "x", {"text": 5}]);
+        assert_eq!(text_of(Some(&content)), "a  5");
+        assert_eq!(text_of(Some(&json!("plain"))), "plain");
+        assert_eq!(text_of(None), "");
+    }
+
+    #[test]
+    fn python_str_of_values() {
+        assert_eq!(py_str(&json!("s")), "s");
+        assert_eq!(py_str(&json!(5)), "5");
+        assert_eq!(py_str(&json!(1.5)), "1.5");
+        assert_eq!(py_str(&json!(true)), "True");
+        assert_eq!(py_str(&Value::Null), "None");
+        for (f, want) in [
+            (1791969600.0, "1791969600.0"),
+            (0.1, "0.1"),
+            (1e16, "1e+16"),
+            (0.00001, "1e-05"),
+            (-2.5e-7, "-2.5e-07"),
+            (123456789012345.6, "123456789012345.6"),
+        ] {
+            assert_eq!(py_float_repr(f), want);
+        }
     }
 }

@@ -6,12 +6,14 @@
 //!
 //! - **pure** (data in, data out; no IO, threads or environment):
 //!   [`SessionId`] (the one session-id validator), [`wire`] (lenient record
-//!   parsing, the marker prefilter, tool summaries), [`continuation`] (the one
-//!   continuation rule, D6, and forward-only chains) and [`fold`];
+//!   parsing, the marker prefilter, tool summaries, task notifications),
+//!   [`continuation`] (the one continuation rule, D6, and forward-only
+//!   chains) and [`fold`] (a session's keyed stores and the status rules);
 //! - **IO**: [`io`] finds the projects root and transcripts, tails files
 //!   ([`io::Tailer`]), summarizes a transcript's tail
 //!   ([`io::summarize_tail`]) and follows continuations on disk
-//!   ([`io::Transcripts`]).
+//!   ([`io::Transcripts`]); [`scan`] reads one session's files into a
+//!   [`fold::Session`] ([`scan::Scanner`]).
 //!
 //! # Parity
 //!
@@ -29,9 +31,12 @@ use serde_json::Value;
 pub mod continuation;
 pub mod fold;
 pub mod io;
+pub mod scan;
 pub mod wire;
 
 pub use continuation::{Continuation, Hop, TranscriptFiles, chain};
+pub use fold::{Owner, Session, Status, StatusOf};
+pub use scan::Scanner;
 pub use wire::{Line, Record, Ts};
 
 /// A Claude Code session id: a canonical 8-4-4-4-12 hex UUID.
