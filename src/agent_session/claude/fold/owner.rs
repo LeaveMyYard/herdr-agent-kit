@@ -21,6 +21,11 @@ pub enum Owner {
 /// copy that counts does not depend on the order files are read: main's
 /// wins, then the earliest record (panorama's `(when or inf)`: no time, or a
 /// time of `0`, sorts last).
+///
+/// [`Parentage::parent_of`](super::Parentage::parent_of) does not use this
+/// rule, on purpose (panorama parity): it never counts the agent's own copy,
+/// and of the others it takes the raw earliest time, where a time of `0`
+/// sorts **first**.
 pub(super) fn replaces(
     owner: &Owner,
     when: Option<f64>,

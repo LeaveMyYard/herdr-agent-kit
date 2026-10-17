@@ -71,10 +71,12 @@ impl Session {
         }
         let starts: &[HookStart] = self.hooks.starts.get(a.id).map_or(&[], Vec::as_slice);
         let reopens = self
-            .evidence()
-            .resumes(a.id)
+            .spawns
+            .resumes
+            .get(a.id)
             .into_iter()
-            .map(Ts::secs)
+            .flatten()
+            .map(|t| t.0)
             .chain(starts.iter().map(|s| s.ts.0))
             .collect();
         Ok(Weighed {

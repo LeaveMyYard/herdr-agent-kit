@@ -55,6 +55,11 @@ impl<'a> Parentage<'a> {
     /// holding the call, main wins, then the earliest. If only the agent's own
     /// copy was read (the parent's file can be skipped as old),
     /// `meta.parentAgentId` names the parent.
+    ///
+    /// "The earliest" is panorama's `min` over each file's earliest time
+    /// (no time sorts last, a time of `0` first), not the rule that picks
+    /// [`Parentage::spawn_of`]'s copy, where `0` sorts last: both follow
+    /// panorama.
     pub fn parent_of(&self, id: &str) -> Option<Owner> {
         let call = self.call_of(id);
         let me = Owner::Agent(id.to_string());

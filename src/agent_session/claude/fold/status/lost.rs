@@ -3,7 +3,7 @@
 
 use super::super::HookStart;
 use super::super::times::or_time;
-use super::evidence::Weighed;
+use super::terminal::Weighed;
 use super::{Session, StatusOf};
 use crate::agent_procs::{Liveness, ProcessIdentity};
 use crate::agent_session::Status;

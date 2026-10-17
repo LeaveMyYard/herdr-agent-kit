@@ -6,7 +6,7 @@ use serde_json::Value;
 
 use super::super::limits::{ACTIVE, ASYNC_QUIET, PENDING_CAP, REOPEN_MARGIN};
 use super::super::times::or_time;
-use super::evidence::Weighed;
+use super::terminal::Weighed;
 use super::{Agent, Owner, Session, StatusOf};
 use crate::agent_procs::Liveness;
 use crate::agent_session::{Status, Ts};

@@ -41,7 +41,7 @@ fn an_update_reads_partial_lines_and_a_rewrite_rebuilds() {
     assert_eq!(s.session().evidence().notices("a1").len(), 1);
     std::fs::write(&sc.main.path, &old).unwrap(); // rewritten shorter: rebuilt from the new content
     s.update(None);
-    assert!(s.session().evidence().notices("a1").is_empty());
+    assert_eq!(s.session().evidence().notices("a1").len(), 0);
     assert_eq!(status(&s), Status::Run);
 }
 

@@ -810,7 +810,6 @@ fn build_agent(
     let counted = sess
         .evidence()
         .notices(aid)
-        .into_iter()
         .filter(|n| n.2.is_some())
         .max_by(|a, b| {
             a.0.0
@@ -951,14 +950,13 @@ fn agent_spans(sess: &Session, a: &Agent) -> Vec<SpanOf> {
     let mut starts: Vec<f64> = a
         .started
         .into_iter()
-        .chain(sess.evidence().resumes(&a.id).into_iter().map(Ts::secs))
+        .chain(sess.evidence().resumes(&a.id).map(Ts::secs))
         .collect();
     starts.sort_by(f64::total_cmp);
     starts.dedup();
     let mut ends: Vec<(f64, Ending)> = sess
         .evidence()
         .notices(&a.id)
-        .into_iter()
         .map(|n| (n.0.0, n.1))
         .collect();
     ends.sort_by(|x, y| x.0.total_cmp(&y.0).then(x.1.cmp(&y.1)));

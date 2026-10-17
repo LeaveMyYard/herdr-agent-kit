@@ -16,22 +16,27 @@ pub struct Evidence<'a> {
     pub(super) resumes: &'a HashMap<String, BTreeSet<T>>,
 }
 
-impl Evidence<'_> {
+impl<'a> Evidence<'a> {
     /// The `<task-notification>`s about `task` (an agent id, a background
     /// task id or a workflow run's task id) from any carrier in any file:
     /// `(time, ending, tool uses)`, oldest first.
-    pub fn notices(&self, task: &str) -> Vec<(Ts, Ending, Option<u64>)> {
+    pub fn notices(
+        &self,
+        task: &str,
+    ) -> impl ExactSizeIterator<Item = (Ts, Ending, Option<u64>)> + 'a {
         self.notices
             .get(task)
-            .map(|n| n.iter().map(|x| (Ts(x.0.0), x.1, x.2)).collect())
+            .map(BTreeSet::iter)
             .unwrap_or_default()
+            .map(|x| (Ts(x.0.0), x.1, x.2))
     }
 
     /// The times agent `id` was resumed by `SendMessage`, oldest first.
-    pub fn resumes(&self, id: &str) -> Vec<Ts> {
+    pub fn resumes(&self, id: &str) -> impl ExactSizeIterator<Item = Ts> + 'a {
         self.resumes
             .get(id)
-            .map(|r| r.iter().map(|t| Ts(t.0)).collect())
+            .map(BTreeSet::iter)
             .unwrap_or_default()
+            .map(|t| Ts(t.0))
     }
 }

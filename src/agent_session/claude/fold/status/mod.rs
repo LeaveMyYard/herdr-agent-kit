@@ -1,6 +1,6 @@
 //! The status rules ([`Session::status_of`]); module docs of [`super`].
 //!
-//! One rule per file, applied in order: [`evidence`] (rules 1 and 2:
+//! One rule per file, applied in order: [`terminal`] (rules 1 and 2:
 //! terminal evidence and what overturns it), [`lost`] (an agent whose Claude
 //! process is gone) and [`liveness`] (rule 3: no standing evidence).
 
@@ -10,11 +10,11 @@ use crate::agent_procs::Liveness;
 use crate::agent_session::claude::wire::Ending;
 use crate::agent_session::{Status, Ts};
 
-mod evidence;
 mod liveness;
 mod lost;
+mod terminal;
 
-use evidence::Standing;
+use terminal::Standing;
 
 impl From<Ending> for Status {
     fn from(e: Ending) -> Status {
