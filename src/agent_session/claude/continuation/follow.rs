@@ -13,8 +13,9 @@ pub const MAX_HOPS: usize = 8;
 /// `#[non_exhaustive]`: another harness may need an answer these three do not
 /// cover, so a later minor version may add one. A match outside this crate
 /// needs a `_` arm; an implementor builds the variants as usual. [`chain`]
-/// treats any answer other than [`Lookup::NotFound`] as a found transcript
-/// and follows only [`Lookup::ContinuedIn`].
+/// counts a transcript as found only on [`Lookup::Ended`] or
+/// [`Lookup::ContinuedIn`], follows only [`Lookup::ContinuedIn`], and stops at
+/// any other answer.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub enum Lookup {
@@ -26,6 +27,9 @@ pub enum Lookup {
     /// ([`Continuation::next`](super::Continuation::next) is `None`).
     Ended,
     /// The transcript is found and the conversation continued in `next`.
+    /// `#[non_exhaustive]` so it may gain a field: build it with
+    /// [`Lookup::continued_in`], match it with `{ next, at, .. }`.
+    #[non_exhaustive]
     ContinuedIn {
         /// The session it continued in.
         next: SessionId,
@@ -34,6 +38,15 @@ pub enum Lookup {
         /// no time, or when the source does not know times.
         at: Option<Ts>,
     },
+}
+
+impl Lookup {
+    /// [`Lookup::ContinuedIn`]: the conversation continued in `next`, at `at`
+    /// (`None` when the continuation has no time or the source does not know
+    /// times).
+    pub fn continued_in(next: SessionId, at: Option<Ts>) -> Lookup {
+        Lookup::ContinuedIn { next, at }
+    }
 }
 
 /// Where a session's transcript says its conversation went: the IO side of
@@ -105,7 +118,7 @@ pub fn chain(start: &SessionId, files: &mut impl TranscriptFiles, max_hops: usiz
         let lookup = files.lookup(&current);
         out.push(Hop {
             id: current,
-            found: !matches!(lookup, Lookup::NotFound),
+            found: matches!(lookup, Lookup::Ended | Lookup::ContinuedIn { .. }),
             at,
         });
         match lookup {

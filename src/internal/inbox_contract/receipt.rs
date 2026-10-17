@@ -9,13 +9,12 @@
 //! - Writing: the status names and the message texts, from herdr-inbox's `service.py`
 //!   (the JSON around them is the MCP layer's).
 //! - Reading: [`question_ids`], herdr-panorama's `scan/wire.py`, which attributes the
-//!   questions to the agent that asked them.
+//!   questions to the agent that asked them. It is the crate's one implementation, the
+//!   same the session fold records per asker.
 //!
 //! Goldens: `fixtures/inbox/receipts.json`, results of the inbox's own MCP server.
 
-use std::collections::BTreeSet;
-
-use super::text::{ascii_digits, parse_id, py_space, py_word, trim_start};
+pub use crate::ask_operator::question_ids;
 
 /// Status of a newly filed question.
 pub const OPEN: &str = "open";
@@ -68,45 +67,3 @@ pub fn filed_message(entries: &[(u64, &str)]) -> String {
         ids.join(", ")
     )
 }
-
-/// The question ids a receipt names (herdr-panorama's `wire.question_ids`).
-///
-/// Two readings, joined: every `Q<digits>` that stands as a word (not preceded or followed
-/// by a letter, digit or `_`), and every JSON `"id": <n>, "status": "open"` or
-/// `"already_open"`. A receipt that names no question (an error, unavailable) gives none.
-pub fn question_ids(text: &str) -> BTreeSet<u64> {
-    let mut ids = BTreeSet::new();
-    // (?:Recorded as Q|\bQ)(\d+)\b: the first form is always also the second.
-    for (at, _) in text.match_indices('Q') {
-        if text[..at].chars().next_back().is_some_and(py_word) {
-            continue;
-        }
-        let rest = &text[at + 1..];
-        let digits = ascii_digits(rest);
-        if !digits.is_empty() && !rest[digits.len()..].chars().next().is_some_and(py_word) {
-            ids.extend(parse_id(digits));
-        }
-    }
-    // "id"\s*:\s*(\d+)\s*,\s*"status"\s*:\s*"(?:open|already_open)"
-    for (at, _) in text.match_indices("\"id\"") {
-        ids.extend(json_open_id(&text[at + 4..]));
-    }
-    ids
-}
-
-fn json_open_id(s: &str) -> Option<u64> {
-    let s = trim_start(s, py_space).strip_prefix(':')?;
-    let s = trim_start(s, py_space);
-    let digits = ascii_digits(s);
-    let s = trim_start(&s[digits.len()..], py_space).strip_prefix(',')?;
-    let s = trim_start(s, py_space).strip_prefix("\"status\"")?;
-    let s = trim_start(s, py_space).strip_prefix(':')?;
-    let s = trim_start(s, py_space).strip_prefix('"')?;
-    if digits.is_empty() || !(s.starts_with("open\"") || s.starts_with("already_open\"")) {
-        return None;
-    }
-    parse_id(digits)
-}
-
-#[cfg(test)]
-mod tests;

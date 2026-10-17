@@ -2,8 +2,8 @@
 
 use serde_json::Value;
 
-use super::py_strip;
 use crate::agent_session::Ts;
+use crate::pytext::py_strip;
 
 /// A record's `timestamp` as epoch seconds: panorama's `wire.ts` (and the
 /// inbox's `transcript._ts`).

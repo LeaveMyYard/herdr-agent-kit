@@ -3,6 +3,7 @@
 use serde_json::{Map, Value, json};
 
 use super::error::HerdrError;
+use crate::pytext::truthy;
 
 /// A reply line longer than this is not read further (a snapshot of a big
 /// session is well under 1 MiB).
@@ -65,18 +66,6 @@ pub fn refusal(error: Value) -> HerdrError {
             code: String::new(),
             message: other.to_string(),
         },
-    }
-}
-
-/// Python truthiness of a JSON value.
-pub fn truthy(v: &Value) -> bool {
-    match v {
-        Value::Null => false,
-        Value::Bool(b) => *b,
-        Value::Number(n) => n.as_f64() != Some(0.0),
-        Value::String(s) => !s.is_empty(),
-        Value::Array(a) => !a.is_empty(),
-        Value::Object(o) => !o.is_empty(),
     }
 }
 

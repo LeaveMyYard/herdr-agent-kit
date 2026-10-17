@@ -1,7 +1,7 @@
 //! Opening the inbox on a target from herdr-panorama (`inbox_link.py`): the
 //! `inbox open` arguments and the version checks that gate them.
 
-use crate::internal::inbox_contract::text::ascii_digits;
+use crate::pytext::ascii_digits;
 
 /// The first inbox version with `inbox open --question/--pane` (0.6.0).
 pub const DEEP_LINK_VERSION: (u64, u64, u64) = (0, 6, 0);

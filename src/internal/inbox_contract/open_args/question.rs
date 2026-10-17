@@ -1,7 +1,7 @@
 //! Question references (herdr-inbox's `deeplink.question_ref`, `question_id`
 //! and `describe`, herdr-inbox#57).
 
-use crate::internal::inbox_contract::text::{py_space, trim};
+use crate::pytext::py_int_str;
 
 /// A question reference without its `Q` (herdr-inbox's `deeplink.question_ref`).
 ///
@@ -28,7 +28,7 @@ pub fn question_ref(value: &str) -> String {
 /// between digits are allowed (`Q 12`, `Q+12` and `1_2` are 12). Unlike Python, the digits are ASCII only, and a negative number (no question
 /// has one) or one over `u64::MAX` is `None`.
 pub fn question_id(value: &str) -> Option<u64> {
-    py_int(&question_ref(value))
+    py_int_str(&question_ref(value))
 }
 
 /// How the inbox names a question reference to the operator (herdr-inbox's
@@ -42,32 +42,4 @@ pub fn describe_question(value: &str) -> String {
         None => ("", reference.as_str()),
     };
     format!("{machine}Q{number}")
-}
-
-/// Python's `int(s)` for an ASCII decimal that fits a `u64`.
-fn py_int(s: &str) -> Option<u64> {
-    let s = trim(s, py_int_space);
-    let (negative, s) = match s.as_bytes().first() {
-        Some(b'-') => (true, &s[1..]),
-        Some(b'+') => (false, &s[1..]),
-        _ => (false, s),
-    };
-    // digits, with single underscores only between two digits
-    let ok = !s.is_empty()
-        && !s.starts_with('_')
-        && !s.ends_with('_')
-        && !s.contains("__")
-        && s.bytes().all(|b| b.is_ascii_digit() || b == b'_');
-    if !ok {
-        return None;
-    }
-    let n: u64 = s.replace('_', "").parse().ok()?;
-    (!negative || n == 0).then_some(n)
-}
-
-/// What Python's `int()` strips around a number: `str.isspace()` except the information
-/// separators U+001C to U+001F, which are ASCII and so not mapped to a space before the
-/// ASCII-only strip (CPython `_PyUnicode_TransformDecimalAndSpaceToASCII`).
-fn py_int_space(c: char) -> bool {
-    py_space(c) && !matches!(c, '\u{1c}'..='\u{1f}')
 }

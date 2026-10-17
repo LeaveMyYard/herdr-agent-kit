@@ -166,6 +166,11 @@ QUESTION_IDS_EXTRA = [
     "xQ5 Q5x _Q5 Q (Q7) Q8,Q9 Q10_ Q11é éQ12",
     "Recorded as Q13x and Recorded as Q14.",
     "Q99999999999999999999999 is too big",
+    # where Python's \s and \w differ from Rust regex's Unicode classes
+    '{"id":\x1c5,\x1d"status":\x1e"open"}',
+    "Q6\u203f and \u203fQ7",
+    "Q8\u0301 and \u0301Q9",
+    "Q10\u00b2 and Q11 ",
 ]
 
 OPEN_PARSE = [

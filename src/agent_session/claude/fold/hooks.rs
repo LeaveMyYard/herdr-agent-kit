@@ -3,12 +3,12 @@
 
 use serde_json::Value;
 
-use super::fields::{number, py_int};
 use super::limits::HOOK_VERSION;
 use super::{HookStart, Session};
 use crate::agent_procs::{Liveness, Pid, ProcessIdentity};
 use crate::agent_session::Ts;
 use crate::agent_session::claude::wire::Line;
+use crate::pytext::{number, py_int};
 
 /// panorama's hook records, and the Claude processes behind them.
 impl Session {

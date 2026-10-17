@@ -4,7 +4,7 @@ use std::sync::OnceLock;
 
 use regex::Regex;
 
-use super::py_isspace;
+use crate::pytext::py_isspace;
 
 /// Claude Code's marker task id in the notice that lists the tasks a restart
 /// orphaned: never a task of its own.

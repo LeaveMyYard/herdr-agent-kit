@@ -2,8 +2,8 @@
 
 use serde_json::{Map, Value};
 
-use super::{py_str, truthy};
 use crate::agent_session::SessionId;
+use crate::pytext::{py_str, truthy};
 
 /// Record types Claude Code writes as bookkeeping, captured from real
 /// transcripts. They never move a conversation: the continuation rule does not
@@ -168,3 +168,6 @@ pub fn text_of(content: Option<&Value>) -> String {
         _ => String::new(),
     }
 }
+
+#[cfg(test)]
+mod tests;
