@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use super::{Follower, ProjectsRoot};
-use crate::agent_session::claude::continuation::TranscriptFiles;
-use crate::agent_session::{SessionId, Ts};
+use crate::agent_session::SessionId;
+use crate::agent_session::claude::continuation::{Lookup, TranscriptFiles};
 
 /// Followers kept by one [`Transcripts`] (least recently used dropped first).
 pub const FOLLOWERS_MAX: usize = 256;
@@ -90,15 +90,19 @@ impl Transcripts {
 }
 
 impl TranscriptFiles for Transcripts {
-    fn continued_in(&mut self, id: &SessionId) -> Option<Option<SessionId>> {
-        let follower = self.follower(id)?;
+    fn lookup(&mut self, id: &SessionId) -> Lookup {
+        let Some(follower) = self.follower(id) else {
+            return Lookup::NotFound;
+        };
         if !follower.update() {
-            return None;
+            return Lookup::NotFound;
         }
-        Some(follower.continued_in().cloned())
-    }
-
-    fn continued_at(&mut self, id: &SessionId) -> Option<Ts> {
-        self.followers.get(id).and_then(|(f, _)| f.continued_at())
+        match follower.continued_in() {
+            None => Lookup::Ended,
+            Some(next) => Lookup::ContinuedIn {
+                next: next.clone(),
+                at: follower.continued_at(),
+            },
+        }
     }
 }
