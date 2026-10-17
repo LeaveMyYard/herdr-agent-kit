@@ -12,10 +12,10 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
+use super::connection::serve;
 use super::private_dir;
 use super::recordings::{exchanges, recording, recordings};
 use super::script::{Reply, Request, State};
-use super::serve::serve;
 use crate::herdr_api::ids::ServerId;
 use crate::herdr_api::{Herdr, blocking};
 

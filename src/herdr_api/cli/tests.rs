@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use super::output::exit_error;
 use super::*;
 use crate::herdr_api::{HerdrError, PaneId};
 

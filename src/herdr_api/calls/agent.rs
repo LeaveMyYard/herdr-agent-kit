@@ -6,7 +6,8 @@ use std::time::Duration;
 use serde_json::{Value, json};
 
 use super::call::Call;
-use super::reply::{agent_info, echo, list, s, unit};
+use super::params::s;
+use super::reply::{agent_info, echo, list, unit};
 use crate::herdr_api::error::HerdrError;
 use crate::herdr_api::ids::PaneId;
 use crate::herdr_api::sanitize::Sanitized;

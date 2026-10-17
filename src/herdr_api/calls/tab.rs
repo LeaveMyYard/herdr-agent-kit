@@ -8,7 +8,8 @@ use std::path::Path;
 use serde_json::{Value, json};
 
 use super::call::Call;
-use super::reply::{echo, layout, list, path, s, tab_info, unit};
+use super::params::{path, s};
+use super::reply::{echo, layout, list, tab_info, unit};
 use crate::herdr_api::ids::{PaneId, TabId, WorkspaceId};
 use crate::herdr_api::sanitize::Sanitized;
 use crate::herdr_api::types::{LayoutInfo, TabInfo};

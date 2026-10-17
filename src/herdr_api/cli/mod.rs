@@ -36,8 +36,6 @@ use std::time::Duration;
 use super::ids::PaneId;
 use super::sanitize::{MAX_ARG, clean};
 
-#[cfg(test)]
-use output::exit_error;
 pub(crate) use output::{parse_config_dir, parse_machines, parse_snapshot};
 pub(crate) use run::{run, run_blocking};
 

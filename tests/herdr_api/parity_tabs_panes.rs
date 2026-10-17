@@ -3,7 +3,7 @@
 
 use std::path::Path;
 
-use herdr_agent_kit::herdr_api::fake::{self};
+use herdr_agent_kit::herdr_api::fake;
 use herdr_agent_kit::herdr_api::{AgentStatus, MoveTo, WorkspaceId, calls};
 
 use crate::support::*;

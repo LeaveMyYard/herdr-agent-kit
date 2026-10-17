@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use herdr_agent_kit::herdr_api::fake::{self};
+use herdr_agent_kit::herdr_api::fake;
 use herdr_agent_kit::herdr_api::{HerdrError, MoveTo, OpenPluginPane, WorkspaceId, calls};
 
 use crate::support::*;

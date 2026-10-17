@@ -14,9 +14,9 @@
 //! Neither ever talks to a real herdr.
 
 mod cli_stub;
+mod connection;
 mod recordings;
 mod script;
-mod serve;
 mod server;
 
 use std::os::unix::fs::PermissionsExt;

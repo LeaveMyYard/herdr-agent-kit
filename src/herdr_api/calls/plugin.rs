@@ -4,7 +4,8 @@
 use serde_json::{Map, Value, json};
 
 use super::call::Call;
-use super::reply::{list, path, s, unit};
+use super::params::{path, s};
+use super::reply::{list, unit};
 use crate::herdr_api::ids::PaneId;
 use crate::herdr_api::sanitize::{MAX_ARG, clean};
 use crate::herdr_api::types::{PaneInfo, PluginInfo};

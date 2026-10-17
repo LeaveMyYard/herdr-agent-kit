@@ -5,7 +5,8 @@
 use serde_json::{Map, Value, json};
 
 use super::call::Call;
-use super::reply::{echo, extra, field, list, pane_info, s, unit};
+use super::params::s;
+use super::reply::{echo, extra, field, list, pane_info, unit};
 use crate::herdr_api::ids::{PaneId, TabId, WorkspaceId};
 use crate::herdr_api::sanitize::{MAX_ARG, Sanitized, clean};
 use crate::herdr_api::types::{Extra, MoveResult, PaneInfo, ProcessInfo, SwapResult};

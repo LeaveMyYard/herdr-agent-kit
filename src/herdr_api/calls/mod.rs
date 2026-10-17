@@ -20,6 +20,7 @@
 mod agent;
 mod call;
 mod pane;
+mod params;
 mod plugin;
 mod reply;
 mod session;

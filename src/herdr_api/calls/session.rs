@@ -4,7 +4,8 @@
 use serde_json::json;
 
 use super::call::Call;
-use super::reply::{extra, field, list, s};
+use super::params::s;
+use super::reply::{extra, field, list};
 use crate::herdr_api::error::HerdrError;
 use crate::herdr_api::sanitize::Sanitized;
 use crate::herdr_api::types::{Extra, NotificationResult, Snapshot, WorkspaceInfo};

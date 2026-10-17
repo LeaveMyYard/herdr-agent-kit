@@ -1,27 +1,10 @@
-//! Reading replies: the shared parsers the calls are built from, and the
-//! params choke point every string goes through on the way out.
-
-use std::path::Path;
+//! Reading replies: the shared parsers the calls are built from.
 
 use serde::de::DeserializeOwned;
 use serde_json::{Map, Value};
 
 use crate::herdr_api::error::HerdrError;
-use crate::herdr_api::sanitize::{MAX_ARG, clean};
 use crate::herdr_api::types::{AgentInfo, Extra, LayoutInfo, PaneInfo, TabInfo};
-
-// -- params ------------------------------------------------------------------
-
-/// A string param through the choke point.
-pub(super) fn s(text: &str) -> Value {
-    Value::String(clean(text, MAX_ARG))
-}
-
-pub(super) fn path(p: &Path) -> Value {
-    s(&p.to_string_lossy())
-}
-
-// -- reading replies ---------------------------------------------------------
 
 pub(super) fn field<T: DeserializeOwned>(mut result: Value, key: &str) -> Result<T, HerdrError> {
     match result.get_mut(key).map(Value::take) {
