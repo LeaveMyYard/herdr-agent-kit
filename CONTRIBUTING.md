@@ -15,7 +15,7 @@ does for both. Open an issue before a large change or a new public API.
   plugin's lock to this checkout and fails if the patch is not used). A change
   that breaks a plugin is visible before it is tagged. A plugin without a Cargo
   workspace, or not yet depending on the kit, is skipped with a notice.
-- Keep the purity boundary: pure modules (`claude_session::fold`, the
+- Keep the purity boundary: pure modules (`agent_session::claude::fold`, the
   `inbox_contract` formats) do no IO, start no threads and read no environment.
 - Fixtures are captured, never invented. See [fixtures/README.md](fixtures/README.md).
 - Run locally before pushing (the feature-off sets are where cfg-related

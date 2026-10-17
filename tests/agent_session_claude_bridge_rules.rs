@@ -18,8 +18,9 @@
 mod common;
 
 use common::{BASE, Project, Transcript, dumps, iso, stamp, tmp_dir, tpl};
-use herdr_agent_kit::claude_session::io::{Follower, ProjectsRoot, Transcripts};
-use herdr_agent_kit::claude_session::{Hop, SessionId, chain, continuation::MAX_HOPS};
+use herdr_agent_kit::agent_session::claude::io::{Follower, ProjectsRoot, Transcripts};
+use herdr_agent_kit::agent_session::claude::{Hop, chain, continuation::MAX_HOPS};
+use herdr_agent_kit::agent_session::{SessionId, Ts};
 use serde_json::{Value, json};
 
 const SID: &str = "55555555-5555-4555-8555-555555555555";
@@ -171,11 +172,13 @@ fn a_continuation_named_in_uppercase_is_found_and_followed() {
         vec![
             Hop {
                 id: id(SID),
-                found: true
+                found: true,
+                at: None
             },
             Hop {
                 id: id(HEX),
-                found: true
+                found: true,
+                at: Some(Ts((BASE + 10) as f64))
             }
         ]
     );
@@ -187,7 +190,8 @@ fn a_continuation_named_in_uppercase_is_found_and_followed() {
         hops,
         vec![Hop {
             id: id(HEX),
-            found: true
+            found: true,
+            at: None
         }]
     );
 }

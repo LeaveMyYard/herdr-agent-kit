@@ -39,7 +39,8 @@
 //! never assumed to be the same agent.
 
 use super::SessionId;
-use super::wire::{Line, Ts, contains};
+use super::Ts;
+use super::wire::{Line, contains};
 
 /// Continuations followed at most from one session (panorama's
 /// `collect.CONTINUE_HOPS`).
@@ -178,10 +179,18 @@ pub trait TranscriptFiles {
     /// `None` when no transcript of `id` is found; otherwise the session its
     /// conversation continued in now (`Some(None)`: not continued).
     fn continued_in(&mut self, id: &SessionId) -> Option<Option<SessionId>>;
+
+    /// The time of the continuation [`TranscriptFiles::continued_in`] last
+    /// reported for `id` ([`Continuation::at`]); `None` when it has no time,
+    /// or when this source does not know times (the default).
+    fn continued_at(&mut self, id: &SessionId) -> Option<Ts> {
+        let _ = id;
+        None
+    }
 }
 
 /// One session on a forward chain.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Hop {
     /// The session.
     pub id: SessionId,
@@ -189,6 +198,9 @@ pub struct Hop {
     /// named by a continuation whose transcript is not written yet, or lives
     /// on another machine.
     pub found: bool,
+    /// The time of the continuation that led here from the previous hop
+    /// ([`TranscriptFiles::continued_at`]); always `None` on the first hop.
+    pub at: Option<Ts>,
 }
 
 /// `start` and every session its conversation continued in, in order:
@@ -221,6 +233,7 @@ pub struct Hop {
 pub fn chain(start: &SessionId, files: &mut impl TranscriptFiles, max_hops: usize) -> Vec<Hop> {
     let mut out: Vec<Hop> = Vec::new();
     let mut current = start.clone();
+    let mut at: Option<Ts> = None;
     loop {
         if out.iter().any(|h| h.id == current) {
             break;
@@ -229,15 +242,25 @@ pub fn chain(start: &SessionId, files: &mut impl TranscriptFiles, max_hops: usiz
             out.push(Hop {
                 id: current,
                 found: false,
+                at,
             });
             break;
+        };
+        let next_at = if next.is_some() {
+            files.continued_at(&current)
+        } else {
+            None
         };
         out.push(Hop {
             id: current,
             found: true,
+            at,
         });
         match next {
-            Some(n) if out.len() <= max_hops => current = n,
+            Some(n) if out.len() <= max_hops => {
+                current = n;
+                at = next_at;
+            }
             _ => break,
         }
     }
@@ -330,15 +353,18 @@ mod tests {
             vec![
                 Hop {
                     id: sid(1),
-                    found: true
+                    found: true,
+                    at: None
                 },
                 Hop {
                     id: sid(2),
-                    found: true
+                    found: true,
+                    at: None
                 },
                 Hop {
                     id: sid(3),
-                    found: false
+                    found: false,
+                    at: None
                 }
             ]
         );
@@ -368,7 +394,8 @@ mod tests {
             chain(&sid(1), &mut none, MAX_HOPS),
             vec![Hop {
                 id: sid(1),
-                found: false
+                found: false,
+                at: None
             }]
         );
     }

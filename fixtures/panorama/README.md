@@ -13,7 +13,7 @@ herdr-panorama's `tools/capture_goldens.py`; none is written by hand.
   `source` says exactly how.
 
 `tests/panorama_model_goldens.rs` materialises each input the same way, builds the model with
-the kit's `claude_session` fold and a test-only port of panorama's model builder
+the kit's `agent_session::claude` fold and a test-only port of panorama's model builder
 (`tests/panorama_model/`), and writes the whole golden file again as the capture wrote it
 (`json.dumps(..., indent=1, ensure_ascii=False)`): the bytes must match.
 

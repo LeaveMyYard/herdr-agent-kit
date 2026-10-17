@@ -1,4 +1,4 @@
-//! `claude_session::io` against real files: the tailer (herdr-panorama
+//! `agent_session::claude::io` against real files: the tailer (herdr-panorama
 //! `tests/test_scan_tail.py`), discovery, the tail summary and continuation
 //! followers. Records are captured templates (`tests/common`).
 
@@ -8,13 +8,12 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 
 use common::{BASE, CWD, Project, Transcript, dumps, stamp, tmp_dir, tpl};
-use herdr_agent_kit::claude_session::io::{
+use herdr_agent_kit::agent_session::claude::io::{
     Follower, ProjectsRoot, Tail, Tailer, Transcripts, related, summarize_tail,
     summarize_tail_from, workflow_summary_path,
 };
-use herdr_agent_kit::claude_session::{
-    Hop, SessionId, TranscriptFiles, Ts, chain, continuation::MAX_HOPS,
-};
+use herdr_agent_kit::agent_session::claude::{Hop, TranscriptFiles, chain, continuation::MAX_HOPS};
+use herdr_agent_kit::agent_session::{SessionId, Ts};
 use serde_json::{Value, json};
 
 const SID: &str = "55555555-5555-4555-8555-555555555555";
@@ -307,11 +306,13 @@ fn transcripts_follow_a_chain_forward_and_notice_a_next_session_appearing() {
         vec![
             Hop {
                 id: id(SID),
-                found: true
+                found: true,
+                at: None
             },
             Hop {
                 id: id(NEXT),
-                found: false
+                found: false,
+                at: Some(Ts((BASE + 10) as f64))
             }
         ]
     );
@@ -342,7 +343,8 @@ fn transcripts_follow_a_chain_forward_and_notice_a_next_session_appearing() {
         chain(&id(SID), &mut files, MAX_HOPS),
         vec![Hop {
             id: id(SID),
-            found: true
+            found: true,
+            at: None
         }]
     );
 }
@@ -420,7 +422,8 @@ fn a_large_transcript_is_followed_in_bounded_steps() {
     continued(&mut m, BASE + 20, NEXT);
     m.write();
     assert!(
-        fs::metadata(&m.path).unwrap().len() > herdr_agent_kit::claude_session::io::FOLLOW_CHUNK
+        fs::metadata(&m.path).unwrap().len()
+            > herdr_agent_kit::agent_session::claude::io::FOLLOW_CHUNK
     );
     let mut f = Follower::new(&m.path, id(SID));
     assert!(f.update());

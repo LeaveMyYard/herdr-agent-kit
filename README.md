@@ -24,8 +24,8 @@ Targets herdr 0.9.4 or newer.
 |---|---|---|---|
 | `herdr_api` | always | IO | The only code that talks to herdr: socket client, the CLI path, `HerdrError`, `Sanitized` |
 | `herdr_api::fake` | `fake` | test IO | `FakeHerdr`, a scripted herdr socket server that records requests |
-| `claude_session::fold` | always | pure | Session fold, status rules, the continuation rule |
-| `claude_session::io` | always | IO | Projects root, transcript discovery, tailing |
+| `agent_session::claude::fold` | always | pure | Session fold, status rules, the continuation rule |
+| `agent_session::claude::io` | always | IO | Projects root, transcript discovery, tailing |
 | `agent_procs` | always | IO | "Is this Claude Code", nested Claude, liveness |
 | `plugin_env` | always | IO | Plugin environment, `config.toml` with reload, state dirs, flock, socket dirs |
 | `remote_machines` | `remote` | IO | Machine list, ssh options, the shared ControlPath scheme |

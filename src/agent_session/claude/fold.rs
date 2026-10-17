@@ -12,7 +12,7 @@
 //! # Status rules
 //!
 //! panorama's `scan/session.py` docstring, pinned by the table tests in
-//! `tests/claude_session_fold.rs`:
+//! `tests/agent_session_claude_fold.rs`:
 //!
 //! 1. Terminal evidence is, newest first: the latest `<task-notification>`
 //!    for the agent from any carrier in any file (`completed` → done,
@@ -74,11 +74,12 @@ use indexmap::IndexMap;
 use serde_json::{Map, Value};
 
 use super::wire::{
-    self, BG_STOP_TOOLS, Block, Ending, Line, Record, SPAWN_TOOLS, TailInfo, Ts, py_str, py_strip,
+    self, BG_STOP_TOOLS, Block, Ending, Line, Record, SPAWN_TOOLS, TailInfo, py_str, py_strip,
     truthy,
 };
-use super::{Continuation, SessionId};
+use super::{Continuation, SessionId, Ts};
 use crate::agent_procs::{Liveness, Pid, ProcessIdentity};
+use crate::agent_session::Status;
 
 /// An agent written within this many seconds is running (zoetrope's
 /// `INTERACTIVE_IDLE_SECS`).
@@ -258,37 +259,6 @@ pub struct Titles {
     pub agent: Option<String>,
     /// `ai-title`.
     pub ai: Option<String>,
-}
-
-/// An agent's status.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Status {
-    /// Running.
-    Run,
-    /// Ended (inferred when nothing recorded the ending).
-    Done,
-    /// Failed.
-    Failed,
-    /// Cancelled (killed, stopped, abandoned by its workflow run).
-    Cancelled,
-    /// Its turn ended, background work it started is still running.
-    Bg,
-    /// Started, never stopped, and its Claude process is gone.
-    Lost,
-}
-
-impl Status {
-    /// panorama's status code (`run`, `done`, `fail`, `cxl`, `bg`, `lost`).
-    pub fn code(self) -> &'static str {
-        match self {
-            Status::Run => "run",
-            Status::Done => "done",
-            Status::Failed => "fail",
-            Status::Cancelled => "cxl",
-            Status::Bg => "bg",
-            Status::Lost => "lost",
-        }
-    }
 }
 
 impl From<Ending> for Status {

@@ -15,7 +15,8 @@ use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 
 use herdr_agent_kit::agent_procs::NoProcs;
-use herdr_agent_kit::claude_session::{Owner, Scanner, SessionId};
+use herdr_agent_kit::agent_session::SessionId;
+use herdr_agent_kit::agent_session::claude::{Owner, Scanner};
 use serde_json::{Map, Value, json};
 
 fn answer(req: &Value) -> Result<Value, String> {

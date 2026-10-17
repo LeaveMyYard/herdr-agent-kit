@@ -21,9 +21,9 @@ use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use super::SessionId;
 use super::continuation::{Continuation, TranscriptFiles};
 use super::wire::TailInfo;
+use super::{SessionId, Ts};
 
 // -- the projects root and discovery ------------------------------------------------------------
 
@@ -75,7 +75,7 @@ impl ProjectsRoot {
     /// root. Project directories are searched in name order (Python used the
     /// directory's own order).
     pub fn find(&self, id: &SessionId, cwd: Option<&str>) -> Option<PathBuf> {
-        let name = id.file_name();
+        let name = super::transcript_file_name(id);
         if let Some(cwd) = cwd.filter(|c| !c.is_empty()) {
             let path = self.project_dir(cwd).join(&name);
             if path.is_file() {
@@ -478,6 +478,11 @@ impl Follower {
     pub fn continued_in(&self) -> Option<&SessionId> {
         self.state.as_ref().and_then(Continuation::next)
     }
+
+    /// The time of that continuation ([`Continuation::at`]).
+    pub fn continued_at(&self) -> Option<Ts> {
+        self.state.as_ref().and_then(Continuation::at)
+    }
 }
 
 /// `subagents` is one of the three directories above the file (the inbox's
@@ -581,6 +586,10 @@ impl TranscriptFiles for Transcripts {
             return None;
         }
         Some(follower.continued_in().cloned())
+    }
+
+    fn continued_at(&mut self, id: &SessionId) -> Option<Ts> {
+        self.followers.get(id).and_then(|(f, _)| f.continued_at())
     }
 }
 

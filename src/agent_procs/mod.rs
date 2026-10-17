@@ -13,7 +13,7 @@
 //!   [`SystemProcesses`] (procfs, or `ps` where there is no procfs, as on
 //!   macOS), the test one is [`fake::FakeProcesses`].
 //! - **Is a recorded process still alive?** The [`Liveness`] trait, which
-//!   [`crate::claude_session::fold`]'s `status_of` takes as an argument so the
+//!   [`crate::agent_session::claude::fold`]'s `status_of` takes as an argument so the
 //!   status rules stay pure. [`SystemLiveness`] reads the real process table,
 //!   [`NoProcs`] answers "unknown" everywhere (transcripts mirrored from
 //!   another machine), and [`fake::FakeLiveness`] is scripted for tests.

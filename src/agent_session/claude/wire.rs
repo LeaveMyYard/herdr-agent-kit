@@ -40,7 +40,7 @@ use memchr::memmem::Finder;
 use regex::Regex;
 use serde_json::{Map, Value};
 
-use super::SessionId;
+use super::{SessionId, Ts};
 
 /// Lines worth a full JSON parse in a full-file pass: panorama's
 /// `wire.MARKERS`, byte for byte.
@@ -130,18 +130,6 @@ pub(crate) fn contains(haystack: &[u8], needle: &[u8]) -> bool {
 }
 
 // -- timestamps ------------------------------------------------------------------------------
-
-/// A record time: seconds since the Unix epoch, as panorama's `wire.ts`
-/// returns them (a float).
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
-pub struct Ts(pub f64);
-
-impl Ts {
-    /// The seconds since the epoch.
-    pub fn secs(self) -> f64 {
-        self.0
-    }
-}
 
 /// A record's `timestamp` as epoch seconds: panorama's `wire.ts` (and the
 /// inbox's `transcript._ts`).

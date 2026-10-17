@@ -8,7 +8,7 @@ parent disagreements.
 
 - **Python side:** herdr-panorama's `scan.session.Session` from a checkout of
   panorama `main` (the bridged scanner).
-- **Rust side:** `claude_session::Scanner` and `Session::status_of` /
+- **Rust side:** `agent_session::claude::Scanner` and `Session::status_of` /
   `parent_of` from this kit, through `examples/replay_scan.rs`.
 
 ## Method
@@ -74,7 +74,7 @@ The `TOTAL` line also counts:
   task, never come up.
 - With `hook_instants` 0, the hook rules were not compared at all: stop
   evidence, start reopen, `resumed_after` and `lost`. Those rules are covered
-  only by the kit's unit tests: the hook cases in `tests/claude_session_fold.rs`
+  only by the kit's unit tests: the hook cases in `tests/agent_session_claude_fold.rs`
   (from #13).
 
 ## Running it

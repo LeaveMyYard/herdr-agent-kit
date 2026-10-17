@@ -19,9 +19,10 @@ use std::time::UNIX_EPOCH;
 use serde_json::{Map, Value};
 
 use super::SessionId;
+use super::Ts;
 use super::fold::{Owner, Session};
 use super::io::{Tail, Tailer, related, summarize_tail, workflow_summary_path};
-use super::wire::{self, Line, Ts, contains};
+use super::wire::{self, Line, contains};
 
 /// A Bash moved to the background (its result record): an old agent file
 /// holding it is read even when it is outside the done window.

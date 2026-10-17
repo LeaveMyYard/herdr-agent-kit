@@ -17,17 +17,17 @@
 //!
 //! Pure code takes data and the current time and returns data: it does no IO,
 //! starts no threads and reads no environment. In this crate the pure parts are
-//! [`claude_session`] outside [`claude_session::io`] (the session-id
+//! [`agent_session::claude`] outside [`agent_session::claude::io`] (the session-id
 //! validator, the wire format, the continuation rule and the fold) and the
 //! formats in [`inbox_contract`]. Everything
-//! else is IO: [`herdr_api`], [`claude_session::io`], [`agent_procs`],
+//! else is IO: [`herdr_api`], [`agent_session::claude::io`], [`agent_procs`],
 //! [`plugin_env`], `remote_machines` and `inbox_contract::sqlite`.
 //!
 //! The plan this follows is `docs/plans/rust-rewrite.md` in herdr-panorama
 //! (sections 2.1 to 2.3).
 
 pub mod agent_procs;
-pub mod claude_session;
+pub mod agent_session;
 pub mod herdr_api;
 pub mod inbox_contract;
 pub mod plugin_env;

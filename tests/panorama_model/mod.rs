@@ -1,7 +1,7 @@
 //! A minimal, test-only port of herdr-panorama's model builder: what
 //! `panorama snapshot --json` prints (`collect.py`, `threads.py`, the
 //! `events.py` channel reader and `model.py`'s `to_json`), on top of the kit's
-//! `claude_session` fold. It exists to prove the fold against panorama's model
+//! `agent_session::claude` fold. It exists to prove the fold against panorama's model
 //! goldens (plan §5.2 item 3) until `panorama-core::model` is ported; it
 //! covers what one `snapshot --json` run does (one collect, this machine, no
 //! remote machines, no docking).
@@ -18,10 +18,11 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use herdr_agent_kit::agent_procs::NoProcs;
-use herdr_agent_kit::claude_session::fold::{BgLaunch, Owner, Session, Status};
-use herdr_agent_kit::claude_session::io::{ProjectsRoot, Tail, Tailer};
-use herdr_agent_kit::claude_session::wire::{self, Ending, Line, ToolCall};
-use herdr_agent_kit::claude_session::{Scanner, SessionId};
+use herdr_agent_kit::agent_session::claude::Scanner;
+use herdr_agent_kit::agent_session::claude::fold::{BgLaunch, Owner, Session};
+use herdr_agent_kit::agent_session::claude::io::{ProjectsRoot, Tail, Tailer};
+use herdr_agent_kit::agent_session::claude::wire::{self, Ending, Line, ToolCall};
+use herdr_agent_kit::agent_session::{SessionId, Status};
 use indexmap::IndexMap;
 use regex::Regex;
 use serde_json::{Map, Value};

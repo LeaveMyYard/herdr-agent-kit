@@ -16,10 +16,11 @@ use std::time::{Duration, UNIX_EPOCH};
 use common::{BASE, CWD, SLUG, tmp_dir, tpl};
 use herdr_agent_kit::agent_procs::fake::FakeLiveness;
 use herdr_agent_kit::agent_procs::{Liveness, NoProcs, ProcessIdentity};
-use herdr_agent_kit::claude_session::fold::{
-    ACTIVE, ASYNC_QUIET, BG_CAP, MONITOR_SLACK, Owner, PENDING_CAP, REOPEN_MARGIN, Status,
+use herdr_agent_kit::agent_session::claude::Scanner;
+use herdr_agent_kit::agent_session::claude::fold::{
+    ACTIVE, ASYNC_QUIET, BG_CAP, MONITOR_SLACK, Owner, PENDING_CAP, REOPEN_MARGIN,
 };
-use herdr_agent_kit::claude_session::{Scanner, SessionId};
+use herdr_agent_kit::agent_session::{SessionId, Status};
 use serde_json::{Map, Value, json};
 
 const SID: &str = "55555555-5555-4555-8555-555555555555";
@@ -1523,7 +1524,8 @@ fn the_fold_does_not_depend_on_the_order_files_are_read() {
             .map(<[u8]>::to_vec)
             .collect()
     };
-    let mut pure = herdr_agent_kit::claude_session::Session::new(SessionId::parse(SID).unwrap());
+    let mut pure =
+        herdr_agent_kit::agent_session::claude::Session::new(SessionId::parse(SID).unwrap());
     pure.set_agent("a1", sc.agents["a1"].0.path.clone(), None);
     pure.set_meta("a1", sc.agents["a1"].1.clone());
     for (owner, lines) in [
@@ -1531,7 +1533,7 @@ fn the_fold_does_not_depend_on_the_order_files_are_read() {
         (Owner::Main, split(&lines_main)),
     ] {
         for raw in &lines {
-            let line = herdr_agent_kit::claude_session::Line::parse(raw).unwrap();
+            let line = herdr_agent_kit::agent_session::claude::Line::parse(raw).unwrap();
             let when = line.ts();
             let facts = pure.file_mut(owner.clone());
             if let Some(t) = when {
@@ -1882,13 +1884,13 @@ fn evidence_at_one_instant_ties_like_pythons_status_strings() {
 
 /// Folds `tx`'s lines from `from` on into `s` as `owner`'s records.
 fn fold_lines(
-    s: &mut herdr_agent_kit::claude_session::Session,
+    s: &mut herdr_agent_kit::agent_session::claude::Session,
     owner: Owner,
     tx: &Tx,
     from: usize,
 ) {
     for raw in &tx.lines[from..] {
-        let line = herdr_agent_kit::claude_session::Line::parse(raw.as_bytes()).unwrap();
+        let line = herdr_agent_kit::agent_session::claude::Line::parse(raw.as_bytes()).unwrap();
         let when = line.ts();
         s.apply(owner.clone(), &line, when);
     }
@@ -1902,7 +1904,8 @@ fn children_follow_every_input_that_changes_parentage() {
     let mut sc = Sc::new("children-cache");
     bg_agent(&mut sc, "p1", "parent");
     let p1 = Owner::Agent("p1".into());
-    let mut s = herdr_agent_kit::claude_session::Session::new(SessionId::parse(SID).unwrap());
+    let mut s =
+        herdr_agent_kit::agent_session::claude::Session::new(SessionId::parse(SID).unwrap());
     fold_lines(&mut s, Owner::Main, &sc.main, 0);
     s.set_agent("p1", PathBuf::from("p1.jsonl"), None);
     s.set_meta("p1", sc.agents["p1"].1.clone());
@@ -1985,12 +1988,14 @@ fn of_two_earliest_owners_of_a_spawning_call_the_first_read_is_the_parent() {
         bg_agent(&mut sc, "p1", "parent");
         let inner = sc.tx("p1").launch(B + M, "c1", "child", false);
         let call_line = sc.tx("p1").lines.last().unwrap().clone();
-        let mut s = herdr_agent_kit::claude_session::Session::new(SessionId::parse(SID).unwrap());
+        let mut s =
+            herdr_agent_kit::agent_session::claude::Session::new(SessionId::parse(SID).unwrap());
         s.set_meta(
             "c1",
             json!({"toolUseId": inner}).as_object().unwrap().clone(),
         );
-        let line = herdr_agent_kit::claude_session::Line::parse(call_line.as_bytes()).unwrap();
+        let line =
+            herdr_agent_kit::agent_session::claude::Line::parse(call_line.as_bytes()).unwrap();
         for owner in [first, second] {
             s.apply(Owner::Agent(owner.into()), &line, line.ts());
         }
@@ -2038,8 +2043,9 @@ fn agents_keep_their_discovery_order_across_updates() {
 /// exhaust the stack: the running-descendant search stops at NESTING_CAP.
 #[test]
 fn a_deep_parent_chain_is_answered() {
-    use herdr_agent_kit::claude_session::fold::NESTING_CAP;
-    let mut s = herdr_agent_kit::claude_session::Session::new(SessionId::parse(SID).unwrap());
+    use herdr_agent_kit::agent_session::claude::fold::NESTING_CAP;
+    let mut s =
+        herdr_agent_kit::agent_session::claude::Session::new(SessionId::parse(SID).unwrap());
     let n = 50_000;
     for i in 0..n {
         let meta = if i == 0 {
@@ -2055,7 +2061,8 @@ fn a_deep_parent_chain_is_answered() {
     let st = s.status_of("a0", B, &NoProcs);
     assert_eq!((st.status, st.inferred), (Status::Done, true));
     // within the cap, a running descendant still keeps its ancestors running
-    let mut s = herdr_agent_kit::claude_session::Session::new(SessionId::parse(SID).unwrap());
+    let mut s =
+        herdr_agent_kit::agent_session::claude::Session::new(SessionId::parse(SID).unwrap());
     for i in 0..NESTING_CAP {
         let mut meta = json!({"parentAgentId": format!("a{}", i.saturating_sub(1))});
         if i == 0 {
