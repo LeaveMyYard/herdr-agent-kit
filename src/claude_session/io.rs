@@ -247,6 +247,13 @@ impl Tailer {
 
     /// Reads what was appended to `path` since the last read.
     pub fn read(&mut self, path: &Path) -> Tail {
+        self.read_at_most(path, u64::MAX)
+    }
+
+    /// [`Tailer::read`], reading at most `limit` bytes (at least one): a
+    /// large file is read in bounded steps, each returning its complete
+    /// lines; the next call continues where this one stopped.
+    pub fn read_at_most(&mut self, path: &Path, limit: u64) -> Tail {
         let Ok(meta) = fs::metadata(path) else {
             return Tail::Missing;
         };
@@ -268,7 +275,8 @@ impl Tailer {
         let mut buf = Vec::new();
         let read = File::open(path).and_then(|mut f| {
             f.seek(SeekFrom::Start(self.offset))?;
-            f.take(meta.len() - self.offset).read_to_end(&mut buf)
+            f.take((meta.len() - self.offset).min(limit.max(1)))
+                .read_to_end(&mut buf)
         });
         if read.is_err() {
             return Tail::Missing;
@@ -345,9 +353,9 @@ pub fn summarize_tail(path: &Path, cwd: Option<&str>) -> TailInfo {
     summarize_tail_from(path, cwd, TAIL_BYTES)
 }
 
-/// [`summarize_tail`] starting from another window size.
+/// [`summarize_tail`] starting from another window size (at least one byte).
 pub fn summarize_tail_from(path: &Path, cwd: Option<&str>, window: u64) -> TailInfo {
-    match read_tail(path, window) {
+    match read_tail(path, window.max(1)) {
         Ok((head, data, start)) => {
             let mut lines: Vec<&[u8]> = data.split(|&c| c == b'\n').collect();
             if start > 0 {
@@ -390,6 +398,9 @@ fn read_tail(path: &Path, mut window: u64) -> std::io::Result<TailRead> {
 
 // -- continuation on disk ---------------------------------------------------------------------
 
+/// The most a [`Follower`] reads in one step.
+pub const FOLLOW_CHUNK: u64 = 8 * 1024 * 1024;
+
 /// The continuation state of one transcript file, read incrementally: the
 /// inbox's `transcript.continued_in` and the continuation part of panorama's
 /// `Session.update`.
@@ -397,8 +408,9 @@ fn read_tail(path: &Path, mut window: u64) -> std::io::Result<TailRead> {
 /// Only a session's **main** transcript can continue: a follower of a file
 /// inside a `subagents/` directory (`<session>/subagents/agent-*.jsonl`,
 /// `<session>/subagents/workflows/<run>/agent-*.jsonl`) never reports one.
-/// The whole file is read once, then only what is appended; a rewritten file
-/// is read again from the start.
+/// The whole file is read once, in steps of at most [`FOLLOW_CHUNK`] bytes
+/// (so a large transcript never sits in memory whole), then only what is
+/// appended; a rewritten file is read again from the start.
 #[derive(Clone, Debug)]
 pub struct Follower {
     path: PathBuf,
@@ -426,24 +438,30 @@ impl Follower {
     /// Reads what was appended. `false` when the file is missing (the state
     /// read so far is kept).
     pub fn update(&mut self) -> bool {
-        for _ in 0..3 {
-            match self.tailer.read(&self.path) {
+        let mut resets = 0;
+        loop {
+            match self.tailer.read_at_most(&self.path, FOLLOW_CHUNK) {
                 Tail::Missing => return false,
                 Tail::NoChange => return true,
                 Tail::Reset => {
                     if let Some(state) = &mut self.state {
                         state.reset();
                     }
+                    resets += 1;
+                    if resets > 2 {
+                        return true; // replaced again and again: read on the next update
+                    }
                 }
                 Tail::Lines(lines) => {
                     if let Some(state) = &mut self.state {
                         state.feed(&lines);
                     }
-                    return true;
+                    if self.tailer.offset() >= self.tailer.size() {
+                        return true;
+                    }
                 }
             }
         }
-        true
     }
 
     /// The session the conversation continued in, as far as read.
@@ -498,7 +516,8 @@ impl Transcripts {
     }
 
     /// Records where a session's main transcript is (the path its
-    /// `SessionStart` hook reported); it is used while it exists.
+    /// `SessionStart` hook reported); while it is a file it is preferred over
+    /// any path found by search, as the inbox's `find(id, known)` did.
     pub fn remember(&mut self, id: SessionId, path: PathBuf) {
         self.known.insert(id, path);
     }
@@ -515,11 +534,13 @@ impl Transcripts {
     fn follower(&mut self, id: &SessionId) -> Option<&mut Follower> {
         self.tick += 1;
         let tick = self.tick;
-        let current = self
-            .followers
-            .get(id)
-            .map(|(f, _)| f.path().to_path_buf())
-            .filter(|p| p.is_file());
+        let remembered = self.known.get(id).filter(|p| p.is_file()).cloned();
+        let current = remembered.or_else(|| {
+            self.followers
+                .get(id)
+                .map(|(f, _)| f.path().to_path_buf())
+                .filter(|p| p.is_file())
+        });
         let path = match current {
             Some(path) => path,
             None => self.find(id)?,

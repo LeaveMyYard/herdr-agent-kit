@@ -1,7 +1,7 @@
 # Claude Code transcript record templates
 
 `templates.json` is herdr-panorama's `tests/fixtures/templates.json`, copied unchanged from
-herdr-panorama main at `f504b95` (2026-10-17). It holds one real record per kind the plugins
+herdr-panorama main at `4f525f3` (2026-10-17; the file last changed in `f504b95`, #53). It holds one real record per kind the plugins
 read (main and subagent transcript records, task-notification carriers, agent meta files,
 workflow journal and run summary, and the `continued-in`, `last-prompt`, `cost-state`,
 `mode` and `file-history-snapshot` records), captured from real Claude Code 2.1.x transcripts

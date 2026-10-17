@@ -195,13 +195,20 @@ pub struct Hop {
 /// `found: false`), or after `max_hops` continuations (at most
 /// `max_hops + 1` hops).
 ///
-/// The plugins read it as they did:
+/// The plugins read it differently, and both readings are views of this
+/// result:
 ///
-/// - the session a conversation lives in now (panorama's
-///   `Collector.live_session`, the inbox's `transcript.follow`): the last hop
-///   with `found: true`;
+/// - panorama's `Collector.live_session` (the session whose transcript it
+///   reads now): the hops with `found: true`, ending at the last of them;
+/// - the inbox's `transcript.follow` (the session a delivery is filed and
+///   typed under): **the last hop, found or not** (`hops.last()`). In the
+///   window between a `continued-in` record and the new session's first
+///   write, that is the new, not yet written session, not the old one;
 /// - every id on the way, including a next one not written yet (panorama's
 ///   `Collector.continuations`, the inbox's `transcript.chain`): all hops.
+///
+/// Which view a port uses is that port's parity decision; this function
+/// does not pick one.
 ///
 /// The inbox's Python `chain` stopped one hop earlier (`max_hops = 8` ids,
 /// panorama 9); this follows panorama.

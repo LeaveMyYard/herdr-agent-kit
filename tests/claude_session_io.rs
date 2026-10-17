@@ -365,3 +365,97 @@ fn a_remembered_path_is_used_while_it_exists() {
     assert_eq!(files.find(&id(SID)), Some(m.path.clone()));
     assert_eq!(files.continued_in(&id(SID)), Some(Some(id(NEXT))));
 }
+
+#[test]
+fn a_rewrite_forgets_the_time_read_before_it() {
+    // Before the rewrite the file's last dated record is late (BASE + 100).
+    // The rewritten file starts with an undated continued-in: nothing dated
+    // before it, so it has no time and any conversation record clears it,
+    // even one earlier than the old file's records.
+    let tmp = tmp_dir("rewrite-time");
+    let proj = Project::new(tmp.join("projects"));
+    let mut m = proj.main(SID);
+    for i in 0..5 {
+        m.prompt(
+            BASE + 100,
+            &format!("a long prompt that makes this file longer {i}"),
+        );
+    }
+    m.write();
+    let mut f = Follower::new(&m.path, id(SID));
+    assert!(f.update());
+    let mut again = proj.main(SID);
+    let mut rec = tpl("continued_in");
+    rec.remove("timestamp");
+    rec.insert("sessionId".into(), json!(SID));
+    rec.insert("continuedInSessionId".into(), json!(NEXT));
+    again.raw(dumps(&rec));
+    again.write();
+    assert!(f.update());
+    assert_eq!(f.continued_in(), Some(&id(NEXT)));
+    again.prompt(BASE + 50, "go on");
+    again.write();
+    assert!(f.update());
+    assert_eq!(f.continued_in(), None);
+}
+
+#[test]
+fn a_large_transcript_is_followed_in_bounded_steps() {
+    let tmp = tmp_dir("chunks");
+    let p = tmp.join("t.jsonl");
+    fs::write(&p, b"one\ntwo\nthree\n").unwrap();
+    let mut t = Tailer::new();
+    assert_eq!(t.read_at_most(&p, 5), lines(&[b"one"]));
+    assert_eq!(t.read_at_most(&p, 5), lines(&[b"two"]));
+    assert_eq!(t.read_at_most(&p, 0), lines(&[]));
+    assert_eq!(t.read_at_most(&p, 100), lines(&[b"three"]));
+    assert_eq!(t.read_at_most(&p, 100), Tail::NoChange);
+    // a follower reads a file bigger than one step to its end
+    let proj = Project::new(tmp.join("projects"));
+    let mut m = proj.main(SID);
+    let filler = "x".repeat(1024 * 1024);
+    for i in 0..10 {
+        m.prompt(BASE + i, &filler);
+    }
+    continued(&mut m, BASE + 20, NEXT);
+    m.write();
+    assert!(
+        fs::metadata(&m.path).unwrap().len() > herdr_agent_kit::claude_session::io::FOLLOW_CHUNK
+    );
+    let mut f = Follower::new(&m.path, id(SID));
+    assert!(f.update());
+    assert_eq!(f.continued_in(), Some(&id(NEXT)));
+}
+
+#[test]
+fn a_zero_window_still_summarizes() {
+    let tmp = tmp_dir("zero-window");
+    let p = tmp.join("z.jsonl");
+    fs::write(
+        &p,
+        format!("{}\n", dumps(&stamp(tpl("user_prompt_human"), BASE, SID))),
+    )
+    .unwrap();
+    assert_eq!(
+        summarize_tail_from(&p, None, 0).last_ts,
+        Some(Ts(BASE as f64))
+    );
+}
+
+#[test]
+fn a_remembered_path_is_preferred_over_one_found_before() {
+    let tmp = tmp_dir("remember-late");
+    let proj = Project::new(tmp.join("projects"));
+    let mut m = proj.main(SID);
+    m.prompt(BASE, "work");
+    m.write();
+    let mut files = Transcripts::new(ProjectsRoot::new(&proj.root), None);
+    assert_eq!(files.continued_in(&id(SID)), Some(None));
+    let elsewhere = tmp.join("elsewhere.jsonl");
+    let mut rec = tpl("continued_in");
+    rec.insert("sessionId".into(), json!(SID));
+    rec.insert("continuedInSessionId".into(), json!(NEXT));
+    fs::write(&elsewhere, format!("{}\n", dumps(&rec))).unwrap();
+    files.remember(id(SID), elsewhere);
+    assert_eq!(files.continued_in(&id(SID)), Some(Some(id(NEXT))));
+}
