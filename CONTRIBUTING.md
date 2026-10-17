@@ -40,7 +40,7 @@ does for both. Open an issue before a large change or a new public API.
   bash .github/scripts/package-check.sh
   RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
   RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --no-default-features
-  for f in "" test-support internal tui remote sqlite; do
+  for f in "" test-support internal sqlite; do
     cargo clippy --all-targets --no-default-features --features "$f" -- -D warnings
     cargo test --no-default-features --features "$f"
   done

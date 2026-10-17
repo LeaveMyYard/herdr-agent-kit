@@ -24,8 +24,6 @@
 //! | Feature | Enables |
 //! |---|---|
 //! | `test-support` | Test fakes: `herdr_api::fake` (`FakeHerdr`, a scripted herdr socket server) and `agent_procs::fake` (scripted process tables and liveness) |
-//! | `tui` | `tui_kit`: terminal toolkit (planned, empty in 0.1) |
-//! | `remote` | `remote_machines`: machine list, ssh options, ControlPath scheme (planned, empty in 0.1) |
 //! | `internal` | Plugin-only parts (the inbox's formats, the plugins' state layouts), **not public API and outside semver** (hidden from these docs) |
 //! | `sqlite` | A plugin-only SQLite reader inside `internal` (turns on `internal`) |
 //!
@@ -84,7 +82,3 @@ pub mod herdr_api;
 #[doc(hidden)]
 pub mod internal;
 pub mod plugin_env;
-#[cfg(feature = "remote")]
-pub mod remote_machines;
-#[cfg(feature = "tui")]
-pub mod tui_kit;

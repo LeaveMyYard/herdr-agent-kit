@@ -89,8 +89,6 @@ jobs:
           - { name: none, flags: "--no-default-features" }
           - { name: test-support, flags: "--no-default-features --features test-support" }
           - { name: internal, flags: "--no-default-features --features internal" }
-          - { name: tui, flags: "--no-default-features --features tui" }
-          - { name: remote, flags: "--no-default-features --features remote" }
           - { name: sqlite, flags: "--no-default-features --features sqlite" }
           - { name: all, flags: "--all-features" }
     steps:
