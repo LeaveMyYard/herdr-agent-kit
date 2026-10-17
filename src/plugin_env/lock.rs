@@ -58,7 +58,9 @@ impl HeldLock {
     }
 
     /// The open lock file. It is opened close-on-exec, so the lock is not
-    /// inherited by a child process.
+    /// inherited by a child process. A duplicate of it (`try_clone`) does not
+    /// extend the lock: dropping the `HeldLock` releases it on the shared open
+    /// file description, so the lock lives exactly as long as the `HeldLock`.
     pub fn file(&self) -> &File {
         &self.file
     }
