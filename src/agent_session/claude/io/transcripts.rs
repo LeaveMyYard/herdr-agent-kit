@@ -99,10 +99,7 @@ impl TranscriptFiles for Transcripts {
         }
         match follower.continued_in() {
             None => Lookup::Ended,
-            Some(next) => Lookup::ContinuedIn {
-                next: next.clone(),
-                at: follower.continued_at(),
-            },
+            Some(next) => Lookup::continued_in(next.clone(), follower.continued_at()),
         }
     }
 }

@@ -321,10 +321,7 @@ fn a_remembered_path_is_used_while_it_exists() {
     assert_eq!(files.find(&id(SID)), Some(m.path.clone()));
     assert_eq!(
         files.lookup(&id(SID)),
-        Lookup::ContinuedIn {
-            next: id(NEXT),
-            at: Some(Ts((BASE + 10) as f64))
-        }
+        Lookup::continued_in(id(NEXT), Some(Ts((BASE + 10) as f64)))
     );
 }
 
@@ -416,4 +413,31 @@ fn a_remembered_path_is_preferred_over_one_found_before() {
         files.lookup(&id(SID)),
         Lookup::ContinuedIn { next, .. } if next == id(NEXT)
     ));
+}
+
+#[cfg(unix)]
+#[test]
+fn a_transcript_that_cannot_be_read_is_not_found() {
+    use std::os::unix::fs::PermissionsExt;
+    let tmp = tmp_dir("unreadable");
+    let proj = Project::new(tmp.join("projects"));
+    let mut m = proj.main(SID);
+    m.prompt(BASE, "work");
+    m.write();
+    fs::set_permissions(&m.path, fs::Permissions::from_mode(0o000)).unwrap();
+    if fs::File::open(&m.path).is_ok() {
+        // root reads any file: nothing to check here (CI runs unprivileged)
+        fs::set_permissions(&m.path, fs::Permissions::from_mode(0o644)).unwrap();
+        return;
+    }
+    // the file is there (found by search) but reading it fails: not found, never Ended
+    let mut files = Transcripts::new(ProjectsRoot::new(&proj.root), None);
+    assert_eq!(files.find(&id(SID)), Some(m.path.clone()));
+    assert_eq!(files.lookup(&id(SID)), Lookup::NotFound);
+    assert_eq!(
+        chain(&id(SID), &mut files, MAX_HOPS),
+        vec![Hop::new(id(SID), false, None)]
+    );
+    fs::set_permissions(&m.path, fs::Permissions::from_mode(0o644)).unwrap();
+    assert_eq!(files.lookup(&id(SID)), Lookup::Ended);
 }
