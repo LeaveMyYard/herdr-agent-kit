@@ -4,8 +4,16 @@
 //! `flock(2)` on Linux and macOS, so a lock held by a Python process blocks a
 //! Rust process on the same path and the other way round (the tests prove it
 //! against a real Python process). A lock is held by an open file description:
-//! dropping the [`HeldLock`] closes the file and releases it, and so does the
-//! process dying.
+//! dropping the [`HeldLock`] releases it (`LOCK_UN`, then close), and so does
+//! the process dying.
+//!
+//! Every release is an explicit `LOCK_UN`, never just the close. Files are
+//! opened close-on-exec, but a child forked by another thread holds a copy of
+//! every descriptor between its fork and its exec, and that copy keeps the
+//! open file description, and the lock on it, alive after this process closes
+//! its own. `LOCK_UN` releases the lock on the description itself, whoever
+//! still has it open. (Without it a probe or a dropped lock could linger for
+//! the instant a sibling thread spends spawning a process: kit issue #9.)
 //!
 //! The open modes follow each Python call site:
 //!
@@ -57,6 +65,13 @@ impl HeldLock {
 
     /// Release the lock now (`LOCK_UN`, then close).
     pub fn release(self) {
+        drop(self);
+    }
+}
+
+impl Drop for HeldLock {
+    /// `LOCK_UN` before the close: see the module docs.
+    fn drop(&mut self) {
         let _ = self.file.unlock();
     }
 }
@@ -197,7 +212,7 @@ impl LockFile {
         let Ok(file) = self.open_with(false) else {
             return false;
         };
-        file.try_lock_shared().is_err()
+        shared_probe(&file)
     }
 
     /// Is the lock held by someone else? Probed with `LOCK_EX | LOCK_NB` and
@@ -221,6 +236,19 @@ impl LockFile {
     }
 }
 
+/// `LOCK_SH | LOCK_NB` on `file`, released at once: is the lock held by
+/// another open file description? The release is an explicit `LOCK_UN`, not
+/// the close: see the module docs.
+fn shared_probe(file: &File) -> bool {
+    match file.try_lock_shared() {
+        Ok(()) => {
+            let _ = file.unlock();
+            false
+        }
+        Err(_) => true,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -241,6 +269,39 @@ mod tests {
         assert!(again.is_some());
         drop(again);
         assert!(lock.try_exclusive().unwrap().is_some());
+    }
+
+    // A duplicated descriptor shares the open file description, exactly as
+    // the copy a child forked by another thread holds until its exec (kit
+    // issue #9). The lock must not outlive our own release because of it.
+
+    #[test]
+    fn a_dropped_lock_is_released_while_a_copy_of_its_descriptor_lives() {
+        let dir = tempfile::tempdir().unwrap();
+        let lock = LockFile::new(dir.path().join("x.lock"));
+        let held = lock.try_exclusive().unwrap().unwrap();
+        let forked_copy = held.file().try_clone().unwrap();
+        drop(held);
+        assert!(!lock.held_elsewhere());
+        assert!(lock.try_exclusive().unwrap().is_some());
+
+        let held = lock.try_exclusive().unwrap().unwrap();
+        let forked_copy_2 = held.file().try_clone().unwrap();
+        held.release();
+        assert!(lock.try_exclusive().unwrap().is_some());
+        drop((forked_copy, forked_copy_2));
+    }
+
+    #[test]
+    fn a_shared_probe_is_released_while_a_copy_of_its_descriptor_lives() {
+        let dir = tempfile::tempdir().unwrap();
+        let lock = LockFile::new(dir.path().join("x.lock"));
+        let file = lock.open().unwrap();
+        let forked_copy = file.try_clone().unwrap();
+        assert!(!shared_probe(&file));
+        drop(file);
+        assert!(lock.try_exclusive().unwrap().is_some());
+        drop(forked_copy);
     }
 
     #[test]
