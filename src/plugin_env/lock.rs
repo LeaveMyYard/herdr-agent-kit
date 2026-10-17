@@ -14,6 +14,9 @@
 //! - [`LockFile::private`]: `os.open(path, O_RDWR | O_CREAT | O_NOFOLLOW,
 //!   0o600)`: panorama's core lock, inside its private socket directory;
 //! - [`LockFile::mode`] for anything else (panorama's home lock is 0644).
+//!
+//! The waiting calls ([`LockFile::exclusive`], [`LockFile::exclusive_within`])
+//! block the thread: from async code run them in `spawn_blocking`.
 
 use std::fs::{File, OpenOptions, TryLockError};
 use std::io;
@@ -46,7 +49,8 @@ impl HeldLock {
         &self.path
     }
 
-    /// The open lock file (for example, to keep it across `exec`).
+    /// The open lock file. It is opened close-on-exec, so the lock is not
+    /// inherited by a child process.
     pub fn file(&self) -> &File {
         &self.file
     }

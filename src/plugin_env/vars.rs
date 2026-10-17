@@ -57,15 +57,12 @@ pub struct PluginEnv {
 }
 
 impl PluginEnv {
-    /// The real environment of this process, its home directory (`$HOME`, else
-    /// the password database, as Python's `expanduser("~")`) and its real uid.
+    /// The real environment of this process, its home directory (`$HOME`,
+    /// `/` when it is set but empty, else the password database, as Python's
+    /// `expanduser("~")`) and its real uid.
     pub fn from_env() -> Self {
         let vars: HashMap<OsString, OsString> = std::env::vars_os().collect();
-        let home = vars
-            .get(OsStr::new("HOME"))
-            .filter(|h| !h.is_empty())
-            .map(PathBuf::from)
-            .or_else(std::env::home_dir);
+        let home = home_from(vars.get(OsStr::new("HOME")).map(OsString::as_os_str));
         // SAFETY: getuid has no preconditions and cannot fail.
         let uid = unsafe { libc::getuid() };
         PluginEnv { vars, home, uid }
@@ -202,6 +199,16 @@ impl PluginEnv {
     }
 }
 
+/// `expanduser("~")`: a set `HOME` wins even when empty (then `~/x` is `/x`);
+/// only an unset one falls back to the password database.
+fn home_from(home_var: Option<&OsStr>) -> Option<PathBuf> {
+    match home_var {
+        Some(h) if h.is_empty() => Some(PathBuf::from("/")),
+        Some(h) => Some(PathBuf::from(h)),
+        None => std::env::home_dir(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -242,6 +249,14 @@ mod tests {
         assert_eq!(e.plugin_id("x.y"), "a.b");
         assert_eq!(e.bin_path(), "/bin/h");
         assert!(e.in_herdr());
+    }
+
+    #[test]
+    fn an_empty_home_is_root_like_expanduser() {
+        assert_eq!(home_from(Some(OsStr::new(""))), Some(PathBuf::from("/")));
+        assert_eq!(home_from(Some(OsStr::new("/h"))), Some(PathBuf::from("/h")));
+        let e = PluginEnv::from_vars([("HOME", "")], home_from(Some(OsStr::new(""))), 0);
+        assert_eq!(e.xdg_state_home(), PathBuf::from("/.local/state"));
     }
 
     #[test]

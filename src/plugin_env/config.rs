@@ -11,7 +11,11 @@
 //! without a restart (panorama `config.load`; the inbox re-reads every call,
 //! which this matches). A missing file is an empty table. A file that does not
 //! parse is an empty table too, with the error kept in
-//! [`ConfigFile::error`] for the caller to log once.
+//! [`ConfigFile::error`] (until the file changes again) for the caller to log.
+//!
+//! Known difference: the `toml` crate accepts TOML 1.1 (for example a trailing
+//! comma in an inline table), Python's `tomllib` only 1.0. A file that only
+//! TOML 1.1 accepts is applied here and ignored whole by a Python process.
 
 use std::fs;
 use std::os::unix::fs::MetadataExt;

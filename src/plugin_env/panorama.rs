@@ -51,7 +51,9 @@ pub fn socket_dir(env: &PluginEnv) -> PathBuf {
     let own = format!("herdr-panorama-{}", env.uid());
     for dir in [state_dir(env).join("sockets"), runtime.join(&own)] {
         // Python measures the normalised `str(Path)`: no repeated or trailing
-        // separators, no inner `.` components.
+        // separators, no inner `.` components. Known gap: a relative state dir
+        // with a leading "./", or one starting with "//", measures differently
+        // at the boundary; herdr always passes absolute directories.
         let measured: PathBuf = dir.join(SIZING_NAME).components().collect();
         if measured.to_string_lossy().chars().count() <= SUN_PATH_MAX {
             return dir;
