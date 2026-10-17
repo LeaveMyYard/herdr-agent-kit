@@ -26,7 +26,7 @@
 //! | `test-support` | Test fakes: `herdr_api::fake` (`FakeHerdr`, a scripted herdr socket server) and `agent_procs::fake` (scripted process tables and liveness) |
 //! | `tui` | `tui_kit`: terminal toolkit (planned, empty in 0.1) |
 //! | `remote` | `remote_machines`: machine list, ssh options, ControlPath scheme (planned, empty in 0.1) |
-//! | `internal` | Plugin-only parts, **not public API and outside semver** (hidden from these docs) |
+//! | `internal` | Plugin-only parts (the inbox's formats, the plugins' state layouts), **not public API and outside semver** (hidden from these docs) |
 //! | `sqlite` | A plugin-only SQLite reader inside `internal` (turns on `internal`) |
 //!
 //! # Purity boundary
@@ -65,7 +65,14 @@
 //!
 //! The API is 0.x and follows semver: before 1.0 a breaking change bumps the
 //! minor version. The `internal` module is excluded: it changes whenever the
-//! two plugins need it. The design this follows is
+//! two plugins need it. Types that are expected to grow (statuses, errors,
+//! records, herdr's responses, [`agent_session::SessionView`]) are
+//! `#[non_exhaustive]`; the ones callers build have constructors.
+//!
+//! Public dependencies (their types appear in this API): `serde` and
+//! `serde_json` 1.x (JSON values in records and herdr responses, `Deserialize`
+//! for settings), and `tokio` 1.x (the async herdr client needs a tokio
+//! runtime). No other dependency's types are exposed. The design this follows is
 //! `docs/plans/rust-rewrite.md` in herdr-panorama (sections 2.1 to 2.3).
 
 #![warn(missing_docs)]

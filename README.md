@@ -33,7 +33,7 @@ crate. Run `cargo doc --open --all-features` for the full reference.
 | `agent_procs` | always | IO | Neutral process table walks, pid checks, the `Liveness` trait |
 | `agent_procs::claude` | always | IO | Claude Code: "is this Claude Code", nested Claude, `SystemLiveness` (background tasks) |
 | `agent_procs::fake` | `test-support` | pure | Scripted process tables and liveness for tests |
-| `plugin_env` | always | IO | Plugin environment, `config.toml` with reload, state dirs, flock, socket dirs |
+| `plugin_env` | always | IO | Plugin environment, `config.toml` with reload (`ConfigFile::load_as` into any serde type), flock, private socket dirs |
 | `remote_machines` | `remote` | IO | Planned (empty in 0.1): machine list, ssh options, the shared ControlPath scheme |
 | `tui_kit` | `tui` | IO | Planned (empty in 0.1): terminal setup, arming, identity cursors, click targets, theme |
 
@@ -49,9 +49,15 @@ until a second one is built.
 **Not public API.** The `internal` feature turns on the `internal` module
 (hidden from the docs): `internal::inbox_contract`, herdr-inbox's published
 formats (`[inbox] …` text, the `ask_operator` receipt, `inbox open` args), and
-with `sqlite` its read-only reader of the 0.1 `questions` columns. It exists
-for the two plugins only and is **outside semver**: it can change in any
-release.
+with `sqlite` its read-only reader of the 0.1 `questions` columns; and
+`internal::plugin_paths`, the two plugins' ids and state layouts (lock, socket
+and state paths). It exists for the two plugins only and is **outside
+semver**: it can change in any release.
+
+**Semver.** Types expected to grow are `#[non_exhaustive]`. Public
+dependencies are `serde`/`serde_json` 1.x and `tokio` 1.x only. The package
+holds `src/` and the herdr recordings `FakeHerdr` embeds; CI builds the
+packaged crate with every feature.
 
 `fixtures/` holds captured test inputs (transcripts, herdr socket recordings,
 inbox-format goldens); see [fixtures/README.md](fixtures/README.md).
