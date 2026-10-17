@@ -3,11 +3,12 @@
 
 use serde_json::{Map, Value};
 
-use super::fields::{py_int, str_or_empty};
 use super::times::{T, or_inf};
 use super::{Ack, BgKind, Owner, Session, Spawn, WorkflowLaunch};
 use crate::agent_session::Ts;
-use crate::agent_session::claude::wire::{self, BG_STOP_TOOLS, SPAWN_TOOLS, py_str, truthy};
+use crate::agent_session::claude::wire::{self, BG_STOP_TOOLS, SPAWN_TOOLS};
+use crate::ask_operator::{is_ask_operator, question_ids};
+use crate::pytext::{py_int, py_str, str_or_empty, truthy};
 
 /// Order-independent choice when one spawning call appears in several files:
 /// main wins, then the earliest record (the original, not a fork's copy).
@@ -60,7 +61,7 @@ impl Session {
                     background,
                 },
             );
-        } else if name.ends_with("ask_operator") {
+        } else if is_ask_operator(name) {
             self.pending_ask.insert(id.to_string(), owner.clone());
         } else if name == "Bash" || name == "Monitor" {
             // `bg_calls` and `bg_stop_calls` are read by `background.rs`
@@ -143,7 +144,7 @@ impl Session {
             self.qids
                 .entry(asker)
                 .or_default()
-                .extend(wire::question_ids(&wire::text_of(content)));
+                .extend(question_ids(&wire::text_of(content)));
         }
     }
 }

@@ -32,6 +32,7 @@ mod rows_review;
 // The other cases.
 mod order;
 mod parentage;
+#[cfg(feature = "internal")]
 mod questions;
 mod status;
 mod updates;

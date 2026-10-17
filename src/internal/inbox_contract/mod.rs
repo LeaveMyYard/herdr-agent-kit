@@ -22,4 +22,3 @@ pub mod open_args;
 pub mod receipt;
 #[cfg(feature = "sqlite")]
 pub mod sqlite;
-mod text;

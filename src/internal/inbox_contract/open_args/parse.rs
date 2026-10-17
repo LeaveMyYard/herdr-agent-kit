@@ -2,7 +2,7 @@
 //! setup and `deeplink.valid`).
 
 use super::{OpenArgsError, OpenKind, OpenRequest, OpenTarget, question_ref};
-use crate::internal::inbox_contract::text::{ascii_digits, py_space};
+use crate::pytext::{ascii_digits, py_isspace};
 
 /// Whether `value` is a well-formed target of `kind` (herdr-inbox's `deeplink.valid`).
 ///
@@ -33,7 +33,7 @@ pub fn valid(kind: OpenKind, value: &str) -> bool {
             !id.is_empty() && ascii_digits(id).len() == id.len()
         }
         OpenKind::Group => !value.is_empty() && ascii_digits(value).len() == value.len(),
-        OpenKind::Pane => !value.is_empty() && !value.contains(py_space),
+        OpenKind::Pane => !value.is_empty() && !value.contains(py_isspace),
         OpenKind::Session => is_session_id(value),
     }
 }

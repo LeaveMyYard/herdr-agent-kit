@@ -56,3 +56,31 @@ fn an_over_long_answer_goes_alone_as_a_reference() {
     );
     assert!(msgs[0].text.contains("(long answer, 4000 chars;"));
 }
+
+#[test]
+fn the_space_sets_differ_where_the_languages_do() {
+    use crate::pytext::py_isspace;
+    use ui::js_space;
+    for c in ['\u{1c}', '\u{1f}', '\u{85}'] {
+        assert!(py_isspace(c) && !js_space(c), "{c:?}");
+    }
+    assert!(js_space('\u{feff}') && !py_isspace('\u{feff}'));
+    for c in [' ', '\t', '\u{a0}', '\u{3000}', '\u{2028}'] {
+        assert!(py_isspace(c) && js_space(c), "{c:?}");
+    }
+    for c in ['a', '\u{200b}', '\u{180e}', '\0'] {
+        assert!(!py_isspace(c) && !js_space(c), "{c:?}");
+    }
+}
+
+#[test]
+fn digits_then_a_space() {
+    assert_eq!(digits_then_space("12 x"), Some("12"));
+    assert_eq!(
+        digits_then_space("99999999999999999999999 x"),
+        Some("99999999999999999999999")
+    );
+    for s in ["12x", "12", " 12 ", "x 1"] {
+        assert_eq!(digits_then_space(s), None, "{s:?}");
+    }
+}

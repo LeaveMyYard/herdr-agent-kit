@@ -2,8 +2,9 @@
 
 use serde_json::{Map, Value};
 
-use super::{Block, Line, blank, py_strip, summarize_tool};
+use super::{Block, Line, summarize_tool};
 use crate::agent_session::Ts;
+use crate::pytext::{blank, py_strip};
 
 /// One tool call still waiting for its result (or the last call made).
 #[derive(Clone, Debug, PartialEq)]

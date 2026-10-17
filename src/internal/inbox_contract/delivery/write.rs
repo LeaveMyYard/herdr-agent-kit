@@ -2,12 +2,12 @@
 //! messages, the long-answer reference and the answer's own one-line form.
 
 use super::{Answered, QUESTION_WIDTH};
-use crate::internal::inbox_contract::text::{py_len, py_line_break, py_space, trim};
+use crate::pytext::{py_isspace, py_len, py_line_break};
 
 /// The first line of `text` once it is stripped, cut to `width` code points with a
 /// trailing `…` (Python's `service.first_line`: `str.strip`, `str.splitlines`).
 pub fn first_line(text: &str, width: usize) -> String {
-    let stripped = trim(text, py_space);
+    let stripped = text.trim_matches(py_isspace);
     let line = match stripped.find(py_line_break) {
         Some(end) => &stripped[..end],
         None => stripped,
@@ -133,7 +133,10 @@ pub fn format_answer(choices: &[&str], notes: &[(&str, &str)], text: Option<&str
             None => quote(c),
         })
         .collect();
-    if let Some(t) = text.map(|t| trim(t, py_space)).filter(|t| !t.is_empty()) {
+    if let Some(t) = text
+        .map(|t| t.trim_matches(py_isspace))
+        .filter(|t| !t.is_empty())
+    {
         parts.push(t.to_owned());
     }
     parts.join(", ")

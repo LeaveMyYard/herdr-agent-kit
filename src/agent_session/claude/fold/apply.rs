@@ -8,7 +8,8 @@ use super::limits::PROMPT_MAX;
 use super::times::{NoticeAt, T};
 use super::{FileFacts, Owner, Session};
 use crate::agent_session::Ts;
-use crate::agent_session::claude::wire::{self, Block, Line, Record, py_strip};
+use crate::agent_session::claude::wire::{self, Block, Line, Record};
+use crate::pytext::{py_splitlines, py_strip};
 
 /// Inputs: agent files, metas, the main transcript's lines and transcript records.
 impl Session {
@@ -87,7 +88,7 @@ impl Session {
                     && let Some(t) = when
                 {
                     let text = rec.string_content().unwrap_or("");
-                    let first = wire::py_splitlines(text)
+                    let first = py_splitlines(text)
                         .into_iter()
                         .map(py_strip)
                         .find(|l| !l.is_empty())

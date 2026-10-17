@@ -17,7 +17,7 @@
 //! code points, as Python's `len` does. Ids are ASCII digits (see the crate's goldens in
 //! `fixtures/inbox/delivery.json`, captured from both).
 
-use super::text::trim_start;
+use crate::pytext::ascii_digits;
 
 mod transcript;
 mod ui;
@@ -51,13 +51,20 @@ pub struct Answered<'a> {
 /// Python's `transcript._PASTE_WRAPPER` (`^\s*(?:<pasted_content[^>]*>\s*)?`), or the
 /// TypeScript one with `space = js_space`: leading space, then one opening paste tag.
 fn skip_paste_open(text: &str, space: fn(char) -> bool) -> &str {
-    let rest = trim_start(text, space);
+    let rest = text.trim_start_matches(space);
     if let Some(tag) = rest.strip_prefix("<pasted_content")
         && let Some(end) = tag.find('>')
     {
-        return trim_start(&tag[end + 1..], space);
+        return tag[end + 1..].trim_start_matches(space);
     }
     rest
+}
+
+/// `(\d+) ` at the start of `s`: the digits, when a space follows them (any number of
+/// digits; [`parse_id`](crate::pytext::parse_id) decides whether they make an id).
+fn digits_then_space(s: &str) -> Option<&str> {
+    let digits = ascii_digits(s);
+    (!digits.is_empty() && s[digits.len()..].starts_with(' ')).then_some(digits)
 }
 
 #[cfg(test)]

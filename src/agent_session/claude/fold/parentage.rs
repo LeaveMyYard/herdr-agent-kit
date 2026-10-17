@@ -3,8 +3,8 @@
 
 use std::collections::HashMap;
 
-use super::fields::non_empty;
 use super::{Ack, Owner, Session, Spawn};
+use crate::pytext::non_empty;
 
 /// Parentage: the spawning call, its acknowledgement, parents and children.
 impl Session {

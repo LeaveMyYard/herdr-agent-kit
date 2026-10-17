@@ -2,7 +2,8 @@
 
 use serde_json::{Map, Value};
 
-use super::{SPAWN_TOOLS, py_isspace, py_splitlines, py_strip};
+use super::SPAWN_TOOLS;
+use crate::pytext::{py_isspace, py_splitlines, py_strip};
 
 /// Summaries longer than this many characters are cut with `…`.
 pub const SUMMARY_MAX: usize = 200;

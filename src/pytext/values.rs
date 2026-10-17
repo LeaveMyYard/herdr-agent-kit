@@ -1,46 +1,6 @@
-//! Python's text and value semantics the wire format is read with
-//! (`str.strip`, `str.splitlines`, truthiness, `str()`, float `repr`).
+//! JSON values as Python sees them: truthiness, `str()`, float `repr`.
 
 use serde_json::Value;
-
-/// Python's `str.isspace` for one character: Unicode `White_Space` plus the
-/// four ASCII separators `\x1c`..`\x1f`.
-pub(crate) fn py_isspace(c: char) -> bool {
-    c.is_whitespace() || ('\x1c'..='\x1f').contains(&c)
-}
-
-/// Python's `str.strip()`.
-pub(crate) fn py_strip(s: &str) -> &str {
-    s.trim_matches(py_isspace)
-}
-
-/// Python's `str.splitlines()` (without the line ends).
-pub(crate) fn py_splitlines(s: &str) -> Vec<&str> {
-    let mut out = Vec::new();
-    let mut start = 0;
-    let mut iter = s.char_indices().peekable();
-    while let Some((i, c)) = iter.next() {
-        let end = match c {
-            '\r' => {
-                if let Some(&(_, '\n')) = iter.peek() {
-                    iter.next();
-                    i + 2
-                } else {
-                    i + 1
-                }
-            }
-            '\n' | '\x0b' | '\x0c' | '\x1c' | '\x1d' | '\x1e' | '\u{85}' | '\u{2028}'
-            | '\u{2029}' => i + c.len_utf8(),
-            _ => continue,
-        };
-        out.push(&s[start..i]);
-        start = end;
-    }
-    if start < s.len() {
-        out.push(&s[start..]);
-    }
-    out
-}
 
 /// Python truthiness of a JSON value.
 pub(crate) fn truthy(v: &Value) -> bool {

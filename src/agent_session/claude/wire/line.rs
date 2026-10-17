@@ -2,11 +2,9 @@
 
 use serde_json::{Map, Value};
 
-use super::{
-    Attachment, BOOKKEEPING, Block, Content, Record, TitleKind, contains, py_isspace, py_strip,
-    truthy, ts,
-};
+use super::{Attachment, BOOKKEEPING, Block, Content, Record, TitleKind, contains, ts};
 use crate::agent_session::{SessionId, Ts};
+use crate::pytext::{py_isspace, py_strip, truthy};
 
 /// One parsed transcript line: a JSON object. Everything else (a broken line,
 /// an array, a number) is not a record.

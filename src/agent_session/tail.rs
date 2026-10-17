@@ -8,6 +8,8 @@ use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 use std::time::SystemTime;
 
+use crate::pytext::blank;
+
 /// A partial line longer than this is dropped, and reading resyncs at the
 /// next newline.
 pub const MAX_PARTIAL: usize = 8 * 1024 * 1024;
@@ -145,12 +147,6 @@ fn push_line(lines: &mut Vec<Vec<u8>>, raw: &[u8]) {
     if !blank(raw) {
         lines.push(raw.to_vec());
     }
-}
-
-/// Python's `bytes.strip()` is empty: the line is blank (`b" \t\n\r\x0b\x0c"`).
-pub(crate) fn blank(raw: &[u8]) -> bool {
-    raw.iter()
-        .all(|c| matches!(c, b' ' | b'\t' | b'\n' | b'\r' | b'\x0b' | b'\x0c'))
 }
 
 #[cfg(unix)]

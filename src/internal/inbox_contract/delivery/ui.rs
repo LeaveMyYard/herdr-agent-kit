@@ -1,9 +1,7 @@
 //! Reading a delivery as the herdr-inbox-ui mod draws it (`register.tsx`).
 
-use super::skip_paste_open;
-use crate::internal::inbox_contract::text::{
-    ascii_digits, digits_then_space, js_space, trim, trim_end, trim_start,
-};
+use super::{digits_then_space, skip_paste_open};
+use crate::pytext::ascii_digits;
 
 /// One answer as the UI mod reads it from a delivery.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -42,7 +40,7 @@ pub fn parse_answers(raw: &str) -> Vec<ParsedAnswer> {
     batch_segments(rest)
         .into_iter()
         .filter_map(|seg| {
-            let s = trim_start(seg, js_space).strip_prefix('Q')?;
+            let s = seg.trim_start_matches(js_space).strip_prefix('Q')?;
             let digits = ascii_digits(s);
             let tail = s[digits.len()..].strip_prefix(' ')?;
             (!digits.is_empty()).then(|| split_segment(tail, format!("Q{digits}")))
@@ -66,14 +64,14 @@ pub fn rewake_answers(text: &str) -> Vec<ParsedAnswer> {
         let Some(end) = body.find("</system-reminder>") else {
             continue;
         };
-        return parse_answers(trim_end(&body[..end], js_space));
+        return parse_answers(body[..end].trim_end_matches(js_space));
     }
     Vec::new()
 }
 
 /// `\s*<\/pasted_content[^>]*>\s*$` removed: a closing paste tag that ends the text.
 fn strip_paste_close(text: &str) -> &str {
-    let body = trim_end(text, js_space);
+    let body = text.trim_end_matches(js_space);
     let Some(close) = body
         .len()
         .checked_sub(1)
@@ -90,7 +88,7 @@ fn strip_paste_close(text: &str) -> &str {
                 && !body[i + "</pasted_content".len()..close].contains('>')
         });
     match tag {
-        Some(i) => trim_end(&text[..i], js_space),
+        Some(i) => text[..i].trim_end_matches(js_space),
         None => text,
     }
 }
@@ -130,13 +128,30 @@ fn split_segment(seg: &str, id: String) -> ParsedAnswer {
     match seg.find(": ") {
         Some(at) => ParsedAnswer {
             id,
-            question: trim(&seg[..at], js_space).to_owned(),
-            answer: trim(&seg[at + 2..], js_space).to_owned(),
+            question: seg[..at].trim_matches(js_space).to_owned(),
+            answer: seg[at + 2..].trim_matches(js_space).to_owned(),
         },
         None => ParsedAnswer {
             id,
             question: String::new(),
-            answer: trim(seg, js_space).to_owned(),
+            answer: seg.trim_matches(js_space).to_owned(),
         },
     }
+}
+
+/// JavaScript's `\s` and `String.prototype.trim` set (WhiteSpace plus LineTerminator).
+///
+/// Unlike Python's it has U+FEFF and lacks U+0085 and U+001C to U+001F.
+pub(super) fn js_space(c: char) -> bool {
+    matches!(
+        c,
+        '\t' | '\n' | '\u{0b}' | '\u{0c}' | '\r' | ' ' | '\u{a0}' | '\u{1680}' | '\u{2000}'
+            ..='\u{200a}'
+                | '\u{2028}'
+                | '\u{2029}'
+                | '\u{202f}'
+                | '\u{205f}'
+                | '\u{3000}'
+                | '\u{feff}'
+    )
 }

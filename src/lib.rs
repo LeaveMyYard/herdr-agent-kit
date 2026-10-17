@@ -78,8 +78,10 @@
 
 pub mod agent_procs;
 pub mod agent_session;
+mod ask_operator;
 pub mod herdr_api;
 #[cfg(feature = "internal")]
 #[doc(hidden)]
 pub mod internal;
 pub mod plugin_env;
+mod pytext;

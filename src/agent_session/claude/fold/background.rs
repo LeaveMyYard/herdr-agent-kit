@@ -3,12 +3,12 @@
 
 use serde_json::{Map, Value};
 
-use super::fields::{non_empty, number};
 use super::limits::{BG_CAP, MONITOR_SLACK};
 use super::times::or_inf;
 use super::{BgKind, BgLaunch, Owner, Session};
 use crate::agent_procs::Liveness;
 use crate::agent_session::Ts;
+use crate::pytext::{non_empty, number};
 
 /// Background tasks: launches, stops, open and still-running tasks.
 impl Session {

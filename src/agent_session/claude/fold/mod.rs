@@ -92,7 +92,6 @@ mod queries;
 mod status;
 
 // Supports: the stores' values, the rules' limits, times and JSON fields.
-mod fields;
 mod limits;
 mod stores;
 mod times;

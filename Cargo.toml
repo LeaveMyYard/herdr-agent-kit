@@ -97,3 +97,8 @@ required-features = ["internal"]
 [[test]]
 name = "inbox_contract_goldens"
 required-features = ["internal"]
+
+# The goldens read `Session::qids`, which is plugin-only (`internal`).
+[[test]]
+name = "panorama_model_goldens"
+required-features = ["internal"]

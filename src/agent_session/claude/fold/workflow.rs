@@ -4,7 +4,8 @@ use serde_json::{Map, Value};
 
 use super::{Session, WorkflowLaunch};
 use crate::agent_session::Ts;
-use crate::agent_session::claude::wire::{Ending, Line, py_str, truthy};
+use crate::agent_session::claude::wire::{Ending, Line};
+use crate::pytext::{py_str, truthy};
 
 /// Workflow runs: journals, summaries, launches and how a run ended.
 impl Session {

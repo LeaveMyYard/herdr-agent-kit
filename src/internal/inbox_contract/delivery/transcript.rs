@@ -3,10 +3,8 @@
 
 use std::collections::BTreeSet;
 
-use super::skip_paste_open;
-use crate::internal::inbox_contract::text::{
-    ascii_digits, digits_then_space, parse_id, py_space, trim_end,
-};
+use super::{digits_then_space, skip_paste_open};
+use crate::pytext::{ascii_digits, parse_id, py_isspace};
 
 /// The ids a message names in the inbox's own header, read only where the inbox writes
 /// them (Python's `transcript.header_ids`, which decides that a delivery landed).
@@ -16,7 +14,7 @@ use crate::internal::inbox_contract::text::{
 /// mentioned elsewhere does not count, nor does a message that only quotes a header. A
 /// leading opening paste tag (Claude Code records big pastes wrapped) is skipped.
 pub fn header_ids(text: &str) -> BTreeSet<u64> {
-    let text = skip_paste_open(text, py_space);
+    let text = skip_paste_open(text, py_isspace);
     let mut ids = BTreeSet::new();
     if let Some(rest) = text.strip_prefix("[inbox] Q") {
         let digits = ascii_digits(rest);
@@ -66,7 +64,7 @@ pub fn rewake_texts(content: &str) -> Vec<&str> {
     while let Some(at) = content[from..].find("[inbox] ") {
         let start = from + at;
         let end = rewake_end(content, start).unwrap_or(content.len());
-        out.push(trim_end(&content[start..end], py_space));
+        out.push(content[start..end].trim_end_matches(py_isspace));
         from = start + 1;
     }
     out
@@ -85,7 +83,7 @@ fn rewake_end(content: &str, from: usize) -> Option<usize> {
             // a newline, then whitespace that holds another newline
             content[i + 1..]
                 .chars()
-                .take_while(|&c| py_space(c))
+                .take_while(|&c| py_isspace(c))
                 .any(|c| c == '\n')
         });
     match (tag, blank) {

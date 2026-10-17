@@ -12,7 +12,7 @@ use crate::herdr_api::error::HerdrError;
 use crate::herdr_api::ids::PaneId;
 use crate::herdr_api::sanitize::Sanitized;
 use crate::herdr_api::types::AgentInfo;
-use crate::herdr_api::wire;
+use crate::pytext::truthy;
 
 /// The error code herdr gives when a target has no agent.
 pub const AGENT_NOT_FOUND: &str = "agent_not_found";
@@ -24,7 +24,7 @@ fn maybe_agent(r: Result<Value, HerdrError>) -> Result<Option<AgentInfo>, HerdrE
         Err(e) if e.is_code(AGENT_NOT_FOUND) => Ok(None),
         Err(e) => Err(e),
         Ok(mut v) => match v.get_mut("agent").map(Value::take) {
-            Some(a) if wire::truthy(&a) => serde_json::from_value(a)
+            Some(a) if truthy(&a) => serde_json::from_value(a)
                 .map(Some)
                 .map_err(|e| HerdrError::Garbled(format!("`agent`: {e}"))),
             _ => Ok(None),

@@ -9,7 +9,8 @@ use tokio::net::UnixStream;
 use tokio::time::Instant;
 
 use super::{Event, EventKind, FIRST_BACKOFF, HerdrEvent, MAX_BACKOFF};
-use crate::herdr_api::wire::{self, MAX_REPLY, truthy};
+use crate::herdr_api::wire::{self, MAX_REPLY};
+use crate::pytext::truthy;
 
 /// A reconnecting subscription. Never ends and never fails: it reconnects
 /// (backing off) for as long as it is polled. Drop it to stop.

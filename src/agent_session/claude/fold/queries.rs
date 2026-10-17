@@ -1,8 +1,6 @@
 //! What the fold knows: agents, files, titles, prompts, notices, resumes
 //! and question ids.
 
-use std::collections::BTreeSet;
-
 use super::times::max_opt;
 use super::{AgentRec, FileFacts, Owner, Session, Titles};
 use crate::agent_session::claude::wire::Ending;
@@ -80,7 +78,13 @@ impl Session {
     }
 
     /// The inbox question ids `owner`'s `ask_operator` calls recorded.
-    pub fn qids(&self, owner: &Owner) -> Option<&BTreeSet<u64>> {
+    ///
+    /// **Plugin-only** (feature `internal`, hidden from the docs, outside
+    /// semver, like [`crate::internal`]): the `ask_operator` tool and its
+    /// receipt are herdr-inbox's, not Claude Code's.
+    #[cfg(feature = "internal")]
+    #[doc(hidden)]
+    pub fn qids(&self, owner: &Owner) -> Option<&std::collections::BTreeSet<u64>> {
         self.qids.get(owner)
     }
 
