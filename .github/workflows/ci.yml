@@ -48,7 +48,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 .github/scripts/structure-check.py --self-test
-      - run: python3 .github/scripts/structure-check.py
+      - name: Structure check (on a PR, the allowlist may not gain an entry over the base branch)
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ -n "$BASE_REF" ]; then
+            git fetch --no-tags --depth=1 origin "$BASE_REF"
+            python3 .github/scripts/structure-check.py --base FETCH_HEAD
+          else
+            python3 .github/scripts/structure-check.py
+          fi
 
   # The packaged crate (what crates.io and docs.rs would build) compiles with
   # every feature: it holds every file the code embeds.

@@ -6,7 +6,7 @@ use serde_json::{Value as Json, json};
 use toml::Value;
 use toml::value::{Datetime, Offset};
 
-const CASES: &str = include_str!("../../fixtures/toml10/cases.json");
+const CASES: &str = include_str!("../../../../fixtures/toml10/cases.json");
 
 /// Inputs `tomllib` accepts and the `toml` crate cannot: integers outside
 /// i64, a float literal beyond f64 (`tomllib` makes it infinite) and nesting
