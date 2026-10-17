@@ -17,7 +17,9 @@
 //!
 //! Pure code takes data and the current time and returns data: it does no IO,
 //! starts no threads and reads no environment. In this crate the pure parts are
-//! [`claude_session::fold`] and the formats in [`inbox_contract`]. Everything
+//! [`claude_session`] outside [`claude_session::io`] (the session-id
+//! validator, the wire format, the continuation rule and the fold) and the
+//! formats in [`inbox_contract`]. Everything
 //! else is IO: [`herdr_api`], [`claude_session::io`], [`agent_procs`],
 //! [`plugin_env`], `remote_machines` and `inbox_contract::sqlite`.
 //!
