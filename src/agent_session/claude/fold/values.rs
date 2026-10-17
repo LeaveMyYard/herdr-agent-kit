@@ -8,7 +8,7 @@ use serde_json::{Map, Value};
 use super::Owner;
 use crate::agent_procs::Pid;
 use crate::agent_session::Ts;
-use crate::agent_session::claude::wire::{Ending, TailInfo};
+use crate::agent_session::claude::wire::{BASH, Ending, MONITOR, TailInfo};
 
 /// A spawning call (`Agent`, `Task`).
 #[derive(Clone, Debug, PartialEq)]
@@ -81,8 +81,8 @@ impl BgKind {
     /// The tool's name.
     pub fn name(self) -> &'static str {
         match self {
-            BgKind::Bash => "Bash",
-            BgKind::Monitor => "Monitor",
+            BgKind::Bash => BASH,
+            BgKind::Monitor => MONITOR,
         }
     }
 }

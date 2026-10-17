@@ -2,7 +2,7 @@
 
 use serde_json::{Map, Value};
 
-use super::SPAWN_TOOLS;
+use super::tools::{BASH, FILE_TOOLS, SEARCH_TOOLS, SEND_MESSAGE, SPAWN_TOOLS, WEB_FETCH};
 use crate::pytext::{py_isspace, py_splitlines, py_strip};
 
 /// Summaries longer than this many characters are cut with `…`.
@@ -64,14 +64,14 @@ pub fn summarize_tool(name: &str, input: Option<&Map<String, Value>>, cwd: Optio
             .map(str::to_string)
     };
     let s = match name {
-        "Bash" => pick(&["description", "command"]),
-        "Read" | "Write" | "Edit" | "NotebookEdit" => {
+        BASH => pick(&["description", "command"]),
+        n if FILE_TOOLS.contains(&n) => {
             pick(&["file_path", "path", "notebook_path"]).map(|p| short_path(&p, cwd))
         }
         n if SPAWN_TOOLS.contains(&n) => pick(&["description", "subagent_type"]),
-        "WebFetch" => pick(&["url"]),
-        "ToolSearch" | "WebSearch" | "Grep" | "Glob" => pick(&["query", "pattern"]),
-        "SendMessage" => pick(&["to"]),
+        WEB_FETCH => pick(&["url"]),
+        n if SEARCH_TOOLS.contains(&n) => pick(&["query", "pattern"]),
+        SEND_MESSAGE => pick(&["to"]),
         _ => pick(&[
             "description",
             "query",

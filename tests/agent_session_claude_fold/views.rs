@@ -70,3 +70,24 @@ fn view_getters_borrow_the_session_not_the_view() {
         ["b1"]
     );
 }
+
+/// zoetrope's `prompt_for_ts`: a prompt at exactly `when` counts (`<=`).
+/// Expected values captured 2026-10-18 from herdr-panorama 83590dc
+/// (`Session.prompt_before` over the same two prompts): B-1 → None,
+/// B → (0, first), B+59 → (0, first), B+60 → (1, second), B+61 →
+/// (1, second), None → None.
+#[test]
+fn prompt_before_counts_a_prompt_at_exactly_when() {
+    let mut sc = Sc::new("prompt-before");
+    sc.main.prompt(B, "first");
+    sc.main.prompt(B + 60.0, "second");
+    let scanner = sc.load();
+    let c = scanner.session().conversation();
+    let at = |t: Option<f64>| c.prompt_before(t.map(Ts)).map(|p| (p.index, p.text));
+    assert_eq!(at(Some(B - 1.0)), None);
+    assert_eq!(at(Some(B)), Some((0, "first")));
+    assert_eq!(at(Some(B + 59.0)), Some((0, "first")));
+    assert_eq!(at(Some(B + 60.0)), Some((1, "second")));
+    assert_eq!(at(Some(B + 61.0)), Some((1, "second")));
+    assert_eq!(at(None), None);
+}

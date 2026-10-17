@@ -1,9 +1,14 @@
-//! [`Line`]: one parsed transcript line, and its view as a [`Record`].
+//! [`Line`]: one parsed transcript line and its field accessors. Its view as a
+//! [`Record`] is in `classify`, the repair of lone surrogate escapes in
+//! `repair`.
+
+mod classify;
+mod repair;
 
 use serde_json::{Map, Value};
 
-use super::{Attachment, BOOKKEEPING, Block, Content, Record, TitleKind, contains, ts};
-use crate::agent_session::{SessionId, Ts};
+use super::{Attachment, Block, Record, contains, ts};
+use crate::agent_session::Ts;
 use crate::pytext::{py_isspace, py_strip, truthy};
 
 /// One parsed transcript line: a JSON object. Everything else (a broken line,
@@ -22,7 +27,7 @@ impl Line {
             // Python's json accepts a lone UTF-16 surrogate escape (Node writes one
             // when a string is cut inside an emoji); serde_json does not
             Err(_) if contains(raw, b"\\ud") || contains(raw, b"\\uD") => {
-                match serde_json::from_slice::<Value>(&replace_lone_surrogates(raw)) {
+                match serde_json::from_slice::<Value>(&repair::replace_lone_surrogates(raw)) {
                     Ok(Value::Object(map)) => Some(Line(map)),
                     _ => None,
                 }
@@ -135,116 +140,6 @@ impl Line {
             }
         }
     }
-
-    /// The record this line holds. Lenient: an unknown type, or a known one
-    /// whose fields do not have the expected shape, is [`Record::Other`].
-    pub fn record(&self) -> Record<'_> {
-        let Some(kind) = self.kind() else {
-            return Record::Other;
-        };
-        match kind {
-            "assistant" => Record::Assistant {
-                model: self
-                    .message()
-                    .and_then(|m| m.get("model"))
-                    .and_then(Value::as_str),
-                blocks: self.blocks(),
-            },
-            "user" => Record::User {
-                content: match self.message().and_then(|m| m.get("content")) {
-                    Some(Value::String(s)) => Content::Text(s),
-                    Some(Value::Array(_)) => Content::Blocks(self.blocks()),
-                    _ => Content::None,
-                },
-                tool_use_result: self.get("toolUseResult"),
-            },
-            "queue-operation" if self.str_field("operation") == Some("enqueue") => {
-                Record::QueueEnqueue {
-                    content: self.str_field("content"),
-                }
-            }
-            "attachment" => {
-                Record::Attachment(match self.get("attachment").and_then(Value::as_object) {
-                    Some(att) => match att.get("type").and_then(Value::as_str) {
-                        Some("queued_command") => Attachment::QueuedCommand {
-                            prompt: att.get("prompt").and_then(Value::as_str),
-                        },
-                        Some("hook_additional_context") => Attachment::HookAdditionalContext {
-                            content: match att.get("content") {
-                                Some(Value::Array(items)) => {
-                                    items.iter().filter_map(Value::as_str).collect()
-                                }
-                                Some(Value::String(s)) => vec![s.as_str()],
-                                _ => Vec::new(),
-                            },
-                        },
-                        other => Attachment::Other(other),
-                    },
-                    None => Attachment::Other(None),
-                })
-            }
-            "continued-in" => Record::ContinuedIn {
-                from: self.get("sessionId").and_then(SessionId::from_value),
-                to: self
-                    .get("continuedInSessionId")
-                    .and_then(SessionId::from_value),
-                sidechain: self.is_sidechain(),
-            },
-            "custom-title" | "agent-name" | "ai-title" => {
-                let (title, key) = match kind {
-                    "custom-title" => (TitleKind::Custom, "customTitle"),
-                    "agent-name" => (TitleKind::Agent, "agentName"),
-                    _ => (TitleKind::Ai, "aiTitle"),
-                };
-                match self.str_field(key) {
-                    Some(v) => Record::Title(title, v),
-                    None => Record::Other,
-                }
-            }
-            k if BOOKKEEPING.contains(&k) => Record::Bookkeeping(k),
-            _ => Record::Other,
-        }
-    }
-}
-
-/// The code unit of a `\uXXXX` escape starting at `raw[i]` (the backslash).
-fn escape_unit(raw: &[u8], i: usize) -> Option<u16> {
-    let hex = raw.get(i + 2..i + 6)?;
-    if raw.get(i + 1) != Some(&b'u') || !hex.iter().all(u8::is_ascii_hexdigit) {
-        return None;
-    }
-    u16::from_str_radix(std::str::from_utf8(hex).ok()?, 16).ok()
-}
-
-/// `raw` with every unpaired UTF-16 surrogate escape (`\ud800`..`\udfff`
-/// not part of a high-low pair) replaced by `\ufffd`. Escaped backslashes are
-/// skipped, so `\\ud83d` (a backslash, then text) is left alone.
-fn replace_lone_surrogates(raw: &[u8]) -> Vec<u8> {
-    let mut out = Vec::with_capacity(raw.len());
-    let mut i = 0;
-    while i < raw.len() {
-        if raw[i] != b'\\' {
-            out.push(raw[i]);
-            i += 1;
-            continue;
-        }
-        match escape_unit(raw, i) {
-            Some(0xD800..=0xDBFF) if matches!(escape_unit(raw, i + 6), Some(0xDC00..=0xDFFF)) => {
-                out.extend_from_slice(&raw[i..i + 12]);
-                i += 12;
-            }
-            Some(0xD800..=0xDFFF) => {
-                out.extend_from_slice(b"\\ufffd");
-                i += 6;
-            }
-            _ => {
-                // any other escape (or a stray backslash): copy it and the byte it escapes
-                out.extend_from_slice(&raw[i..(i + 2).min(raw.len())]);
-                i += 2;
-            }
-        }
-    }
-    out
 }
 
 #[cfg(test)]
