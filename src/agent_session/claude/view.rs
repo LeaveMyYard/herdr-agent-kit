@@ -10,7 +10,7 @@ impl Session {
     /// What Claude Code's files say is computed here:
     ///
     /// - `title`: the first non-empty of the `custom-title`, `agent-name` and
-    ///   `ai-title` records ([`Session::titles`]), in that order, as
+    ///   `ai-title` records ([`Conversation::titles`](super::fold::Conversation::titles)), in that order, as
     ///   panorama's `collect.py` picks a label;
     /// - `successors`: the hops of `chain` after this session, each with the
     ///   time of the continuation that led to it ([`Hop::at`]). `chain` is
@@ -30,7 +30,7 @@ impl Session {
         children: Vec<SessionId>,
         chain: &[Hop],
     ) -> SessionView {
-        let titles = self.titles();
+        let titles = self.conversation().titles();
         let title = [&titles.custom, &titles.agent, &titles.ai]
             .into_iter()
             .flatten()

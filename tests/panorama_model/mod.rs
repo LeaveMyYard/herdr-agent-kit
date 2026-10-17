@@ -485,6 +485,7 @@ impl Collector {
         while let Some(k) = key.clone() {
             let Some(next) = self.sessions[&k]
                 .session()
+                .conversation()
                 .continued_in()
                 .map(|s| s.to_string())
             else {
@@ -633,7 +634,7 @@ impl Collector {
         o.inbox_texts = mine.iter().map(|q| q.question.clone()).collect();
         let scanner = key.as_ref().map(|k| &self.sessions[k]);
         let titles = scanner
-            .map(|s| s.session().titles().clone())
+            .map(|s| s.session().conversation().titles().clone())
             .unwrap_or_default();
         let tab_label = inbox_mark()
             .replace(str_of(tab, "label").unwrap_or(""), "")
@@ -663,7 +664,10 @@ impl Collector {
         };
         let sess = scanner.session();
         o.transcript = Some(scanner.root().to_string_lossy().into_owned());
-        o.bg = bg_tasks(sess, &sess.waiting_bg(&Owner::Main, Ts(now), &NoProcs));
+        o.bg = bg_tasks(
+            sess,
+            &sess.background().waiting(&Owner::Main, Ts(now), &NoProcs),
+        );
         o.last_activity = sess.last_activity().map(Ts::secs);
         if o.herdr_status == J::str("blocked")
             && let Some(main) = sess.file(&Owner::Main)
@@ -694,7 +698,7 @@ fn bg_tasks(sess: &Session, launches: &[&BgLaunch]) -> Vec<BgTask> {
         .map(|l| BgTask {
             id: l.task.clone(),
             kind: l.kind.name(),
-            description: sess.bg_description(l).into(),
+            description: sess.background().description(l).into(),
             started: l.ts.map(Ts::secs),
         })
         .collect()
@@ -761,7 +765,7 @@ fn build_agent(
     {
         return None;
     }
-    let (sp, ack) = (sess.spawn_of(aid), sess.ack(aid));
+    let (sp, ack) = (sess.parentage().spawn_of(aid), sess.parentage().ack(aid));
     let meta = &rec.meta;
     let mut ag = Agent::new(aid);
     ag.description = match meta.get("description") {
@@ -800,10 +804,11 @@ fn build_agent(
     ag.inferred = st.inferred;
     ag.transcript = Some(rec.transcript.to_string_lossy().into_owned());
     ag.seq = seq as i64;
-    ag.resumes = sess.resumes(aid).len() as i64;
+    ag.resumes = sess.evidence().resumes(aid).len() as i64;
     ag.depth = py_int(meta.get("spawnDepth"), 1);
     // the count of the latest notice that has one (Python: max over (time, status, count))
     let counted = sess
+        .evidence()
         .notices(aid)
         .into_iter()
         .filter(|n| n.2.is_some())
@@ -822,7 +827,7 @@ fn build_agent(
     .into_iter()
     .max()
     .unwrap_or(0);
-    ag.parent = match sess.parent_of(aid) {
+    ag.parent = match sess.parentage().parent_of(aid) {
         Some(Owner::Agent(p)) => Some(p),
         _ => None,
     };
@@ -852,7 +857,9 @@ fn build_agent(
     if status == BG {
         ag.bg = bg_tasks(
             sess,
-            &sess.waiting_bg(&Owner::Agent(aid.into()), Ts(now), &NoProcs),
+            &sess
+                .background()
+                .waiting(&Owner::Agent(aid.into()), Ts(now), &NoProcs),
         );
         let n = ag.bg.len();
         ag.activity = format!(
@@ -866,7 +873,7 @@ fn build_agent(
     let label = rec
         .workflow
         .as_deref()
-        .and_then(|run| sess.journal_started(run, aid))
+        .and_then(|run| sess.workflows().started(run, aid))
         .map_or("", |(l, _)| l);
     let fallback = match &ag.agent_type {
         J::Str(s) if !s.is_empty() => Some(s.as_str()),
@@ -917,7 +924,7 @@ fn agents_of(
     let shown: Vec<String> = out.keys().cloned().collect();
     for aid in shown {
         let mut seen: HashSet<String> = HashSet::from([aid.clone()]);
-        let mut cur = sess.parent_of(&aid);
+        let mut cur = sess.parentage().parent_of(&aid);
         while let Some(Owner::Agent(c)) = cur {
             if seen.contains(&c) {
                 break;
@@ -929,7 +936,7 @@ fn agents_of(
             {
                 out.insert(c.clone(), ag);
             }
-            cur = sess.parent_of(&c);
+            cur = sess.parentage().parent_of(&c);
         }
     }
     out.sort_by(|_, a, _, b| a.seq.cmp(&b.seq));
@@ -944,11 +951,12 @@ fn agent_spans(sess: &Session, a: &Agent) -> Vec<SpanOf> {
     let mut starts: Vec<f64> = a
         .started
         .into_iter()
-        .chain(sess.resumes(&a.id).into_iter().map(Ts::secs))
+        .chain(sess.evidence().resumes(&a.id).into_iter().map(Ts::secs))
         .collect();
     starts.sort_by(f64::total_cmp);
     starts.dedup();
     let mut ends: Vec<(f64, Ending)> = sess
+        .evidence()
         .notices(&a.id)
         .into_iter()
         .map(|n| (n.0.0, n.1))
@@ -986,7 +994,7 @@ fn threads_of(
     let mut runs: Vec<String> = sess
         .agents()
         .filter_map(|(_, r)| r.workflow.clone())
-        .chain(sess.wf_launches().map(|w| w.run_id.clone()))
+        .chain(sess.workflows().launches().map(|w| w.run_id.clone()))
         .collect();
     runs.sort();
     runs.dedup();
@@ -1004,7 +1012,7 @@ fn threads_of(
     let mut spans: HashMap<String, Vec<SpanOf>> = HashMap::new();
     for id in &top {
         let a = &by_id[id];
-        if let Some((i, _)) = sess.prompt_before(a.started.map(Ts)) {
+        if let Some((i, _)) = sess.conversation().prompt_before(a.started.map(Ts)) {
             turn_of.insert(id.clone(), i as i64);
         }
         spans.insert(id.clone(), agent_spans(sess, a));
@@ -1093,17 +1101,18 @@ fn workflow_thread(
         .filter(|id| by_id.contains_key(*id) && !claimed.contains(*id))
         .map(str::to_owned)
         .collect();
-    let live_run = sess.run_live(run);
+    let live_run = sess.workflows().live(run);
     if ags.is_empty() && live_run != Some(true) {
         return None;
     }
     claimed.extend(ags.iter().cloned());
     let empty = Map::new();
-    let summary = sess.wf_summary(run).unwrap_or(&empty);
+    let summary = sess.workflows().summary(run).unwrap_or(&empty);
     let mut phase_of: IndexMap<String, Option<String>> = IndexMap::new();
     for id in &ags {
         let journal = sess
-            .journal_started(run, id)
+            .workflows()
+            .started(run, id)
             .and_then(|(_, p)| p)
             .filter(|p| !p.is_empty());
         let meta_phase = str_of(
@@ -1122,7 +1131,8 @@ fn workflow_thread(
         .collect();
     let mut order: Vec<String> = summary_phases.iter().map(|p| py_str(&p["title"])).collect();
     let extra: Vec<String> = sess
-        .journal_phases(run)
+        .workflows()
+        .phases(run)
         .iter()
         .cloned()
         .chain(
@@ -1148,7 +1158,11 @@ fn workflow_thread(
             (py_str(&p["title"]), d)
         })
         .collect();
-    let mut launches: Vec<_> = sess.wf_launches().filter(|w| w.run_id == run).collect();
+    let mut launches: Vec<_> = sess
+        .workflows()
+        .launches()
+        .filter(|w| w.run_id == run)
+        .collect();
     launches.sort_by(|a, b| {
         a.ts.map_or(0.0, Ts::secs)
             .total_cmp(&b.ts.map_or(0.0, Ts::secs))
@@ -1164,7 +1178,7 @@ fn workflow_thread(
                 .map(py_str)
         })
         .unwrap_or_else(|| run.to_string());
-    let end = sess.run_end(run);
+    let end = sess.workflows().end(run);
     let run_is_live = match live_run {
         Some(l) => l,
         None => ags.iter().any(|id| live(&by_id[id].status)),
@@ -1674,7 +1688,11 @@ fn main_session_thread(o: &Orchestrator, sess: &Session) -> Option<(Thread, Agen
     if !blocked && loose.is_empty() {
         return None;
     }
-    let since = sess.prompts().map(|(t, _)| t.0).reduce(f64::max);
+    let since = sess
+        .conversation()
+        .prompts()
+        .map(|(t, _)| t.0)
+        .reduce(f64::max);
     let id = format!("main:{}", o.pane_id);
     let mut ag = Agent::new(&id);
     ag.description = "main session".into();

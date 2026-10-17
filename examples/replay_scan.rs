@@ -42,7 +42,7 @@ fn answer(req: &Value) -> Result<Value, String> {
     let mut agents = Map::new();
     for (agent, _) in session.agents() {
         let st = session.status_of(agent, now, &NoProcs);
-        let parent = session.parent_of(agent).map(|o| match o {
+        let parent = session.parentage().parent_of(agent).map(|o| match o {
             Owner::Main => "main".to_string(),
             Owner::Agent(a) => a,
         });

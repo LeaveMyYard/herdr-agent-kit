@@ -22,7 +22,9 @@ pub const NESTING_CAP: usize = 64;
 /// A Monitor past its timeout by this much has expired even without its last
 /// event.
 pub const MONITOR_SLACK: f64 = 60.0;
-/// The version of panorama's hook records (`hooks.VERSION`).
+/// The version of the kit's [hook-record format](super#hook-records-format-v1)
+/// that [`Session::apply_hook`](super::Session::apply_hook) reads (herdr-panorama's
+/// `hooks.VERSION` writes it); records of other versions are skipped.
 pub const HOOK_VERSION: f64 = 1.0;
 /// A recorded hook stop and a notice at most this long after it are the same
 /// ending.

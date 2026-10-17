@@ -10,7 +10,7 @@ fn a_resume_is_counted_and_restarts_the_clock() {
         .notify(B + 2.0 * M, "a1", &call, "failed", &["queue"]);
     sc.main.resume(B + 3.0 * M, "a1");
     let s = sc.load();
-    assert_eq!(s.session().resumes("a1").len(), 1);
+    assert_eq!(s.session().evidence().resumes("a1").len(), 1);
     let st = s
         .session()
         .status_of("a1", Ts(B + 3.0 * M + 30.0), &NoProcs);

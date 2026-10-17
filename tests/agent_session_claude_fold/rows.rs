@@ -95,7 +95,8 @@ pub(crate) fn the_status_rules() {
             None => {
                 let waiting = !scanner
                     .session()
-                    .waiting_bg(&Owner::Main, Ts(now), &live)
+                    .background()
+                    .waiting(&Owner::Main, Ts(now), &live)
                     .is_empty();
                 (if waiting { Status::Bg } else { Status::Done }, !waiting)
             }

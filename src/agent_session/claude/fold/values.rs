@@ -1,23 +1,14 @@
-//! The values the session's keyed stores hold, and what the reader knows
-//! of each file.
+//! The records the session's stores hold, as the read side hands them out,
+//! and what the reader knows of each file.
 
 use std::path::PathBuf;
 
 use serde_json::{Map, Value};
 
+use super::Owner;
 use crate::agent_procs::Pid;
 use crate::agent_session::Ts;
 use crate::agent_session::claude::wire::TailInfo;
-
-/// Whose file a record came from: the session's main transcript or an
-/// agent's own transcript (panorama's `MAIN` or the agent id).
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Owner {
-    /// The session's main transcript.
-    Main,
-    /// The transcript of the agent with this id.
-    Agent(String),
-}
 
 /// A spawning call (`Agent`, `Task`).
 #[derive(Clone, Debug, PartialEq)]
@@ -116,17 +107,17 @@ pub struct BgLaunch {
     pub persistent: bool,
 }
 
-/// A hook `start` record of an agent.
+/// A hook `start` record of an agent ([hook records](super#hook-records-format-v1)).
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct HookStart {
-    /// When.
+    /// When (the record's `ts`).
     pub ts: Ts,
-    /// The Claude Code process that ran it.
+    /// The Claude Code process that ran it (`pid`).
     pub pid: Option<Pid>,
-    /// That process's start token.
+    /// That process's start token (`pstart`).
     pub start: Option<String>,
-    /// Its pid namespace.
+    /// Its pid namespace (`pidns`).
     pub pidns: Option<String>,
 }
 

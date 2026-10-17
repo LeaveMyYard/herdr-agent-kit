@@ -38,10 +38,10 @@ fn an_update_reads_partial_lines_and_a_rewrite_rebuilds() {
     std::fs::write(&sc.main.path, &full).unwrap();
     s.update(None);
     assert_eq!(status(&s), Status::Done);
-    assert_eq!(s.session().notices("a1").len(), 1);
+    assert_eq!(s.session().evidence().notices("a1").len(), 1);
     std::fs::write(&sc.main.path, &old).unwrap(); // rewritten shorter: rebuilt from the new content
     s.update(None);
-    assert!(s.session().notices("a1").is_empty());
+    assert!(s.session().evidence().notices("a1").is_empty());
     assert_eq!(status(&s), Status::Run);
 }
 
@@ -183,10 +183,12 @@ fn metas_and_summaries_take_a_lone_surrogate_like_python() {
         sess.agent("a1").unwrap().meta["description"],
         "cut \u{fffd}"
     );
-    assert_eq!(sess.parent_of("a1"), Some(Owner::Main));
+    assert_eq!(sess.parentage().parent_of("a1"), Some(Owner::Main));
     assert!(sess.agent("b1").unwrap().meta.is_empty());
     assert_eq!(
-        sess.wf_summary("wf_1").map(|m| m["status"].clone()),
+        sess.workflows()
+            .summary("wf_1")
+            .map(|m| m["status"].clone()),
         Some(json!("killed"))
     );
 }
@@ -224,5 +226,5 @@ fn agents_keep_their_discovery_order_across_updates() {
     s.update(None);
     let ids: Vec<&str> = s.session().agents().map(|(id, _)| id).collect();
     assert_eq!(ids, ["b1", "a1"]);
-    assert_eq!(s.session().children(&Owner::Main), ["b1", "a1"]);
+    assert_eq!(s.session().parentage().children(&Owner::Main), ["b1", "a1"]);
 }

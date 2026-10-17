@@ -1,13 +1,13 @@
 //! Creating a [`Session`] and forgetting what was folded into it.
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use indexmap::IndexMap;
 
-use super::{Session, Titles};
+use super::Session;
+use super::stores::{AskStore, BgStore, ConversationStore, HookStore, SpawnStore, WorkflowStore};
 use crate::agent_session::SessionId;
-use crate::agent_session::claude::Continuation;
 
 /// Construction, identity and reset.
 impl Session {
@@ -16,38 +16,20 @@ impl Session {
         Session {
             agents: IndexMap::new(),
             files: HashMap::new(),
-            spawns: HashMap::new(),
-            acks: HashMap::new(),
-            ack_of: HashMap::new(),
             notices: HashMap::new(),
-            resumes: HashMap::new(),
-            wf_launches: IndexMap::new(),
-            journal_started: HashMap::new(),
-            journal_phases: HashMap::new(),
-            journal_done: HashMap::new(),
-            journal_failed: HashMap::new(),
-            spawn_results: HashSet::new(),
-            spawn_owners: HashMap::new(),
-            wf_summary: HashMap::new(),
-            prompts: BTreeSet::new(),
-            titles: Titles::default(),
-            continuation: Continuation::new(own),
-            qids: HashMap::new(),
-            pending_ask: HashMap::new(),
-            hook_starts: HashMap::new(),
-            hook_stops: HashMap::new(),
-            hook_procs: Vec::new(),
-            bg: IndexMap::new(),
-            bg_calls: HashMap::new(),
-            bg_stop_calls: HashMap::new(),
-            bg_stops: HashMap::new(),
+            conversation: ConversationStore::new(own),
+            spawns: SpawnStore::default(),
+            workflows: WorkflowStore::default(),
+            background: BgStore::default(),
+            hooks: HookStore::default(),
+            asks: AskStore::default(),
             children: OnceLock::new(),
         }
     }
 
     /// The session's id.
     pub fn id(&self) -> &SessionId {
-        self.continuation.own()
+        self.conversation.continuation.own()
     }
 
     /// Forgets everything folded from records (a file was rewritten): every
@@ -61,7 +43,7 @@ impl Session {
             f.last_ts = None;
             f.tool_calls = 0;
         }
-        let own = self.continuation.own().clone();
+        let own = self.id().clone();
         *self = Session::new(own);
         self.agents = agents;
         self.files = files;

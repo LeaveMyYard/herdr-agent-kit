@@ -79,9 +79,10 @@ impl Scanner {
             let Owner::Agent(owner) = &self.files[i].owner else {
                 continue;
             };
-            let ended = !self.session.notices(owner).is_empty()
+            let ended = !self.session.evidence().notices(owner).is_empty()
                 || self
                     .session
+                    .parentage()
                     .ack(owner)
                     .is_some_and(|a| a.status == "completed");
             if ended {

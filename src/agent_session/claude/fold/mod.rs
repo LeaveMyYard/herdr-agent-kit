@@ -9,6 +9,24 @@
 //! stores and the clock ([`Session::status_of`]). [`super::scan::Scanner`]
 //! reads a session's files and feeds this fold.
 //!
+//! # API
+//!
+//! - **Inputs** (what a reader folds in): [`Session::apply`],
+//!   [`Session::feed_main`], [`Session::set_agent`], [`Session::set_meta`],
+//!   [`Session::file_mut`], [`Session::apply_journal`],
+//!   [`Session::set_summary`], [`Session::apply_hook`],
+//!   [`Session::reset_hooks`], [`Session::reset`].
+//! - **Status:** [`Session::status_of`] (and the neutral
+//!   [`Session::view`]).
+//! - **Agents:** [`Session::agents`], [`Session::agent`],
+//!   [`Session::file`], [`Session::file_of`], [`Session::last_ts`],
+//!   [`Session::last_activity`].
+//! - **Views**, one per concern, each borrowing only what it reads:
+//!   [`Session::conversation`] (titles, prompts, continuation),
+//!   [`Session::evidence`] (notices, resumes), [`Session::parentage`]
+//!   (spawning calls, parents, children), [`Session::workflows`] (runs,
+//!   journals, summaries) and [`Session::background`] (background tasks).
+//!
 //! # Status rules
 //!
 //! panorama's `scan/session.py` docstring, pinned by the table tests in
@@ -27,7 +45,7 @@
 //!    [`PENDING_CAP`] (an abandoned call no longer keeps it running forever),
 //!    or a background agent that has not been notified yet, within
 //!    [`ASYNC_QUIET`]. Otherwise, if background work it started is still in
-//!    flight ([`Session::waiting_bg`]), it is waiting ([`Status::Bg`](crate::agent_session::Status::Bg)); else it
+//!    flight ([`Background::waiting`]), it is waiting ([`Status::Bg`](crate::agent_session::Status::Bg)); else it
 //!    ended silently (done, inferred).
 //!
 //! **Background work:** a Bash result with `backgroundTaskId` (run in the
@@ -44,10 +62,37 @@
 //! the owner of that call (main or another agent's file) is the parent, so
 //! depth-2 agents nest under the agent that spawned them.
 //!
-//! **Hooks:** panorama's hook records (`hooks/<session>.jsonl`, v1) add a
-//! recorded stop as evidence and a recorded start as a reopening; an agent
-//! that started, never stopped and whose Claude process is gone is
+//! **Hooks:** hook records ([below](#hook-records-format-v1)) add a recorded
+//! stop as evidence and a recorded start as a reopening; an agent that
+//! started, never stopped and whose Claude process is gone is
 //! [`Status::Lost`](crate::agent_session::Status::Lost).
+//!
+//! # Hook records (format v1)
+//!
+//! Claude Code's transcripts do not say which process ran an agent, so a
+//! plugin can record its `SubagentStart` / `SubagentStop` hooks and
+//! `SessionStart` in a JSONL file per session, given to
+//! [`Scanner::new`](super::scan::Scanner::new) (`hooks`) and folded with
+//! [`Session::apply_hook`]. This is the kit's own versioned format (it began
+//! as herdr-panorama's `hooks.py` records, which are version 1), not a
+//! Claude Code format. One JSON object per line:
+//!
+//! | key | type | meaning |
+//! |---|---|---|
+//! | `v` | number | the format version, [`HOOK_VERSION`]; a record of another version is skipped |
+//! | `event` | string | `"start"` (an agent started), `"stop"` (it stopped); any other value (`"session"`) only records its process |
+//! | `agent` | string | the agent id without the `agent-` prefix; `""` for a session record. Required |
+//! | `ts` | number | epoch seconds. Required |
+//! | `pid` | integer | the Claude Code process that ran the hook, when recognised |
+//! | `pstart` | string | that process's start token ([`crate::agent_procs::ProcessIdentity`]) |
+//! | `pidns` | string | its pid namespace |
+//!
+//! Other keys (`agent_type`, `source`, …) are ignored. A record with both
+//! `pid` and `pstart` names a process: a later record from another process
+//! means the session was resumed since, so a missing stop no longer counts
+//! as lost. A writer appends; a rewritten file is read again from the start
+//! ([`Session::reset_hooks`]). A future incompatible change gets a new
+//! version number, and readers skip versions they do not know.
 //!
 //! # Deviations from Python
 //!
@@ -66,44 +111,46 @@
 //!   `agentId: 5` names agent `"5"` (Python keeps the int, which matches no
 //!   agent id).
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use indexmap::IndexMap;
-use serde_json::{Map, Value};
 
-use super::Continuation;
-use crate::agent_procs::Pid;
-use times::{NoticeAt, T};
+use stores::{AskStore, BgStore, ConversationStore, HookStore, Notices, SpawnStore, WorkflowStore};
 
 // The session itself: construction, identity, reset.
 mod lifecycle;
 
-// Inputs: what the reader folds in.
+// Inputs: what the reader folds in, and where each record goes.
 mod apply;
-mod background;
-mod hooks;
+mod inputs;
 mod tool_calls;
-mod workflow;
 
-// Derived views.
-mod parentage;
-mod queries;
-mod status;
-
-// Supports: the stores' values, the rules' limits, times and JSON fields.
-mod limits;
+// The keyed stores, one per concern.
 mod stores;
+
+// The read side: the agents, the views and the status rules.
+mod agents;
+mod status;
+mod views;
+
+// Supports: owners, the records the stores hold, the rules' limits and
+// times.
+mod limits;
+mod owner;
 mod times;
+mod values;
 
 pub use limits::{
     ACTIVE, ASYNC_QUIET, BG_CAP, HOOK_VERSION, MONITOR_SLACK, NESTING_CAP, PENDING_CAP,
     REOPEN_MARGIN,
 };
+pub use owner::Owner;
 pub use status::StatusOf;
-pub use stores::{
-    Ack, AgentRec, BgKind, BgLaunch, FileFacts, HookStart, Owner, Spawn, Titles, WorkflowLaunch,
+pub use values::{
+    Ack, AgentRec, BgKind, BgLaunch, FileFacts, HookStart, Spawn, Titles, WorkflowLaunch,
 };
+pub use views::{Background, Conversation, Evidence, Parentage, Workflows};
 
 /// One Claude Code session folded into keyed stores: panorama's
 /// `scan.session.Session` without its file reading ([`super::scan`]).
@@ -112,33 +159,16 @@ pub struct Session {
     /// In discovery order, kept across updates (Python's dict).
     agents: IndexMap<String, AgentRec>,
     files: HashMap<Owner, FileFacts>,
-    spawns: HashMap<String, Spawn>,
-    acks: HashMap<String, Ack>,
-    ack_of: HashMap<String, String>,
-    notices: HashMap<String, BTreeSet<NoticeAt>>,
-    resumes: HashMap<String, BTreeSet<T>>,
-    wf_launches: IndexMap<String, WorkflowLaunch>,
-    journal_started: HashMap<String, HashMap<String, (String, Option<String>)>>,
-    journal_phases: HashMap<String, Vec<String>>,
-    journal_done: HashMap<String, HashSet<String>>,
-    journal_failed: HashMap<String, HashSet<String>>,
-    spawn_results: HashSet<String>,
-    spawn_owners: HashMap<String, IndexMap<Owner, f64>>,
-    wf_summary: HashMap<String, (Map<String, Value>, f64)>,
-    prompts: BTreeSet<(T, String)>,
-    titles: Titles,
-    continuation: Continuation,
-    qids: HashMap<Owner, BTreeSet<u64>>,
-    pending_ask: HashMap<String, Owner>,
-    hook_starts: HashMap<String, Vec<HookStart>>,
-    hook_stops: HashMap<String, Vec<f64>>,
-    hook_procs: Vec<(f64, Pid, String)>,
-    bg: IndexMap<String, BgLaunch>,
-    bg_calls: HashMap<String, (BgKind, String)>,
-    bg_stop_calls: HashMap<String, String>,
-    bg_stops: HashMap<String, f64>,
-    /// [`Session::children`] of every parent, built on first use and dropped
-    /// by every input that can change parentage (`apply`, `set_agent`,
-    /// `set_meta`, `reset`): panorama's `_children`, cached per update.
+    notices: Notices,
+    conversation: ConversationStore,
+    spawns: SpawnStore,
+    workflows: WorkflowStore,
+    background: BgStore,
+    hooks: HookStore,
+    asks: AskStore,
+    /// [`Parentage::children`] of every parent, built on first use and
+    /// dropped by every input that can change parentage (`apply`,
+    /// `set_agent`, `set_meta`, `reset`): panorama's `_children`, cached per
+    /// update.
     children: OnceLock<HashMap<Owner, Vec<String>>>,
 }
