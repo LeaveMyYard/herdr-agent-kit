@@ -59,11 +59,14 @@
 //!   (Python's tuple comparison raises there): the counted one is the later.
 //! - `apply` cannot fail, so there is no "unreadable records" count.
 //! - A hook record's `pid` outside `u32` is no pid.
+//! - [`Session::status_of`] looks for a running descendant through at most
+//!   [`NESTING_CAP`] levels; Python recurses until `RecursionError` (about
+//!   1000 levels), which fails the whole collect.
 //! - A workflow journal's `agentId` is compared as its `str()`: a numeric
 //!   `agentId: 5` names agent `"5"` (Python keeps the int, which matches no
 //!   agent id).
 
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
@@ -91,6 +94,11 @@ pub const REOPEN_MARGIN: f64 = 5.0;
 /// An open background task nobody can check (another machine, no process
 /// table) counts this long after it started.
 pub const BG_CAP: f64 = 24.0 * 3600.0;
+
+/// How many levels of descendants [`Session::status_of`] looks through for a
+/// running one (Claude Code nests a few; a deeper `parentAgentId` chain
+/// written into metas must not exhaust the stack).
+pub const NESTING_CAP: usize = 64;
 /// A Monitor past its timeout by this much has expired even without its last
 /// event.
 pub const MONITOR_SLACK: f64 = 60.0;
@@ -341,7 +349,8 @@ struct NoticeAt(T, Ending, Option<u64>);
 /// `scan.session.Session` without its file reading ([`super::scan`]).
 #[derive(Clone, Debug)]
 pub struct Session {
-    agents: BTreeMap<String, AgentRec>,
+    /// In discovery order, kept across updates (Python's dict).
+    agents: IndexMap<String, AgentRec>,
     files: HashMap<Owner, FileFacts>,
     spawns: HashMap<String, Spawn>,
     acks: HashMap<String, Ack>,
@@ -439,7 +448,7 @@ impl Session {
     /// An empty fold of session `own`.
     pub fn new(own: SessionId) -> Session {
         Session {
-            agents: BTreeMap::new(),
+            agents: IndexMap::new(),
             files: HashMap::new(),
             spawns: HashMap::new(),
             acks: HashMap::new(),
@@ -892,8 +901,9 @@ impl Session {
 
     // -- queries ------------------------------------------------------------------------------
 
-    /// The agents, by id.
-    pub fn agents(&self) -> &BTreeMap<String, AgentRec> {
+    /// The agents, in the order they were first recorded ([`Session::set_agent`]
+    /// or [`Session::set_meta`]), as panorama's `Session.agents`.
+    pub fn agents(&self) -> &IndexMap<String, AgentRec> {
         &self.agents
     }
 
@@ -1168,7 +1178,11 @@ impl Session {
 
     fn status_seen(&self, id: &str, now: f64, live: &dyn Liveness, seen: &[&str]) -> StatusOf {
         let status = self.status(id, now, live);
-        if status.status == Status::Done && status.inferred && !seen.contains(&id) {
+        if status.status == Status::Done
+            && status.inferred
+            && !seen.contains(&id)
+            && seen.len() < NESTING_CAP
+        {
             let mut seen = seen.to_vec();
             seen.push(id);
             let running = self

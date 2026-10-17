@@ -222,6 +222,8 @@ impl Scanner {
                 j.tail = Tailer::new();
             }
             self.hook_tail = Tailer::new();
+            // as panorama: a file read only by the background re-read above is not read
+            // again here and stays skipped (herdr-panorama#60; fixed in both together)
             for i in 0..self.files.len() {
                 let f = &self.files[i];
                 if since.is_none_or(|s| f.owner == Owner::Main || mtime(&f.path) >= s) {

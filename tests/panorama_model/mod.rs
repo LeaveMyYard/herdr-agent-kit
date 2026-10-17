@@ -885,7 +885,10 @@ fn agents_of(
 ) -> IndexMap<String, Agent> {
     let mut out: IndexMap<String, Agent> = IndexMap::new();
     let mut old: HashMap<String, usize> = HashMap::new();
-    for (seq, aid) in sess.agents().keys().enumerate() {
+    // collect.py `_agents`: `sorted(sess.agents.items())`
+    let mut ids: Vec<&String> = sess.agents().keys().collect();
+    ids.sort();
+    for (seq, aid) in ids.into_iter().enumerate() {
         match build_agent(sess, qtext, now, window, seq, aid, false) {
             Some(ag) => {
                 out.insert(aid.clone(), ag);

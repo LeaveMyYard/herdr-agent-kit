@@ -226,6 +226,17 @@ impl Tx {
         id
     }
 
+    /// An erroring result of a spawning call that names its agent but has no
+    /// status: a spawn result that is no acknowledgement.
+    fn spawn_error(&mut self, t: f64, call: &str, agent: &str) {
+        let mut res = tpl("result_agent_foreground");
+        res["toolUseResult"] = json!({"agentId": agent, "totalToolUseCount": 1});
+        self.add(
+            result_block(res, call, "Error: the agent stopped", Some(true)),
+            t,
+        );
+    }
+
     fn foreground_done(&mut self, t: f64, call: &str, agent: &str, error: bool) {
         let mut res = tpl("result_agent_foreground");
         tur(
@@ -571,11 +582,40 @@ fn hook_process_gone() -> FakeLiveness {
     )
 }
 
+/// Two Claude processes: 4242 is gone, 5555 lives.
+fn first_hook_process_gone() -> FakeLiveness {
+    hook_process_gone().process(
+        ProcessIdentity::new(5555, "s9", Some("pid:[1]".into())),
+        true,
+    )
+}
+
 fn hook_process_alive() -> FakeLiveness {
     FakeLiveness::default().process(
         ProcessIdentity::new(4242, "s1", Some("pid:[1]".into())),
         true,
     )
+}
+
+/// panorama `test_a_relaunched_run_abandons_the_old_instances_unfinished_agents`:
+/// run wf_1 launched at B, relaunched at B+10m; "old" started under the
+/// first instance, "new" under the second.
+fn relaunched_run(sc: &mut Sc) -> f64 {
+    sc.main.workflow(B, "wf_1", "task1");
+    sc.journal("wf_1", "launched", "", "");
+    sc.journal("wf_1", "started", "old", "Build");
+    sc.journal("wf_1", "started", "new", "Build");
+    for (id, start) in [("old", B + M), ("new", B + 11.0 * M)] {
+        sc.agent(
+            id,
+            json!({"description": id, "workflowPhase": "Build"}),
+            "meta_workflow",
+            Some("wf_1"),
+        )
+        .prompt(start, "brief");
+    }
+    sc.main.workflow(B + 10.0 * M, "wf_1", "task2"); // resumed: a new launch of the same run
+    B + 12.0 * M
 }
 
 const ROWS: &[Row] = &[
@@ -1216,6 +1256,132 @@ const ROWS: &[Row] = &[
         live: hook_process_gone,
         want: (Status::Done, true),
     },
+    // -- review round 1 (second review) and the final pass: one row per branch -------------
+    Row {
+        rule: "1: the end of the agent's failed workflow run is cxl too",
+        agent: Some("w1"),
+        build: |sc| {
+            sc.main.workflow(B, "wf_1", "t_wf");
+            sc.agent(
+                "w1",
+                json!({"description": "step"}),
+                "meta_workflow",
+                Some("wf_1"),
+            )
+            .bash(B + M, "build", true);
+            sc.main
+                .notify(B + 2.0 * M, "t_wf", "toolu_wf", "failed", &["queue"]);
+            B + 3.0 * M
+        },
+        live: unknown,
+        want: (Status::Cancelled, false),
+    },
+    Row {
+        rule: "1: a failed run whose launch was compacted away: its summary ends it (cxl)",
+        agent: Some("w1"),
+        build: |sc| {
+            sc.agent(
+                "w1",
+                json!({"description": "step"}),
+                "meta_workflow",
+                Some("wf_1"),
+            )
+            .bash(B + M, "build", false);
+            sc.summary("wf_1", "failed");
+            B + 3.0 * M
+        },
+        live: unknown,
+        want: (Status::Cancelled, false),
+    },
+    Row {
+        rule: "1: a relaunched run abandons the old instance's unfinished agent (cxl)",
+        agent: Some("old"),
+        build: relaunched_run,
+        live: unknown,
+        want: (Status::Cancelled, false),
+    },
+    Row {
+        rule: "1: a relaunched run's new agent runs while the run is live",
+        agent: Some("new"),
+        build: |sc| {
+            relaunched_run(sc);
+            B + 14.0 * M
+        },
+        live: unknown,
+        want: (Status::Run, false),
+    },
+    Row {
+        rule: "2: a recorded hook start after the evidence reopens the agent",
+        agent: Some("a1"),
+        build: |sc| {
+            let call = bg_agent(sc, "a1", "x");
+            sc.main
+                .notify(B + 2.0 * M, "a1", &call, "completed", &["queue"]);
+            sc.hook("start", "a1", B + 5.0 * M, 4242, "s1");
+            B + 5.5 * M
+        },
+        live: hook_process_alive,
+        want: (Status::Run, false),
+    },
+    Row {
+        rule: "3: a foreground spawning call with any result (an error with no status) no longer keeps it running",
+        agent: Some("f1"),
+        build: |sc| {
+            let call = sc.main.launch(B, "f1", "fg", false);
+            sc.agent(
+                "f1",
+                json!({"description": "fg", "toolUseId": call, "requestShape": "foreground"}),
+                "meta_background",
+                None,
+            )
+            .bash(B + M, "work", false);
+            sc.main.spawn_error(B + 2.0 * M, &call, "f1");
+            B + 40.0 * M
+        },
+        live: unknown,
+        want: (Status::Done, true),
+    },
+    Row {
+        rule: "3: an agent with no records and no acknowledgement is aged from its spawning call",
+        agent: Some("f1"),
+        build: |sc| {
+            let call = sc.main.launch(B, "f1", "fg", false);
+            sc.agent(
+                "f1",
+                json!({"description": "fg", "toolUseId": call, "requestShape": "foreground"}),
+                "meta_background",
+                None,
+            );
+            B + ASYNC_QUIET - 10.0
+        },
+        live: unknown,
+        want: (Status::Run, true),
+    },
+    Row {
+        rule: "hooks: a notice up to REOPEN_MARGIN before a recorded stop says how it ended",
+        agent: Some("a1"),
+        build: |sc| {
+            let call = bg_agent(sc, "a1", "x");
+            sc.main
+                .notify(B + 2.0 * M - 3.0, "a1", &call, "failed", &["queue"]);
+            sc.hook("stop", "a1", B + 2.0 * M, 4242, "s1");
+            B + 3.0 * M
+        },
+        live: hook_process_alive,
+        want: (Status::Failed, false),
+    },
+    Row {
+        rule: "hooks: of two starts at one instant the first decides (its process gone: lost)",
+        agent: Some("a1"),
+        build: |sc| {
+            bg_agent(sc, "a1", "x");
+            sc.hook("start", "a1", B, 4242, "s1");
+            sc.hook("start", "a1", B, 5555, "s9");
+            B + 30.0 * M
+        },
+        live: first_hook_process_gone,
+        want: (Status::Lost, false),
+    },
 ];
 
 #[test]
@@ -1520,6 +1686,7 @@ fn an_old_agent_file_is_still_read_when_its_agent_never_ended() {
     bg_agent(&mut sc, "a4", "x");
     sc.tx("a4").bash_background(B + M, "ab4");
     let done = bg_agent(&mut sc, "a5", "y");
+    sc.tx("a5").bash_background(B + M, "ab5"); // ended: its background launch does not matter
     sc.main
         .notify(B + 2.0 * M, "a5", &done, "completed", &["queue"]);
     let mut s = sc.write_all();
@@ -1695,6 +1862,22 @@ fn evidence_at_one_instant_ties_like_pythons_status_strings() {
             let _ = std::fs::remove_dir_all(&sc.root);
         }
     }
+    // a notice and a foreground acknowledgement at one instant: (t, "fail") > (t, "done")
+    let mut sc = Sc::new("tie-ack");
+    let call = sc.main.launch(B, "f1", "fg", false);
+    sc.agent(
+        "f1",
+        json!({"description": "fg", "toolUseId": call}),
+        "meta_background",
+        None,
+    )
+    .prompt(B, "brief");
+    sc.main.foreground_done(B + 2.0 * M, &call, "f1", false);
+    sc.main
+        .notify(B + 2.0 * M, "f1", &call, "failed", &["queue"]);
+    let s = sc.load();
+    let st = s.session().status_of("f1", B + 3.0 * M, &NoProcs);
+    assert_eq!((st.status, st.ended), (Status::Failed, Some(B + 2.0 * M)));
 }
 
 /// Folds `tx`'s lines from `from` on into `s` as `owner`'s records.
@@ -1753,7 +1936,7 @@ fn children_follow_every_input_that_changes_parentage() {
     fold_lines(&mut s, p1.clone(), &sc.agents["p1"].0, n);
     assert_eq!(s.children(&p1), vec!["c1", "o1"]);
     s.set_agent("d1", PathBuf::from("d1.jsonl"), None);
-    assert_eq!(s.children(&p1), vec!["c1", "d1", "o1"]);
+    assert_eq!(s.children(&p1), vec!["c1", "o1", "d1"]); // discovery order
 }
 
 /// One scanner across collects (as panorama keeps one per session): a
@@ -1790,4 +1973,97 @@ fn a_kept_scanner_keeps_a_silent_parent_running_while_its_new_child_runs() {
         s.session().status_of("p1", now, &NoProcs).status,
         Status::Run
     );
+}
+
+/// panorama's `parent_of`: of two non-main owners of the spawning call at
+/// the same earliest time (a fork copies its parent's records with their
+/// times), the first read wins.
+#[test]
+fn of_two_earliest_owners_of_a_spawning_call_the_first_read_is_the_parent() {
+    for (first, second) in [("p1", "k1"), ("k1", "p1")] {
+        let mut sc = Sc::new("parent-tie");
+        bg_agent(&mut sc, "p1", "parent");
+        let inner = sc.tx("p1").launch(B + M, "c1", "child", false);
+        let call_line = sc.tx("p1").lines.last().unwrap().clone();
+        let mut s = herdr_agent_kit::claude_session::Session::new(SessionId::parse(SID).unwrap());
+        s.set_meta(
+            "c1",
+            json!({"toolUseId": inner}).as_object().unwrap().clone(),
+        );
+        let line = herdr_agent_kit::claude_session::Line::parse(call_line.as_bytes()).unwrap();
+        for owner in [first, second] {
+            s.apply(Owner::Agent(owner.into()), &line, line.ts());
+        }
+        assert_eq!(
+            s.parent_of("c1"),
+            Some(Owner::Agent(first.into())),
+            "{first} read first"
+        );
+    }
+}
+
+/// A rewritten hook file is read again from the start: its old records are gone.
+#[test]
+fn a_rewritten_hook_file_forgets_its_old_records() {
+    let mut sc = Sc::new("hooks-rewrite");
+    bg_agent(&mut sc, "a1", "x");
+    sc.hook("stop", "a1", B + 2.0 * M, 4242, "s1");
+    sc.hook("stop", "a2", B + 2.0 * M, 4242, "s1");
+    let mut s = sc.load();
+    let status = |s: &Scanner| s.session().status_of("a1", B + 3.0 * M, &NoProcs).status;
+    assert_eq!(status(&s), Status::Done);
+    let hooks = sc.root.join("hooks").join(format!("{SID}.jsonl"));
+    let kept = sc.hooks[1].clone();
+    Sc::write(&hooks, &[kept]); // rewritten shorter, without a1's stop
+    s.update(None);
+    assert_eq!(status(&s), Status::Run);
+}
+
+/// panorama keeps `Session.agents` in discovery order across updates
+/// (collect.py's `workflow_thread` and `children` read it in that order).
+#[test]
+fn agents_keep_their_discovery_order_across_updates() {
+    let mut sc = Sc::new("agent-order");
+    bg_agent(&mut sc, "b1", "first");
+    let mut s = sc.load();
+    bg_agent(&mut sc, "a1", "later");
+    let _ = sc.write_all();
+    s.update(None);
+    let ids: Vec<&str> = s.session().agents().keys().map(String::as_str).collect();
+    assert_eq!(ids, ["b1", "a1"]);
+    assert_eq!(s.session().children(&Owner::Main), ["b1", "a1"]);
+}
+
+/// A `parentAgentId` chain far deeper than Claude Code nests does not
+/// exhaust the stack: the running-descendant search stops at NESTING_CAP.
+#[test]
+fn a_deep_parent_chain_is_answered() {
+    use herdr_agent_kit::claude_session::fold::NESTING_CAP;
+    let mut s = herdr_agent_kit::claude_session::Session::new(SessionId::parse(SID).unwrap());
+    let n = 50_000;
+    for i in 0..n {
+        let meta = if i == 0 {
+            Map::new()
+        } else {
+            json!({"parentAgentId": format!("a{}", i - 1)})
+                .as_object()
+                .unwrap()
+                .clone()
+        };
+        s.set_meta(&format!("a{i}"), meta);
+    }
+    let st = s.status_of("a0", B, &NoProcs);
+    assert_eq!((st.status, st.inferred), (Status::Done, true));
+    // within the cap, a running descendant still keeps its ancestors running
+    let mut s = herdr_agent_kit::claude_session::Session::new(SessionId::parse(SID).unwrap());
+    for i in 0..NESTING_CAP {
+        let mut meta = json!({"parentAgentId": format!("a{}", i.saturating_sub(1))});
+        if i == 0 {
+            meta = json!({});
+        }
+        s.set_meta(&format!("a{i}"), meta.as_object().unwrap().clone());
+    }
+    let leaf = Owner::Agent(format!("a{}", NESTING_CAP - 1));
+    s.file_mut(leaf).last_ts = Some(B);
+    assert_eq!(s.status_of("a0", B + 1.0, &NoProcs).status, Status::Run);
 }
