@@ -946,6 +946,54 @@
    "ref": "007",
    "id": 7,
    "describe": "Q007"
+  },
+  {
+   "value": "Q 12",
+   "ref": " 12",
+   "id": 12,
+   "describe": "Q 12"
+  },
+  {
+   "value": "Q12\n",
+   "ref": "12\n",
+   "id": 12,
+   "describe": "Q12\n"
+  },
+  {
+   "value": "Q\t12\u001c",
+   "ref": "\t12\u001c",
+   "id": null,
+   "describe": "Q\t12\u001c"
+  },
+  {
+   "value": "Q1__2",
+   "ref": "1__2",
+   "id": null,
+   "describe": "Q1__2"
+  },
+  {
+   "value": "Q_1",
+   "ref": "_1",
+   "id": null,
+   "describe": "Q_1"
+  },
+  {
+   "value": "Q1_",
+   "ref": "1_",
+   "id": null,
+   "describe": "Q1_"
+  },
+  {
+   "value": "Q+",
+   "ref": "+",
+   "id": null,
+   "describe": "Q+"
+  },
+  {
+   "value": "Q99999999999999999999999",
+   "ref": "99999999999999999999999",
+   "id": 99999999999999999999999,
+   "describe": "Q99999999999999999999999"
   }
  ]
 }

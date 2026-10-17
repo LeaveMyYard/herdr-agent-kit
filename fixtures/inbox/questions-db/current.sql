@@ -56,7 +56,7 @@ CREATE TABLE meta (
     key             TEXT PRIMARY KEY,
     value           TEXT
 );
-INSERT INTO "meta" VALUES('0.5.1 unverified acknowledgements reset','2026-10-17T16:52:27+00:00');
+INSERT INTO "meta" VALUES('0.5.1 unverified acknowledgements reset','2026-10-17T16:56:37+00:00');
 CREATE TABLE question_ext (
     id              INTEGER PRIMARY KEY REFERENCES questions(id),
     header          TEXT,
@@ -108,10 +108,10 @@ CREATE TABLE questions (
     repeat_count    INTEGER NOT NULL DEFAULT 0,
     delivery_attempts INTEGER NOT NULL DEFAULT 0
 );
-INSERT INTO "questions" VALUES(1,'2026-10-17T16:52:28+00:00','w1:p1','w1:t1','capture','5f0c2a8e-3b1d-4c6e-9a7f-1e2d3c4b5a69','/capture/cwd','capture','Which database should the service use?','["Postgres", "SQLite"]',NULL,'which database should the service use','answered','Postgres','2026-10-17T16:52:29+00:00',NULL,NULL,'2026-10-17T16:52:29+00:00',2,0);
-INSERT INTO "questions" VALUES(2,'2026-10-17T16:52:29+00:00','w1:p1','w1:t1','capture','5f0c2a8e-3b1d-4c6e-9a7f-1e2d3c4b5a69','/capture/cwd',NULL,'Ship today?',NULL,NULL,'ship today','open',NULL,NULL,NULL,NULL,NULL,0,0);
-INSERT INTO "questions" VALUES(3,'2026-10-17T16:52:29+00:00','w1:p1','w1:t1','capture','5f0c2a8e-3b1d-4c6e-9a7f-1e2d3c4b5a69','/capture/cwd',NULL,'Which region?','["eu-west-1", "us-east-1"]',NULL,'which region','open',NULL,NULL,NULL,NULL,NULL,0,0);
-INSERT INTO "questions" VALUES(4,'2026-10-17T16:52:29+00:00','w1:p1','w1:t1','capture','5f0c2a8e-3b1d-4c6e-9a7f-1e2d3c4b5a69','/capture/cwd',NULL,'Run the migration now?',NULL,NULL,'run the migration now','open',NULL,NULL,NULL,NULL,NULL,0,0);
+INSERT INTO "questions" VALUES(1,'2026-10-17T16:56:38+00:00','w1:p1','w1:t1','capture','5f0c2a8e-3b1d-4c6e-9a7f-1e2d3c4b5a69','/capture/cwd','capture','Which database should the service use?','["Postgres", "SQLite"]',NULL,'which database should the service use','answered','Postgres','2026-10-17T16:56:38+00:00',NULL,NULL,'2026-10-17T16:56:38+00:00',2,0);
+INSERT INTO "questions" VALUES(2,'2026-10-17T16:56:38+00:00','w1:p1','w1:t1','capture','5f0c2a8e-3b1d-4c6e-9a7f-1e2d3c4b5a69','/capture/cwd',NULL,'Ship today?',NULL,NULL,'ship today','open',NULL,NULL,NULL,NULL,NULL,0,0);
+INSERT INTO "questions" VALUES(3,'2026-10-17T16:56:38+00:00','w1:p1','w1:t1','capture','5f0c2a8e-3b1d-4c6e-9a7f-1e2d3c4b5a69','/capture/cwd',NULL,'Which region?','["eu-west-1", "us-east-1"]',NULL,'which region','open',NULL,NULL,NULL,NULL,NULL,0,0);
+INSERT INTO "questions" VALUES(4,'2026-10-17T16:56:38+00:00','w1:p1','w1:t1','capture','5f0c2a8e-3b1d-4c6e-9a7f-1e2d3c4b5a69','/capture/cwd',NULL,'Run the migration now?',NULL,NULL,'run the migration now','open',NULL,NULL,NULL,NULL,NULL,0,0);
 CREATE TABLE remote_alerts (
     machine_id      TEXT NOT NULL,
     db_id           TEXT NOT NULL,

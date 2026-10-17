@@ -249,8 +249,8 @@ pub fn question_ref(value: &str) -> String {
 /// id arguments); `None` for anything else (`QQ12`, `qnap:Q12`, ``).
 ///
 /// The rest after [`question_ref`] is read as Python's `int()` reads it: surrounding
-/// whitespace, one sign and `_` between digits are allowed (`Q 12`, `Q+12` and `1_2` are
-/// 12). Unlike Python, the digits are ASCII only, and a negative number (no question
+/// whitespace (Python's `isspace()` set without U+001C to U+001F), one sign and `_`
+/// between digits are allowed (`Q 12`, `Q+12` and `1_2` are 12). Unlike Python, the digits are ASCII only, and a negative number (no question
 /// has one) or one over `u64::MAX` is `None`.
 pub fn question_id(value: &str) -> Option<u64> {
     py_int(&question_ref(value))
@@ -271,7 +271,7 @@ pub fn describe_question(value: &str) -> String {
 
 /// Python's `int(s)` for an ASCII decimal that fits a `u64`.
 fn py_int(s: &str) -> Option<u64> {
-    let s = trim(s, py_space);
+    let s = trim(s, py_int_space);
     let (negative, s) = match s.as_bytes().first() {
         Some(b'-') => (true, &s[1..]),
         Some(b'+') => (false, &s[1..]),
@@ -288,6 +288,13 @@ fn py_int(s: &str) -> Option<u64> {
     }
     let n: u64 = s.replace('_', "").parse().ok()?;
     (!negative || n == 0).then_some(n)
+}
+
+/// What Python's `int()` strips around a number: `str.isspace()` except the information
+/// separators U+001C to U+001F, which are ASCII and so not mapped to a space before the
+/// ASCII-only strip (CPython `_PyUnicode_TransformDecimalAndSpaceToASCII`).
+fn py_int_space(c: char) -> bool {
+    py_space(c) && !matches!(c, '\u{1c}'..='\u{1f}')
 }
 
 /// argparse's `^-\d+$|^-\d*\.\d+$`: an argument starting with `-` that is still a value.
@@ -389,21 +396,10 @@ mod tests {
     }
 
     #[test]
-    fn question_ids_read_like_python_int() {
-        for (v, want) in [
-            ("Q 12", Some(12)),
-            ("Q+12", Some(12)),
-            ("1_2", Some(12)),
-            ("Q007", Some(7)),
-            ("-0", Some(0)),
-            ("-1", None),
-            ("1__2", None),
-            ("_1", None),
-            ("1_", None),
-            ("+", None),
-            ("Q12 ", Some(12)),
-            ("99999999999999999999999", None),
-        ] {
+    fn question_ids_differ_from_python_int_only_out_of_range() {
+        // Python's int() reads both (-1, a 23-digit int); no question has such an id.
+        // Everything else question_id reads is pinned by the open-args.json goldens.
+        for (v, want) in [("Q-1", None), ("Q99999999999999999999999", None)] {
             assert_eq!(question_id(v), want, "{v:?}");
         }
     }

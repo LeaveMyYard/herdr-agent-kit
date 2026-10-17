@@ -53,13 +53,14 @@ Re-capture: `sh capture/run.sh <empty work dir> <inbox export> <panorama export>
 
 ## Known differences in the Rust port
 
-Documented in the module docs; none occurs in anything the inbox writes, and only the negative
-id (`question_ref`, `Q-1`) occurs in these goldens:
+Documented in the module docs; none occurs in anything the inbox writes, and only the negative and
+the too-large id (`question_ref`, `Q-1` and `Q99999999999999999999999`) occur in these goldens:
 
 - Ids and versions are ASCII digits. Python's `\d` also matches other scripts' digits (the
   mod's TypeScript does not).
 - An id over `u64::MAX` is dropped (Python's ints have no limit). A negative one (`Q-1`,
-  which Python's `int()` reads as -1 and no question has) is refused by `question_id`.
+  which Python's `int()` reads as -1 and no question has) is refused by `question_id`; so is
+  `Q99999999999999999999999`.
 - `\b` next to a `Q` id uses Rust's alphanumeric set, which also counts the combining marks
   with the Alphabetic property.
 - `parse_open_args` takes the flags in full: argparse would also accept an abbreviation

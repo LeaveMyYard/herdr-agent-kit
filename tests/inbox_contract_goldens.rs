@@ -307,8 +307,21 @@ fn question_refs_like_the_inbox() {
     for c in cases {
         let v = s(&c["value"]);
         assert_eq!(open_args::question_ref(v), s(&c["ref"]), "{v:?}");
-        // Python's int() gives -1 for `Q-1`; no question has a negative id, so Rust says None
-        assert_eq!(open_args::question_id(v), c["id"].as_u64(), "{v:?}");
+        let id = &c["id"];
+        let want = if id.is_null() {
+            None
+        } else if let Some(n) = id.as_u64() {
+            Some(n)
+        } else {
+            // Python's int() reads `Q-1` and a 23-digit number; no question has such an id,
+            // so the port refuses them (README, known differences). Any other value is new.
+            assert!(
+                ["Q-1", "Q99999999999999999999999"].contains(&v),
+                "{v:?}: id {id}"
+            );
+            None
+        };
+        assert_eq!(open_args::question_id(v), want, "{v:?}");
         assert_eq!(open_args::describe_question(v), s(&c["describe"]), "{v:?}");
     }
 }
