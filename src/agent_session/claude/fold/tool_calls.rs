@@ -4,7 +4,7 @@
 use serde_json::{Map, Value};
 
 use super::{BgKind, Owner, Session};
-use crate::agent_session::claude::wire::{BG_STOP_TOOLS, SPAWN_TOOLS};
+use crate::agent_session::claude::wire::{BASH, BG_STOP_TOOLS, MONITOR, SPAWN_TOOLS};
 use crate::ask_operator::is_ask_operator;
 
 /// Tool calls and their results, from records ([`Session::apply`]).
@@ -23,9 +23,9 @@ impl Session {
             self.spawns.on_call(owner, id, inp, when);
         } else if is_ask_operator(name) {
             self.asks.on_call(id, owner);
-        } else if name == "Bash" {
+        } else if name == BASH {
             self.background.on_call(id, BgKind::Bash, inp);
-        } else if name == "Monitor" {
+        } else if name == MONITOR {
             self.background.on_call(id, BgKind::Monitor, inp);
         } else if BG_STOP_TOOLS.contains(&name) {
             self.background.on_stop_call(id, inp);
