@@ -1,0 +1,127 @@
+{
+  "description": "capture",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact|fork",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh",
+            "args": [
+              "-c",
+              "python3 -I \"$1\" \"$2\" 2>/dev/null; exit 0",
+              "herdr-capture-hook",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/dump.py",
+              "SessionStart"
+            ],
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": ".+",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh",
+            "args": [
+              "-c",
+              "python3 -I \"$1\" \"$2\" 2>/dev/null; exit 0",
+              "herdr-capture-hook",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/dump.py",
+              "SubagentStart.panorama"
+            ],
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh",
+            "args": [
+              "-c",
+              "python3 -I \"$1\" \"$2\" 2>/dev/null; exit 0",
+              "herdr-capture-hook",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/dump.py",
+              "SubagentStart.inbox"
+            ],
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": ".+",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh",
+            "args": [
+              "-c",
+              "python3 -I \"$1\" \"$2\" 2>/dev/null; exit 0",
+              "herdr-capture-hook",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/dump.py",
+              "SubagentStop"
+            ],
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolBatch": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh",
+            "args": [
+              "-c",
+              "python3 -I \"$1\" \"$2\" 2>/dev/null; exit 0",
+              "herdr-capture-hook",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/dump.py",
+              "PostToolBatch"
+            ],
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh",
+            "args": [
+              "-c",
+              "python3 -I \"$1\" \"$2\" 2>/dev/null; exit 0",
+              "herdr-capture-hook",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/dump.py",
+              "Stop"
+            ],
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "sh",
+            "args": [
+              "-c",
+              "python3 -I \"$1\" \"$2\" 2>/dev/null; exit 0",
+              "herdr-capture-hook",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/dump.py",
+              "Stop.rewake-watch"
+            ],
+            "timeout": 60,
+            "asyncRewake": true
+          }
+        ]
+      }
+    ]
+  }
+}

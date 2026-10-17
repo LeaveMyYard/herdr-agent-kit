@@ -1,0 +1,105 @@
+[
+ {
+  "description": "Declare or update a thread of work for the herdr swarm view (herdr-panorama).\n\nCall it when multi-step work starts (a PR through review rounds, a plan's tasks, several\nsubagents on one goal) and whenever its phase changes. Returns immediately.\n- thread_id: stable id, e.g. \"pr-595\" or \"task-3\"; title: short name, e.g. \"PR #595 ledger\".\n- phase: the current phase (\"review r2\"); phases_done: finished phases in order;\n  next: the phases still to come. Omitted lists keep what you reported before.\n- status: \"active\" (default), \"done\", \"failed\" or \"cancelled\" when the thread ends.\n- agents: optional subagent ids or descriptions (a trailing * matches a prefix) that work on it.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "thread_id": {
+     "title": "Thread Id",
+     "type": "string"
+    },
+    "title": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Title"
+    },
+    "phase": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Phase"
+    },
+    "phases_done": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Phases Done"
+    },
+    "next": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Next"
+    },
+    "status": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Status"
+    },
+    "agents": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Agents"
+    }
+   },
+   "required": [
+    "thread_id"
+   ],
+   "title": "report_threadArguments"
+  },
+  "name": "report_thread",
+  "outputSchema": {
+   "additionalProperties": true,
+   "title": "report_threadDictOutput",
+   "type": "object"
+  }
+ }
+]

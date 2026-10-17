@@ -1,0 +1,75 @@
+{
+ "hook": "SubagentStop",
+ "argv": [
+  "SubagentStop"
+ ],
+ "stdin": {
+  "session_id": "4f58e439-89a5-483d-9a92-c53ad7112405",
+  "transcript_path": "/home/leavemyyard/.claude/projects/-home-leavemyyard-Code-herdr-rust-conductor-scratch-P0a-recordings-claude-cwd/4f58e439-89a5-483d-9a92-c53ad7112405.jsonl",
+  "cwd": "/home/leavemyyard/Code/herdr-rust-conductor/scratch/P0a/recordings/claude/cwd",
+  "prompt_id": "8af02454-e943-4334-a6e4-d9bbd0b7dc93",
+  "permission_mode": "default",
+  "agent_id": "a325f867416c5dde9",
+  "agent_type": "general-purpose",
+  "effort": {
+   "level": "low"
+  },
+  "hook_event_name": "SubagentStop",
+  "stop_hook_active": false,
+  "agent_transcript_path": "/home/leavemyyard/.claude/projects/-home-leavemyyard-Code-herdr-rust-conductor-scratch-P0a-recordings-claude-cwd/4f58e439-89a5-483d-9a92-c53ad7112405/subagents/agent-a325f867416c5dde9.jsonl",
+  "last_assistant_message": "ok",
+  "background_tasks": [
+   {
+    "id": "a325f867416c5dde9",
+    "type": "subagent",
+    "status": "running",
+    "description": "capture subagent",
+    "agent_type": "general-purpose"
+   }
+  ],
+  "session_crons": []
+ },
+ "env": {
+  "CLAUDECODE": "1",
+  "CLAUDE_CODE_CHILD_SESSION": "1",
+  "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+  "CLAUDE_CODE_MESSAGING_SOCKET": "/tmp/cc-socks/1808327.sock",
+  "CLAUDE_CODE_SESSION_ATTENDED": "0",
+  "CLAUDE_CODE_SESSION_ID": "4f58e439-89a5-483d-9a92-c53ad7112405",
+  "CLAUDE_EFFORT": "low",
+  "CLAUDE_PID": "1808327",
+  "CLAUDE_PLUGIN_DATA": "/home/leavemyyard/.claude/plugins/data/herdr-capture-inline",
+  "CLAUDE_PLUGIN_ROOT": "/home/leavemyyard/Code/herdr-rust-conductor/scratch/P0a/recordings/claude/capture-plugin",
+  "CLAUDE_PROJECT_DIR": "/home/leavemyyard/Code/herdr-rust-conductor/scratch/P0a/recordings/claude/cwd"
+ },
+ "env_names": [
+  "AI_AGENT",
+  "CAPTURE_OUT",
+  "CLAUDECODE",
+  "CLAUDE_CODE_CHILD_SESSION",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_MESSAGING_SOCKET",
+  "CLAUDE_CODE_SESSION_ATTENDED",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_EFFORT",
+  "CLAUDE_PID",
+  "CLAUDE_PLUGIN_DATA",
+  "CLAUDE_PLUGIN_ROOT",
+  "CLAUDE_PROJECT_DIR",
+  "COREPACK_ENABLE_AUTO_PIN",
+  "HERDR_INBOX_DB",
+  "HERDR_INBOX_NO_WORKER",
+  "HOME",
+  "LANG",
+  "NoDefaultCurrentDirectoryInExePath",
+  "PATH",
+  "PWD",
+  "SHLVL",
+  "TERM",
+  "USER",
+  "UV_CACHE_DIR",
+  "XDG_CONFIG_HOME",
+  "XDG_STATE_HOME",
+  "_"
+ ]
+}

@@ -1,0 +1,5 @@
+{
+  "name": "herdr-capture",
+  "version": "0.0.0",
+  "description": "Capture-only plugin: registers the hook events herdr-inbox and herdr-panorama register, with the same matchers and exec form, and dumps each payload to a file."
+}
