@@ -22,4 +22,12 @@ fn digits_and_ids() {
     assert_eq!(parse_id("007"), Some(7));
     assert_eq!(parse_id("99999999999999999999999"), None);
     assert_eq!(py_len("\u{1F680}a"), 2);
+    assert_eq!(digits_then_space("12 x"), Some("12"));
+    assert_eq!(
+        digits_then_space("99999999999999999999999 x"),
+        Some("99999999999999999999999")
+    );
+    for s in ["12x", "12", " 12 ", "x 1"] {
+        assert_eq!(digits_then_space(s), None, "{s:?}");
+    }
 }

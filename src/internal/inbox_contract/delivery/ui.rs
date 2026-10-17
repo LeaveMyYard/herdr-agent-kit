@@ -1,7 +1,9 @@
 //! Reading a delivery as the herdr-inbox-ui mod draws it (`register.tsx`).
 
 use super::skip_paste_open;
-use crate::internal::inbox_contract::text::{ascii_digits, js_space, trim, trim_end, trim_start};
+use crate::internal::inbox_contract::text::{
+    ascii_digits, digits_then_space, js_space, trim, trim_end, trim_start,
+};
 
 /// One answer as the UI mod reads it from a delivery.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -110,7 +112,7 @@ fn batch_segments(rest: &str) -> Vec<&str> {
         let after = &rest[sep + " · ".len()..];
         if after
             .strip_prefix('Q')
-            .and_then(id_then_space_str)
+            .and_then(digits_then_space)
             .is_some()
         {
             out.push(&rest[seg_start..sep]);
@@ -122,13 +124,6 @@ fn batch_segments(rest: &str) -> Vec<&str> {
     }
     out.push(&rest[seg_start..]);
     out
-}
-
-/// `\d+ ` at the start of `s` (any length of digits, unlike `transcript`'s
-/// `id_then_space`).
-fn id_then_space_str(s: &str) -> Option<()> {
-    let digits = ascii_digits(s);
-    (!digits.is_empty() && s[digits.len()..].starts_with(' ')).then_some(())
 }
 
 fn split_segment(seg: &str, id: String) -> ParsedAnswer {

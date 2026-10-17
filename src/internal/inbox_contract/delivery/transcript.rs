@@ -4,7 +4,9 @@
 use std::collections::BTreeSet;
 
 use super::skip_paste_open;
-use crate::internal::inbox_contract::text::{ascii_digits, parse_id, py_space, trim_end};
+use crate::internal::inbox_contract::text::{
+    ascii_digits, digits_then_space, parse_id, py_space, trim_end,
+};
 
 /// The ids a message names in the inbox's own header, read only where the inbox writes
 /// them (Python's `transcript.header_ids`, which decides that a delivery landed).
@@ -26,7 +28,11 @@ pub fn header_ids(text: &str) -> BTreeSet<u64> {
     let Some(rest) = text.strip_prefix("[inbox] answered — ") else {
         return ids;
     };
-    if let Some(id) = rest.strip_prefix('Q').and_then(id_then_space) {
+    if let Some(id) = rest
+        .strip_prefix('Q')
+        .and_then(digits_then_space)
+        .and_then(parse_id)
+    {
         ids.insert(id);
     }
     // ` · Q(\d+) ` with finditer: non-overlapping, scanning on after each match.
@@ -42,15 +48,6 @@ pub fn header_ids(text: &str) -> BTreeSet<u64> {
         }
     }
     ids
-}
-
-/// `(\d+) ` at the start of `s`: the id, when a space follows the digits.
-fn id_then_space(s: &str) -> Option<u64> {
-    let digits = ascii_digits(s);
-    if digits.is_empty() || !s[digits.len()..].starts_with(' ') {
-        return None;
-    }
-    parse_id(digits)
 }
 
 /// Each `[inbox] ` inside an asyncRewake task notification, up to the end of its
