@@ -1,4 +1,5 @@
-# Structure-check exceptions (COMMON.md "Code structure"). The list may only shrink.
+# Structure-check exceptions (COMMON.md "Code structure"). The list may only shrink
+# (CI fails a PR that adds an entry the base branch does not have).
 # Each entry: today's file that predates the rule (2026-10-17), and why it is not fixed yet.
 # The restructure PRs after #16 (one per module group) remove these entries.
 
