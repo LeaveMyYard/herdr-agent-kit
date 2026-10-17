@@ -65,25 +65,25 @@ impl Liveness for NoProcs {
 /// the next pass.
 #[derive(Debug, Default)]
 pub struct SystemLiveness {
-    claude: Option<Pid>,
+    process: Option<Pid>,
     processes: RefCell<BTreeMap<ProcessIdentity, Option<bool>>>,
     tasks: OnceCell<Option<BTreeSet<String>>>,
 }
 
 impl SystemLiveness {
-    /// Liveness for a session whose Claude Code process is `claude` (the
-    /// pane's foreground Claude, [`super::first_claude`]). Its descendants
-    /// are where the session's background tasks run; with `None`, tasks are
-    /// unknown.
+    /// Liveness for a session whose Claude Code process is `process` (the
+    /// pane's foreground Claude, [`super::claude::first_claude`]). Its
+    /// descendants are where the session's background tasks run
+    /// ([`super::claude::live_tasks`]); with `None`, tasks are unknown.
     ///
-    /// The caller must make sure `claude` is still the pane's Claude: a pid
+    /// The caller must make sure `process` is still the pane's Claude: a pid
     /// cached from an earlier pass may have been reused by another process,
     /// whose tree would call every running task finished. Compare its
     /// [`super::start_token`] with the one taken when it was found (panorama
     /// `collect._live_tasks`), and look it up again on a mismatch.
-    pub fn new(claude: Option<Pid>) -> Self {
+    pub fn new(process: Option<Pid>) -> Self {
         Self {
-            claude,
+            process,
             ..Self::default()
         }
     }
@@ -101,7 +101,7 @@ impl Liveness for SystemLiveness {
 
     fn task_alive(&self, task: &str) -> Option<bool> {
         self.tasks
-            .get_or_init(|| self.claude.and_then(system::live_tasks))
+            .get_or_init(|| self.process.and_then(system::live_tasks))
             .as_ref()
             .map(|t| t.contains(task))
     }

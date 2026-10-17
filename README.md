@@ -30,7 +30,8 @@ crate. Run `cargo doc --open --all-features` for the full reference.
 | `agent_session` | always | pure | The harness-neutral seam: `SessionId` (the one session-id validator), `Ts`, `Status`, `SessionView` |
 | `agent_session::claude` | always | pure | Claude Code: the wire format, the continuation rule (D6), the session fold and status rules, `Session::view` (the `SessionView` producer) |
 | `agent_session::claude::io`, `::scan` | always | IO | Projects root, transcript discovery, tailing, following continuations, `Scanner` |
-| `agent_procs` | always | IO | "Is this Claude Code", nested Claude, process liveness (`Liveness`) |
+| `agent_procs` | always | IO | Neutral process table walks, pid checks, the `Liveness` trait |
+| `agent_procs::claude` | always | IO | Claude Code: "is this Claude Code", nested Claude, `SystemLiveness` (background tasks) |
 | `agent_procs::fake` | `test-support` | pure | Scripted process tables and liveness for tests |
 | `plugin_env` | always | IO | Plugin environment, `config.toml` with reload, state dirs, flock, socket dirs |
 | `remote_machines` | `remote` | IO | Planned (empty in 0.1): machine list, ssh options, the shared ControlPath scheme |

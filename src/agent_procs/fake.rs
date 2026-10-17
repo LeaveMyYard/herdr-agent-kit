@@ -41,11 +41,11 @@ impl FakeProcesses {
         }
     }
 
-    /// The pids whose `(comm, argv)` [`super::is_claude`] accepts, ascending.
+    /// The pids whose `(comm, argv)` [`super::claude::is_claude`] accepts, ascending.
     pub fn claudes(&self) -> Vec<Pid> {
         self.procs
             .iter()
-            .filter(|(_, (st, _, argv))| super::is_claude(&st.comm, argv))
+            .filter(|(_, (st, _, argv))| super::claude::is_claude(&st.comm, argv))
             .map(|(&pid, _)| pid)
             .collect()
     }

@@ -14,7 +14,7 @@
 //! | [`herdr_api`] | IO | The herdr client: socket, events, the CLI path, [`herdr_api::HerdrError`], [`herdr_api::Sanitized`] |
 //! | [`agent_session`] | pure | Neutral session types: [`agent_session::SessionId`], [`agent_session::Status`], [`agent_session::SessionView`] |
 //! | [`agent_session::claude`] | pure and IO | Claude Code's transcripts: wire format, continuation, the session fold and status rules, discovery and tailing |
-//! | [`agent_procs`] | IO | "Is this Claude Code", nested Claude, process liveness |
+//! | [`agent_procs`] | IO | Process table walks and liveness; [`agent_procs::claude`]: "is this Claude Code", nested Claude |
 //! | [`plugin_env`] | IO | The plugin environment, `config.toml` with reload, state dirs, flock, private socket dirs |
 //!
 //! # Features
