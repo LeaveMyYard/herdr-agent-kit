@@ -54,6 +54,10 @@ pub use types::{
 /// The default timeout of a socket request or a CLI call (Python `TIMEOUT`).
 pub const TIMEOUT: Duration = Duration::from_secs(3);
 
+/// How often `start_agent` asks whether a new agent is ready (herdr's CLI
+/// asked about every 0.2 s in the recording).
+pub const START_POLL: Duration = Duration::from_millis(200);
+
 /// The client name in request ids when none is given (`<client>:1`,
 /// `<client>:events`).
 pub const DEFAULT_CLIENT: &str = "herdr-agent-kit";
@@ -157,14 +161,14 @@ macro_rules! typed_methods {
             tabs(workspace: &WorkspaceId) -> Vec<TabInfo>;
             tab(tab: &TabId) -> TabInfo;
             create_tab(label: &Sanitized, cwd: Option<&std::path::Path>, focus: bool, workspace: Option<&WorkspaceId>) -> TabInfo;
-            rename_tab(tab: &TabId, label: &Sanitized) -> TabInfo;
-            focus_tab(tab: &TabId) -> TabInfo;
+            rename_tab(tab: &TabId, label: &Sanitized) -> Option<TabInfo>;
+            focus_tab(tab: &TabId) -> Option<TabInfo>;
             move_tab(tab: &TabId, insert_index: u32) -> Vec<TabInfo>;
             close_tab(tab: &TabId) -> ();
             panes() -> Vec<PaneInfo>;
             pane(pane: &PaneId) -> PaneInfo;
-            focus_pane(pane: &PaneId) -> PaneInfo;
-            rename_pane(pane: &PaneId, label: &Sanitized) -> PaneInfo;
+            focus_pane(pane: &PaneId) -> Option<PaneInfo>;
+            rename_pane(pane: &PaneId, label: &Sanitized) -> Option<PaneInfo>;
             toggle_zoom(pane: &PaneId) -> Extra;
             read_pane(pane: &PaneId, lines: u16, ansi: bool) -> String;
             process_info(pane: &PaneId) -> ProcessInfo;
@@ -172,15 +176,14 @@ macro_rules! typed_methods {
             swap_panes(source: &PaneId, target: &PaneId) -> SwapResult;
             pane_layout(pane: &PaneId) -> LayoutInfo;
             layout_export(tab: &TabId) -> LayoutInfo;
-            set_split_ratio(tab: &TabId, path: &[bool], ratio: f64) -> LayoutInfo;
+            set_split_ratio(tab: &TabId, path: &[bool], ratio: f64) -> Option<LayoutInfo>;
             apply_layout(tab_label: &Sanitized, focus: bool, root: serde_json::Value) -> LayoutInfo;
             set_token(pane: &PaneId, source: &str, key: &str, value: Option<&Sanitized>) -> ();
             agents() -> Vec<AgentInfo>;
             agent(pane: &PaneId) -> Option<AgentInfo>;
             agent_named(name: &str) -> Option<AgentInfo>;
-            focus_agent(pane: &PaneId) -> AgentInfo;
+            focus_agent(pane: &PaneId) -> Option<AgentInfo>;
             prompt(pane: &PaneId, text: &Sanitized) -> ();
-            start_agent(name: &Sanitized, kind: &str, pane: &PaneId, timeout_ms: u32) -> AgentInfo;
             plugins() -> Vec<PluginInfo>;
             invoke_action(action_id: &str) -> ();
             open_plugin_pane(open: &OpenPluginPane) -> Option<PaneInfo>;
@@ -243,6 +246,36 @@ impl Herdr {
             &self.target.client,
             kinds,
         )
+    }
+
+    /// Start an agent of `kind` named `name` in `pane` and wait, up to
+    /// `timeout_ms`, until it is ready for a prompt, as `herdr agent start
+    /// --timeout` does (recording `agent.jsonl:5`): `agent.start`, then
+    /// `agent.get <name>` every [`START_POLL`] until the agent is ready
+    /// ([`AgentInfo::is_ready`]). panorama types the first prompt right
+    /// after this returns. Not ready in time: [`HerdrError::NoReply`] (the
+    /// agent may still come up).
+    pub async fn start_agent(
+        &self,
+        name: &Sanitized,
+        kind: &str,
+        pane: &PaneId,
+        timeout_ms: u32,
+    ) -> Result<AgentInfo, HerdrError> {
+        let deadline = tokio::time::Instant::now() + Duration::from_millis(u64::from(timeout_ms));
+        let mut agent = self
+            .send(calls::start_agent(name, kind, pane, timeout_ms))
+            .await?;
+        while !agent.is_ready() {
+            if tokio::time::Instant::now() + START_POLL > deadline {
+                return Err(calls::not_ready(timeout_ms));
+            }
+            tokio::time::sleep(START_POLL).await;
+            if let Some(polled) = self.agent_named(name.as_str()).await? {
+                agent = polled;
+            }
+        }
+        Ok(agent)
     }
 
     // -- the CLI path ----------------------------------------------------------

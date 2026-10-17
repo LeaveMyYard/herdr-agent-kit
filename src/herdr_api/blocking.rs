@@ -60,6 +60,29 @@ impl Herdr {
         self.send(calls::raw_call(method, params))
     }
 
+    /// [`super::Herdr::start_agent`], blocking.
+    pub fn start_agent(
+        &self,
+        name: &Sanitized,
+        kind: &str,
+        pane: &PaneId,
+        timeout_ms: u32,
+    ) -> Result<AgentInfo, HerdrError> {
+        let deadline =
+            std::time::Instant::now() + std::time::Duration::from_millis(u64::from(timeout_ms));
+        let mut agent = self.send(calls::start_agent(name, kind, pane, timeout_ms))?;
+        while !agent.is_ready() {
+            if std::time::Instant::now() + super::START_POLL > deadline {
+                return Err(calls::not_ready(timeout_ms));
+            }
+            std::thread::sleep(super::START_POLL);
+            if let Some(polled) = self.agent_named(name.as_str())? {
+                agent = polled;
+            }
+        }
+        Ok(agent)
+    }
+
     /// `herdr machine list --json`: every saved machine, unfiltered.
     pub fn machine_list(&self) -> Result<Vec<Machine>, HerdrError> {
         cli::parse_machines(&self.cli(&cli::machine_list())?)

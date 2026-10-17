@@ -231,14 +231,19 @@ pub(crate) fn run_blocking(
             spawned => break spawned.map_err(|e| spawn_error(bin, &e))?,
         }
     };
+    // the pipes are read on threads that report back over channels, so the
+    // wait for them is bounded too: a grandchild (ssh's ControlPersist master
+    // under `--machine`) may hold them open after herdr itself has exited
     let drain = |pipe: Option<Box<dyn Read + Send>>| {
+        let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
             let mut buf = Vec::new();
             if let Some(mut p) = pipe {
                 let _ = p.read_to_end(&mut buf);
             }
-            buf
-        })
+            let _ = tx.send(buf);
+        });
+        rx
     };
     let out = drain(
         child
@@ -268,8 +273,12 @@ pub(crate) fn run_blocking(
             }
         }
     };
-    let stdout = out.join().unwrap_or_default();
-    let stderr = err.join().unwrap_or_default();
+    let collect = |rx: std::sync::mpsc::Receiver<Vec<u8>>| {
+        rx.recv_timeout(deadline.saturating_duration_since(Instant::now()))
+            .map_err(|_| timeout_error(timeout))
+    };
+    let stdout = collect(out)?;
+    let stderr = collect(err)?;
     if status.success() {
         Ok(text_mode(&stdout))
     } else {

@@ -156,6 +156,14 @@ pub struct AgentInfo {
 }
 
 impl AgentInfo {
+    /// Ready for a prompt: herdr says `interactive_ready`, or no longer says
+    /// `launch_pending` (`agent.start` answers with `launch_pending: true`;
+    /// the agent is ready once `agent.get` drops it for `interactive_ready`).
+    pub fn is_ready(&self) -> bool {
+        let flag = |key: &str| self.extra.get(key).and_then(Value::as_bool);
+        flag("interactive_ready") == Some(true) || flag("launch_pending") != Some(true)
+    }
+
     /// The reported session value, whatever its kind (herdr-inbox).
     pub fn session_value(&self) -> Option<&str> {
         self.agent_session.as_ref().and_then(AgentSession::value)

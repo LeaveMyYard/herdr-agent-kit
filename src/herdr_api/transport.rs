@@ -68,6 +68,27 @@ pub(crate) async fn exchange(
     }
 }
 
+/// A blocking connect, bounded: a Unix-socket connect blocks while the
+/// listener's backlog is full (a wedged herdr that stopped accepting). It runs
+/// on a helper thread; past `timeout` the thread is left to finish on its own
+/// and the caller gets [`HerdrError::Unreachable`] (nothing was sent), as the
+/// async path and Python's `settimeout` before `connect` give.
+fn connect_blocking(
+    socket: &Path,
+    timeout: Duration,
+) -> Result<std::os::unix::net::UnixStream, HerdrError> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let path = socket.to_path_buf();
+    std::thread::spawn(move || {
+        let _ = tx.send(std::os::unix::net::UnixStream::connect(path));
+    });
+    match rx.recv_timeout(timeout) {
+        Ok(Ok(stream)) => Ok(stream),
+        Ok(Err(e)) => Err(connect_error(&e)),
+        Err(_) => Err(HerdrError::Unreachable("connect timed out".into())),
+    }
+}
+
 /// Send `line` and read the reply (blocking).
 pub(crate) fn exchange_blocking(
     socket: &Path,
@@ -75,8 +96,7 @@ pub(crate) fn exchange_blocking(
     timeout: Duration,
 ) -> Result<Value, HerdrError> {
     let deadline = Instant::now() + timeout;
-    let mut stream =
-        std::os::unix::net::UnixStream::connect(socket).map_err(|e| connect_error(&e))?;
+    let mut stream = connect_blocking(socket, timeout)?;
     let left = |deadline: Instant| {
         deadline
             .saturating_duration_since(Instant::now())

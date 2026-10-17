@@ -8,6 +8,7 @@ use std::time::Duration;
 use serde_json::{Map, Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
+use tokio::time::Instant;
 
 use super::ids::{PaneId, TabId};
 use super::wire::{self, MAX_REPLY, truthy};
@@ -108,7 +109,9 @@ pub struct Events {
     line: Vec<u8>,
     live: bool,
     backoff: Duration,
-    wait_first: bool,
+    /// When the next connect may start: kept here, not in a sleeping future,
+    /// so a cancelled `next()` resumes the same wait instead of restarting it.
+    retry_at: Option<Instant>,
     ready: Option<HerdrEvent>,
 }
 
@@ -127,7 +130,7 @@ impl Events {
             line: Vec::new(),
             live: false,
             backoff: FIRST_BACKOFF,
-            wait_first: false,
+            retry_at: None,
             ready: None,
         }
     }
@@ -137,12 +140,14 @@ impl Events {
         &self.request
     }
 
-    async fn connect(&mut self) -> Option<BufReader<UnixStream>> {
-        if self.wait_first {
-            tokio::time::sleep(self.backoff).await;
-            self.backoff = (self.backoff * 2).min(MAX_BACKOFF);
-        }
-        self.wait_first = true;
+    /// Wait the current backoff before the next connect (panorama sleeps
+    /// after every connection that ends or fails), then double it.
+    fn back_off(&mut self) {
+        self.retry_at = Some(Instant::now() + self.backoff);
+        self.backoff = (self.backoff * 2).min(MAX_BACKOFF);
+    }
+
+    async fn connect(&self) -> Option<BufReader<UnixStream>> {
         let mut stream = UnixStream::connect(&self.socket).await.ok()?;
         stream.write_all(&self.request).await.ok()?;
         Some(BufReader::new(stream))
@@ -155,8 +160,17 @@ impl Events {
                 return event;
             }
             let Some(conn) = self.conn.as_mut() else {
+                if let Some(at) = self.retry_at {
+                    tokio::time::sleep_until(at).await;
+                }
+                // cancelled from here on, the deadline has passed: the next
+                // call simply connects again
                 self.line.clear();
                 self.conn = self.connect().await;
+                self.retry_at = None;
+                if self.conn.is_none() {
+                    self.back_off();
+                }
                 continue;
             };
             let room = MAX_REPLY.saturating_sub(self.line.len()) as u64;
@@ -175,6 +189,7 @@ impl Events {
                 // the end of the stream, an error, or a line over the cap
                 _ => {
                     self.conn = None;
+                    self.back_off();
                     if std::mem::take(&mut self.live) {
                         return HerdrEvent::Lost;
                     }

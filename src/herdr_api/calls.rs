@@ -143,6 +143,17 @@ fn extra(r: Result<Value, HerdrError>) -> Result<Extra, HerdrError> {
     }
 }
 
+/// What herdr echoes back for an action it did: `None` when the echo is
+/// missing or does not fit. herdr confirmed the action either way (no
+/// `error`), so this is never [`HerdrError::Garbled`] (which reads as "maybe
+/// done"); the Python callers only checked for an error here.
+fn echo<T: DeserializeOwned>(
+    r: Result<Value, HerdrError>,
+    key: &str,
+) -> Result<Option<T>, HerdrError> {
+    Ok(field(r?, key).ok())
+}
+
 fn tab_info(r: Result<Value, HerdrError>) -> Result<TabInfo, HerdrError> {
     field(r?, "tab")
 }
@@ -218,17 +229,19 @@ pub fn create_tab(
 }
 
 /// `tab.rename` (both plugins' `rename_tab`).
-pub fn rename_tab(tab: &TabId, label: &Sanitized) -> Call<TabInfo> {
+pub fn rename_tab(tab: &TabId, label: &Sanitized) -> Call<Option<TabInfo>> {
     Call::new(
         "tab.rename",
         json!({"tab_id": s(tab.as_str()), "label": s(label.as_str())}),
-        tab_info,
+        |r| echo(r, "tab"),
     )
 }
 
 /// `tab.focus` (panorama `focus_tab`).
-pub fn focus_tab(tab: &TabId) -> Call<TabInfo> {
-    Call::new("tab.focus", json!({"tab_id": s(tab.as_str())}), tab_info)
+pub fn focus_tab(tab: &TabId) -> Call<Option<TabInfo>> {
+    Call::new("tab.focus", json!({"tab_id": s(tab.as_str())}), |r| {
+        echo(r, "tab")
+    })
 }
 
 /// `tab.move` to `insert_index`; answers the workspace's tabs (panorama
@@ -258,29 +271,28 @@ pub fn pane(pane: &PaneId) -> Call<PaneInfo> {
 }
 
 /// `pane.focus` (panorama `focus_pane`).
-pub fn focus_pane(pane: &PaneId) -> Call<PaneInfo> {
-    Call::new(
-        "pane.focus",
-        json!({"pane_id": s(pane.as_str())}),
-        pane_info,
-    )
+pub fn focus_pane(pane: &PaneId) -> Call<Option<PaneInfo>> {
+    Call::new("pane.focus", json!({"pane_id": s(pane.as_str())}), |r| {
+        echo(r, "pane")
+    })
 }
 
 /// `pane.rename` (panorama `rename_pane`).
-pub fn rename_pane(pane: &PaneId, label: &Sanitized) -> Call<PaneInfo> {
+pub fn rename_pane(pane: &PaneId, label: &Sanitized) -> Call<Option<PaneInfo>> {
     Call::new(
         "pane.rename",
         json!({"pane_id": s(pane.as_str()), "label": s(label.as_str())}),
-        pane_info,
+        |r| echo(r, "pane"),
     )
 }
 
-/// `pane.zoom`, toggled (panorama `zoom_pane`). Answers herdr's `zoom` object.
+/// `pane.zoom`, toggled (panorama `zoom_pane`). Answers herdr's `zoom` object
+/// (empty when herdr echoed none).
 pub fn toggle_zoom(pane: &PaneId) -> Call<Extra> {
     Call::new(
         "pane.zoom",
         json!({"pane_id": s(pane.as_str()), "mode": "toggle"}),
-        |r| extra(Ok(field::<Value>(r?, "zoom")?)),
+        |r| extra(Ok(echo::<Value>(r, "zoom")?.unwrap_or_default())),
     )
 }
 
@@ -385,11 +397,11 @@ pub fn layout_export(tab: &TabId) -> Call<LayoutInfo> {
 /// `layout.set_split_ratio`: one split of the tab (`path`: `false` = first
 /// child, `true` = second, from the root); `ratio` is the first child's
 /// share (panorama `set_split_ratio`).
-pub fn set_split_ratio(tab: &TabId, path: &[bool], ratio: f64) -> Call<LayoutInfo> {
+pub fn set_split_ratio(tab: &TabId, path: &[bool], ratio: f64) -> Call<Option<LayoutInfo>> {
     Call::new(
         "layout.set_split_ratio",
         json!({"tab_id": s(tab.as_str()), "path": path, "ratio": ratio}),
-        layout,
+        |r| echo(r, "layout"),
     )
 }
 
@@ -440,12 +452,10 @@ pub fn agent_named(name: &str) -> Call<Option<AgentInfo>> {
 }
 
 /// `agent.focus` (both plugins' `focus_agent`).
-pub fn focus_agent(pane: &PaneId) -> Call<AgentInfo> {
-    Call::new(
-        "agent.focus",
-        json!({"target": s(pane.as_str())}),
-        agent_info,
-    )
+pub fn focus_agent(pane: &PaneId) -> Call<Option<AgentInfo>> {
+    Call::new("agent.focus", json!({"target": s(pane.as_str())}), |r| {
+        echo(r, "agent")
+    })
 }
 
 /// `agent.prompt`: type `text` into the agent as one prompt, without waiting
@@ -458,9 +468,10 @@ pub fn prompt(pane: &PaneId, text: &Sanitized) -> Call<()> {
     )
 }
 
-/// `agent.start`: start an agent of `kind` named `name` in `pane`, waiting up
-/// to `timeout_ms` for it. The call's own timeout is `timeout_ms` + 5 s
-/// (panorama `start_agent`).
+/// `agent.start` alone: herdr answers at once, with `launch_pending` set.
+/// The clients' `start_agent` methods also wait for the agent to be ready,
+/// as herdr's CLI does; use those. The call's own timeout is `timeout_ms` +
+/// 5 s (panorama `start_agent`).
 pub fn start_agent(
     name: &Sanitized,
     kind: &str,
@@ -475,6 +486,11 @@ pub fn start_agent(
     );
     call.timeout = Some(Duration::from_millis(u64::from(timeout_ms)) + Duration::from_secs(5));
     call
+}
+
+/// `start_agent` gave up waiting for the agent to be ready.
+pub(crate) fn not_ready(timeout_ms: u32) -> HerdrError {
+    HerdrError::NoReply(format!("the agent was not ready within {timeout_ms} ms"))
 }
 
 /// `plugin.list` (herdr-inbox `plugin_root`, radar; panorama `inbox_link`).

@@ -410,9 +410,11 @@ impl FakeHerdr {
     /// Send one raw line (a newline is added) to every subscriber.
     pub fn send_line(&self, line: &str) {
         let bytes = format!("{line}\n");
-        self.lock()
-            .subscribers
-            .retain_mut(|s| s.write_all(bytes.as_bytes()).is_ok());
+        // written outside the lock: a subscriber that stops reading must not
+        // wedge the whole fake
+        let mut subs = std::mem::take(&mut self.lock().subscribers);
+        subs.retain_mut(|s| s.write_all(bytes.as_bytes()).is_ok());
+        self.lock().subscribers.extend(subs);
     }
 
     /// Close every subscriber's connection (herdr going away).

@@ -114,7 +114,10 @@ async fn tabs_and_workspaces_send_what_herdrs_cli_sends() {
         4,
     )
     .await;
-    assert_eq!(tab.unwrap().label.as_deref(), Some("\u{2753} Other"));
+    assert_eq!(
+        tab.unwrap().unwrap().label.as_deref(),
+        Some("\u{2753} Other")
+    );
     parity(calls::focus_tab(&t("w1:t3")), "tab.jsonl", 5)
         .await
         .unwrap();
@@ -855,4 +858,192 @@ async fn a_slow_cli_times_out_and_server_not_running_is_not_running() {
     };
     stub.on(&["machine", "list", "--json"], gone);
     assert_eq!(h.machine_list().await, Err(HerdrError::NotRunning));
+}
+
+// -- review round 1 ------------------------------------------------------------------
+
+/// Review B1: `next()` sits in a `select!` beside a fast tick (plan §2.5);
+/// each tick drops the pending `next()`. The reconnect wait must survive
+/// that, or the stream never comes back after a loss.
+#[tokio::test(flavor = "current_thread")]
+async fn events_reconnect_inside_a_select_with_a_fast_tick() {
+    let fake = FakeHerdr::recorded();
+    let mut events = fake.client().events(&focus_kinds());
+    let mut tick = tokio::time::interval(Duration::from_millis(50));
+    let mut seen = Vec::new();
+    let started = Instant::now();
+    while seen.iter().filter(|e| **e == HerdrEvent::Connected).count() < 2 {
+        assert!(started.elapsed() < Duration::from_secs(5), "seen {seen:?}");
+        tokio::select! {
+            event = events.next() => {
+                if event == HerdrEvent::Connected && seen.is_empty() {
+                    assert!(fake.wait_for_subscribers(1, Duration::from_secs(5)));
+                    fake.drop_subscribers();
+                }
+                seen.push(event);
+            }
+            _ = tick.tick() => {}
+        }
+    }
+    assert_eq!(
+        seen,
+        [
+            HerdrEvent::Connected,
+            HerdrEvent::Lost,
+            HerdrEvent::Connected
+        ]
+    );
+}
+
+/// Review H1: `herdr agent start --timeout` waits until the agent is ready
+/// (recording agent.jsonl:5: `agent.start` answers `launch_pending`, then
+/// the CLI polls `agent.get` until `interactive_ready`). panorama types the
+/// first prompt right after, so the Rust call must wait too.
+#[tokio::test(flavor = "current_thread")]
+async fn start_agent_waits_until_the_agent_is_ready() {
+    let record = fake::recording("agent.jsonl", 5).unwrap();
+    let frames = fake::exchanges(&record);
+    let reply = |method: &str, ready: bool| {
+        let (_, frame) = frames
+            .iter()
+            .find(|(req, rep)| {
+                req["method"] == method
+                    && (method == "agent.start"
+                        || rep["result"]["agent"].get("interactive_ready").is_some() == ready)
+            })
+            .unwrap()
+            .clone();
+        Reply::Result(frame["result"].clone())
+    };
+    let name = text("capture-agent");
+    for blocking in [false, true] {
+        let fake = FakeHerdr::start();
+        fake.once("agent.start", reply("agent.start", false));
+        for _ in 0..2 {
+            fake.once("agent.get", reply("agent.get", false));
+        }
+        fake.once("agent.get", reply("agent.get", true));
+        let agent = if blocking {
+            fake.blocking_client()
+                .start_agent(&name, "claude", &p("w1:p8"), 8000)
+        } else {
+            fake.client()
+                .start_agent(&name, "claude", &p("w1:p8"), 8000)
+                .await
+        }
+        .unwrap();
+        assert!(agent.is_ready());
+        assert_eq!(agent.extra["interactive_ready"], true);
+        let polls = fake.params_of("agent.get");
+        assert_eq!(
+            polls,
+            vec![json!({"target": "capture-agent"}); 3],
+            "blocking: {blocking}"
+        );
+        // never ready: gives up after timeout_ms, as "maybe started"
+        fake.on("agent.start", reply("agent.start", false));
+        fake.on("agent.get", reply("agent.get", false));
+        let started = Instant::now();
+        let err = if blocking {
+            fake.blocking_client()
+                .start_agent(&name, "claude", &p("w1:p8"), 500)
+        } else {
+            fake.client()
+                .start_agent(&name, "claude", &p("w1:p8"), 500)
+                .await
+        }
+        .unwrap_err();
+        assert!(
+            matches!(err, HerdrError::NoReply(_)) && err.maybe_done(),
+            "{err:?}"
+        );
+        assert!(started.elapsed() < Duration::from_secs(2));
+    }
+}
+
+/// Review M1: herdr confirmed the action (no error); an echo it left out is
+/// not "maybe done".
+#[tokio::test(flavor = "current_thread")]
+async fn an_action_confirmed_without_its_echo_is_done() {
+    let fake = FakeHerdr::start();
+    for method in [
+        "tab.focus",
+        "tab.rename",
+        "pane.focus",
+        "pane.rename",
+        "agent.focus",
+        "pane.zoom",
+        "layout.set_split_ratio",
+    ] {
+        fake.on(method, Reply::Result(json!({"type": "ok"})));
+    }
+    let h = fake.client();
+    assert_eq!(h.focus_tab(&t("w1:t3")).await, Ok(None));
+    assert_eq!(h.rename_tab(&t("w1:t3"), &text("x")).await, Ok(None));
+    assert_eq!(h.focus_pane(&p("w1:p2")).await, Ok(None));
+    assert_eq!(h.rename_pane(&p("w1:p2"), &text("x")).await, Ok(None));
+    assert_eq!(h.focus_agent(&p("w1:p2")).await, Ok(None));
+    assert_eq!(h.toggle_zoom(&p("w1:p2")).await, Ok(Default::default()));
+    assert_eq!(h.set_split_ratio(&t("w1:t2"), &[], 0.5).await, Ok(None));
+    // a read still needs its payload
+    fake.on("tab.get", Reply::Result(json!({"type": "ok"})));
+    assert!(matches!(
+        h.tab(&t("w1:t3")).await,
+        Err(HerdrError::Garbled(_))
+    ));
+}
+
+/// Review L1: a herdr that stopped accepting (its backlog full) must not
+/// hang the blocking client's connect.
+#[cfg(target_os = "linux")]
+#[test]
+fn a_blocking_connect_to_a_wedged_server_times_out() {
+    let dir = scratch_dir("hw");
+    let path = dir.join("s");
+    let listener = std::os::unix::net::UnixListener::bind(&path).unwrap();
+    // fill the backlog: the filler blocks on the first connect that does not fit
+    let filler = {
+        let path = path.clone();
+        std::thread::spawn(move || {
+            let mut held = Vec::new();
+            while let Ok(s) = std::os::unix::net::UnixStream::connect(&path) {
+                held.push(s);
+            }
+            held.len()
+        })
+    };
+    std::thread::sleep(Duration::from_millis(300));
+    let started = Instant::now();
+    let err = blocking::Herdr::new(ServerId::new(&path))
+        .with_timeout(Duration::from_millis(300))
+        .panes()
+        .unwrap_err();
+    assert_eq!(err, HerdrError::Unreachable("connect timed out".into()));
+    assert!(started.elapsed() < Duration::from_secs(2));
+    drop(listener);
+    std::fs::remove_file(&path).unwrap();
+    assert!(filler.join().unwrap() > 0);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+/// Review L2: herdr exits, but a grandchild keeps its stdout open (ssh's
+/// ControlPersist master under `--machine`): the blocking CLI path still
+/// returns within its timeout.
+#[test]
+fn a_cli_whose_grandchild_holds_the_pipe_still_times_out() {
+    let dir = scratch_dir("hg");
+    let bin = dir.join("herdr");
+    std::fs::write(&bin, "#!/bin/sh\nsleep 3 &\nprintf '[]'\nexit 0\n").unwrap();
+    std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let h = blocking::Herdr::new(ServerId::new("/nowhere"))
+        .with_bin(&bin)
+        .with_timeout(Duration::from_millis(300));
+    let started = Instant::now();
+    assert!(matches!(h.machine_list(), Err(HerdrError::NoReply(_))));
+    assert!(
+        started.elapsed() < Duration::from_secs(2),
+        "{:?}",
+        started.elapsed()
+    );
+    std::fs::remove_dir_all(dir).unwrap();
 }
