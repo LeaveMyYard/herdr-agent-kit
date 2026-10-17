@@ -9,21 +9,31 @@ use crate::agent_session::Ts;
 use crate::agent_session::claude::fold::Owner;
 use crate::agent_session::claude::wire::contains;
 
+/// Where a file lies relative to the done window.
+pub(super) enum Window {
+    /// Read it.
+    Inside,
+    /// Skip it (it may be read after all, [`Scanner::still_waiting`]).
+    Outside,
+    /// Its metadata cannot be read: neither read nor skipped.
+    Unreadable,
+}
+
 impl Scanner {
-    /// Whether file `i` lies outside the window starting at `since`: an agent
-    /// file never read and last written before it. `None` when its metadata
-    /// cannot be read (it is neither read nor skipped).
-    pub(super) fn outside_window(&self, i: usize, since: Option<Ts>) -> Option<bool> {
+    /// Where file `i` lies relative to the window starting at `since`: an
+    /// agent file never read and last written before it is outside.
+    pub(super) fn window_of(&self, i: usize, since: Option<Ts>) -> Window {
         let f = &self.files[i];
         let Some(since) = since else {
-            return Some(false);
+            return Window::Inside;
         };
         if f.owner == Owner::Main || f.tail.identity().is_some() {
-            return Some(false);
+            return Window::Inside;
         }
         match fs::metadata(&f.path) {
-            Ok(m) => Some(mtime_of(&m) < since.0),
-            Err(_) => None,
+            Ok(m) if mtime_of(&m) < since.0 => Window::Outside,
+            Ok(_) => Window::Inside,
+            Err(_) => Window::Unreadable,
         }
     }
 

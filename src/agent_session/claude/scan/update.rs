@@ -2,6 +2,7 @@
 //! three phases (discover, read, rebuild when a file was rewritten).
 
 use super::Scanner;
+use super::window::Window;
 use crate::agent_session::Ts;
 
 /// One incremental pass over the session's files.
@@ -24,10 +25,10 @@ impl Scanner {
         let mut reset = false;
         let mut skipped = Vec::new();
         for i in 0..self.files.len() {
-            match self.outside_window(i, since) {
-                Some(true) => skipped.push(i),
-                Some(false) => reset |= self.read_file(i),
-                None => {}
+            match self.window_of(i, since) {
+                Window::Inside => reset |= self.read_file(i),
+                Window::Outside => skipped.push(i),
+                Window::Unreadable => {}
             }
         }
         for i in skipped {

@@ -9,7 +9,7 @@ use super::ToolCall;
 #[derive(Default)]
 pub(super) struct Calls {
     order: Vec<String>,
-    made: HashMap<String, ToolCall>,
+    by_id: HashMap<String, ToolCall>,
     answered: HashSet<String>,
     last: Option<String>,
 }
@@ -17,7 +17,7 @@ pub(super) struct Calls {
 impl Calls {
     /// A `tool_use` block with this id.
     pub(super) fn made(&mut self, id: &str, call: ToolCall) {
-        if self.made.insert(id.to_string(), call).is_none() {
+        if self.by_id.insert(id.to_string(), call).is_none() {
             self.order.push(id.to_string());
         }
         self.last = Some(id.to_string());
@@ -35,12 +35,12 @@ impl Calls {
             .order
             .iter()
             .filter(|id| !self.answered.contains(*id))
-            .filter_map(|id| self.made.get(id).cloned())
+            .filter_map(|id| self.by_id.get(id).cloned())
             .collect();
         let current = pending
             .last()
             .cloned()
-            .or_else(|| self.last.and_then(|id| self.made.remove(&id)));
+            .or_else(|| self.last.and_then(|id| self.by_id.remove(&id)));
         (pending, current)
     }
 }

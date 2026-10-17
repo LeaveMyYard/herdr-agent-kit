@@ -84,3 +84,6 @@ fn attachment(att: Option<&Map<String, Value>>) -> Attachment<'_> {
         other => Attachment::Other(other),
     }
 }
+
+#[cfg(test)]
+mod tests;
