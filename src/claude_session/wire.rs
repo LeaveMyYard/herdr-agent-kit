@@ -490,6 +490,11 @@ impl Line {
         Line(map)
     }
 
+    /// The whole object, owned.
+    pub fn into_map(self) -> Map<String, Value> {
+        self.0
+    }
+
     /// The whole object.
     pub fn map(&self) -> &Map<String, Value> {
         &self.0

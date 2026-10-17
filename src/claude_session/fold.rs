@@ -59,9 +59,13 @@
 //!   (Python's tuple comparison raises there): the counted one is the later.
 //! - `apply` cannot fail, so there is no "unreadable records" count.
 //! - A hook record's `pid` outside `u32` is no pid.
+//! - A workflow journal's `agentId` is compared as its `str()`: a numeric
+//!   `agentId: 5` names agent `"5"` (Python keeps the int, which matches no
+//!   agent id).
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::PathBuf;
+use std::sync::OnceLock;
 
 use indexmap::IndexMap;
 use serde_json::{Map, Value};
@@ -364,6 +368,10 @@ pub struct Session {
     bg_calls: HashMap<String, (BgKind, String)>,
     bg_stop_calls: HashMap<String, String>,
     bg_stops: HashMap<String, f64>,
+    /// [`Session::children`] of every parent, built on first use and dropped
+    /// by every input that can change parentage (`apply`, `set_agent`,
+    /// `set_meta`, `reset`): panorama's `_children`, cached per update.
+    children: OnceLock<HashMap<Owner, Vec<String>>>,
 }
 
 /// panorama's `(when or inf)`: no time, or a time of `0`, sorts last.
@@ -458,6 +466,7 @@ impl Session {
             bg_calls: HashMap::new(),
             bg_stop_calls: HashMap::new(),
             bg_stops: HashMap::new(),
+            children: OnceLock::new(),
         }
     }
 
@@ -488,6 +497,7 @@ impl Session {
     /// Records an agent file of the session (its transcript, and the workflow
     /// run it is under), keeping a meta already read.
     pub fn set_agent(&mut self, id: &str, transcript: PathBuf, workflow: Option<String>) {
+        self.children.take();
         let rec = self.agents.entry(id.to_string()).or_default();
         rec.transcript = transcript;
         rec.workflow = workflow;
@@ -495,6 +505,7 @@ impl Session {
 
     /// Records an agent's `meta.json` object.
     pub fn set_meta(&mut self, id: &str, meta: Map<String, Value>) {
+        self.children.take();
         self.agents.entry(id.to_string()).or_default().meta = meta;
     }
 
@@ -514,6 +525,7 @@ impl Session {
     /// `Session.apply`. `continued-in` records belong to the continuation
     /// rule ([`Session::feed_main`]) and are ignored here.
     pub fn apply(&mut self, owner: Owner, rec: &Line, when: Option<Ts>) {
+        self.children.take();
         let when = when.map(Ts::secs);
         let notes = wire::parse_notices(rec.notice_text().unwrap_or(""));
         if !notes.is_empty() {
@@ -1031,11 +1043,19 @@ impl Session {
 
     /// The agents whose parent is `parent`, by id.
     pub fn children(&self, parent: &Owner) -> Vec<&str> {
-        self.agents
-            .keys()
-            .filter(|a| self.parent_of(a).as_ref() == Some(parent))
-            .map(String::as_str)
-            .collect()
+        let index = self.children.get_or_init(|| {
+            let mut index: HashMap<Owner, Vec<String>> = HashMap::new();
+            for id in self.agents.keys() {
+                if let Some(p) = self.parent_of(id) {
+                    index.entry(p).or_default().push(id.clone());
+                }
+            }
+            index
+        });
+        index
+            .get(parent)
+            .map(|c| c.iter().map(String::as_str).collect())
+            .unwrap_or_default()
     }
 
     /// The newest time in agent `id`'s transcript (its tail's or its stream's).

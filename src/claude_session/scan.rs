@@ -44,12 +44,16 @@ fn mtime_of(meta: &fs::Metadata) -> f64 {
         })
 }
 
+/// A JSON object file (`meta.json`, a run summary): panorama's
+/// `json.load(open(path, encoding="utf-8"))`. It goes through [`Line::parse`],
+/// so a lone UTF-16 surrogate escape reads as Python reads it; a leading UTF-8
+/// BOM does not (Python's `utf-8` codec keeps it and `json` rejects it).
 fn read_object(path: &Path) -> Option<Map<String, Value>> {
     let data = fs::read(path).ok()?;
-    match serde_json::from_slice(&data).ok()? {
-        Value::Object(m) => Some(m),
-        _ => None,
+    if data.starts_with(b"\xef\xbb\xbf") {
+        return None;
     }
+    Line::parse(&data).map(Line::into_map)
 }
 
 #[derive(Debug)]
@@ -76,7 +80,11 @@ pub struct Scanner {
     hooks: Option<PathBuf>,
     session: Session,
     files: Vec<FileState>,
+    /// The paths in `files`.
+    file_paths: HashSet<PathBuf>,
     journals: Vec<Journal>,
+    /// The runs in `journals`.
+    journal_runs: HashSet<String>,
     meta_mtime: HashMap<String, f64>,
     bg_scanned: HashSet<(PathBuf, u64)>,
     hook_tail: Tailer,
@@ -93,7 +101,9 @@ impl Scanner {
             hooks,
             session: Session::new(id),
             files: Vec::new(),
+            file_paths: HashSet::new(),
             journals: Vec::new(),
+            journal_runs: HashSet::new(),
             meta_mtime: HashMap::new(),
             bg_scanned: HashSet::new(),
             hook_tail: Tailer::new(),
@@ -116,7 +126,8 @@ impl Scanner {
     /// unless the agent was never seen to end and its file holds a
     /// background launch. Skipped files are read once they change.
     pub fn update(&mut self, since: Option<f64>) {
-        if !self.files.iter().any(|f| f.owner == Owner::Main) {
+        if self.files.is_empty() {
+            // main is always the first file
             self.add_file(self.root.clone(), Owner::Main);
         }
         let (agent_files, journals) = related(&self.root);
@@ -137,12 +148,12 @@ impl Scanner {
                     self.meta_mtime.insert(af.agent_id.clone(), m);
                 }
             }
-            if !self.files.iter().any(|f| f.path == af.transcript) {
+            if !self.file_paths.contains(&af.transcript) {
                 self.add_file(af.transcript, Owner::Agent(af.agent_id));
             }
         }
         for (run, path) in journals {
-            if !self.journals.iter().any(|j| j.run == run) {
+            if self.journal_runs.insert(run.clone()) {
                 self.journals.push(Journal {
                     run: run.clone(),
                     path,
@@ -228,6 +239,7 @@ impl Scanner {
 
     fn add_file(&mut self, path: PathBuf, owner: Owner) {
         self.session.file_mut(owner.clone());
+        self.file_paths.insert(path.clone());
         self.files.push(FileState {
             path,
             owner,

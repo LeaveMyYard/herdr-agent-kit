@@ -10,7 +10,8 @@
 mod common;
 
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, UNIX_EPOCH};
 
 use common::{BASE, CWD, SLUG, tmp_dir, tpl};
 use herdr_agent_kit::agent_procs::fake::FakeLiveness;
@@ -186,8 +187,20 @@ impl Tx {
 
     /// An Agent call; a background one gets its `async_launched` result.
     fn launch(&mut self, t: f64, agent: &str, description: &str, background: bool) -> String {
+        self.launch_as(t, agent, description, background, "general-purpose")
+    }
+
+    /// [`Tx::launch`] of a given `subagent_type`.
+    fn launch_as(
+        &mut self,
+        t: f64,
+        agent: &str,
+        description: &str,
+        background: bool,
+        kind: &str,
+    ) -> String {
         let id = self.tid();
-        let mut input = json!({"description": description, "subagent_type": "general-purpose",
+        let mut input = json!({"description": description, "subagent_type": kind,
                                "model": "opus", "prompt": "brief"});
         if background {
             input["run_in_background"] = json!(true);
@@ -462,7 +475,15 @@ impl Sc {
         std::fs::write(path, body).expect("write");
     }
 
+    /// Writes every file, then reads them all with a new [`Scanner`].
     fn load(&self) -> Scanner {
+        let mut s = self.write_all();
+        s.update(None);
+        s
+    }
+
+    /// Writes every file; the returned [`Scanner`] has read nothing yet.
+    fn write_all(&self) -> Scanner {
         Sc::write(&self.main.path, &self.main.lines);
         for (tx, meta) in self.agents.values() {
             Sc::write(&tx.path, &tx.lines);
@@ -495,14 +516,16 @@ impl Sc {
         if !self.hooks.is_empty() {
             Sc::write(&hooks, &self.hooks);
         }
-        let mut s = Scanner::new(
+        Scanner::new(
             SessionId::parse(SID).expect("an id"),
             self.main.path.clone(),
             Some(CWD.into()),
             Some(hooks),
-        );
-        s.update(None);
-        s
+        )
+    }
+
+    fn tx(&mut self, id: &str) -> &mut Tx {
+        &mut self.agents.get_mut(id).expect("an agent").0
     }
 }
 
@@ -1414,4 +1437,262 @@ fn ask_operator_results_record_the_askers_question_ids() {
         .copied()
         .collect();
     assert_eq!(ids, vec![7]);
+}
+
+// -- updates after updates (panorama `test_scan_session.py` / `test_background.py`) ----------
+
+fn set_mtime(path: &Path, t: f64) {
+    std::fs::File::options()
+        .write(true)
+        .open(path)
+        .expect("open")
+        .set_modified(UNIX_EPOCH + Duration::from_secs_f64(t))
+        .expect("set the mtime");
+}
+
+/// The newest time read from agent `id`'s file: `None` while it is unread.
+fn read_ts(s: &Scanner, id: &str) -> Option<f64> {
+    s.session().last_ts(id)
+}
+
+/// panorama `test_incremental_reads_partial_lines_and_rewrites`.
+#[test]
+fn an_update_reads_partial_lines_and_a_rewrite_rebuilds() {
+    let mut sc = Sc::new("incremental");
+    let call = bg_agent(&mut sc, "a1", "x");
+    let mut s = sc.load();
+    let status = |s: &Scanner| s.session().status_of("a1", B + 4.0 * M, &NoProcs).status;
+    assert_eq!(status(&s), Status::Run);
+    let old = std::fs::read_to_string(&sc.main.path).unwrap();
+    sc.main
+        .notify(B + 3.0 * M, "a1", &call, "completed", &["queue"]);
+    let full = sc.main.lines.join("\n") + "\n";
+    std::fs::write(&sc.main.path, &full[..old.len() + 40]).unwrap(); // the notice is half written
+    s.update(None);
+    assert_eq!(status(&s), Status::Run);
+    std::fs::write(&sc.main.path, &full).unwrap();
+    s.update(None);
+    assert_eq!(status(&s), Status::Done);
+    assert_eq!(s.session().notices("a1").len(), 1);
+    std::fs::write(&sc.main.path, &old).unwrap(); // rewritten shorter: rebuilt from the new content
+    s.update(None);
+    assert!(s.session().notices("a1").is_empty());
+    assert_eq!(status(&s), Status::Run);
+}
+
+/// panorama `test_old_agent_files_are_skipped_until_they_change`.
+#[test]
+fn an_old_agent_file_is_skipped_until_it_changes() {
+    let mut sc = Sc::new("skip-old");
+    bg_agent(&mut sc, "a1", "x");
+    let mut s = sc.write_all();
+    let path = sc.agents["a1"].0.path.clone();
+    set_mtime(&path, B);
+    s.update(Some(B + 3600.0));
+    assert_eq!(read_ts(&s, "a1"), None); // not read
+    sc.tx("a1").bash(B + 7200.0, "again", false);
+    Sc::write(&path, &sc.agents["a1"].0.lines);
+    s.update(Some(B + 3600.0));
+    assert_eq!(read_ts(&s, "a1"), Some(B + 7201.0));
+}
+
+/// A file once read is followed whatever its mtime says (the `since` skip is
+/// for files never read).
+#[test]
+fn a_file_once_read_is_followed_even_with_an_old_mtime() {
+    let mut sc = Sc::new("followed");
+    bg_agent(&mut sc, "a1", "x");
+    let mut s = sc.write_all();
+    s.update(Some(B + 3600.0)); // written now: read
+    assert_eq!(read_ts(&s, "a1"), Some(B));
+    sc.tx("a1").bash(B + 2.0 * M, "more", false);
+    let path = sc.agents["a1"].0.path.clone();
+    Sc::write(&path, &sc.agents["a1"].0.lines);
+    set_mtime(&path, B); // appended, but its mtime is old (a restored or copied file)
+    s.update(Some(B + 3600.0));
+    assert_eq!(read_ts(&s, "a1"), Some(B + 2.0 * M + 1.0));
+}
+
+/// panorama `test_background.py::test_an_old_agent_file_is_still_read_when_its_agent_never_ended`.
+#[test]
+fn an_old_agent_file_is_still_read_when_its_agent_never_ended() {
+    let mut sc = Sc::new("old-bg");
+    bg_agent(&mut sc, "a4", "x");
+    sc.tx("a4").bash_background(B + M, "ab4");
+    let done = bg_agent(&mut sc, "a5", "y");
+    sc.main
+        .notify(B + 2.0 * M, "a5", &done, "completed", &["queue"]);
+    let mut s = sc.write_all();
+    for id in ["a4", "a5"] {
+        set_mtime(&sc.agents[id].0.path, B + 2.0 * M);
+    }
+    s.update(Some(B + 3.0 * 3600.0)); // both files are older than the window
+    assert_eq!(
+        s.session()
+            .status_of("a4", B + 4.0 * 3600.0, &NoProcs)
+            .status,
+        Status::Bg
+    );
+    assert_eq!(read_ts(&s, "a5"), None); // a finished one is still skipped
+    // read once per file version: a second update does not read it again
+    s.update(Some(B + 3.0 * 3600.0));
+    assert_eq!(read_ts(&s, "a5"), None);
+}
+
+/// panorama `test_l2_hook_data_survives_a_rebuild`.
+#[test]
+fn hook_records_survive_a_rebuild() {
+    let mut sc = Sc::new("hooks-rebuild");
+    bg_agent(&mut sc, "a1", "x");
+    sc.hook("stop", "a1", B + 2.0 * M, 4242, "s1");
+    let mut s = sc.load();
+    let got = |s: &Scanner| {
+        let st = s.session().status_of("a1", B + 3.0 * M, &NoProcs);
+        (st.status, st.ended, st.inferred)
+    };
+    let want = (Status::Done, Some(B + 2.0 * M), false);
+    assert_eq!(got(&s), want);
+    let full = std::fs::read_to_string(&sc.main.path).unwrap();
+    let first = &full[..=full.find('\n').unwrap()];
+    std::fs::write(&sc.main.path, first).unwrap(); // rewritten shorter: a rebuild
+    s.update(None);
+    assert_eq!(got(&s), want);
+    std::fs::write(&sc.main.path, &full).unwrap(); // and back
+    s.update(None);
+    assert_eq!(got(&s), want);
+}
+
+/// panorama `test_meta_read_mid_write_is_retried`.
+#[test]
+fn a_meta_read_mid_write_is_retried() {
+    let mut sc = Sc::new("meta-retry");
+    bg_agent(&mut sc, "a1", "x");
+    let mut s = sc.write_all();
+    let meta = sc.agents["a1"].0.path.with_file_name("agent-a1.meta.json");
+    let good = std::fs::read_to_string(&meta).unwrap();
+    std::fs::write(&meta, &good[..10]).unwrap();
+    set_mtime(&meta, B);
+    s.update(None);
+    assert!(s.session().agents()["a1"].meta.is_empty());
+    std::fs::write(&meta, &good).unwrap();
+    set_mtime(&meta, B + 1.0);
+    s.update(None);
+    assert_eq!(s.session().agents()["a1"].meta["description"], "x");
+}
+
+/// `meta.json` and run summaries are read as Python's `json.load` reads
+/// them: a lone UTF-16 surrogate escape is accepted, a UTF-8 BOM is not.
+#[test]
+fn metas_and_summaries_take_a_lone_surrogate_like_python() {
+    let mut sc = Sc::new("meta-surrogate");
+    let call = bg_agent(&mut sc, "a1", "x");
+    let tx = sc.agent(
+        "b1",
+        json!({"description": "y", "toolUseId": "toolu_b"}),
+        "meta_background",
+        None,
+    );
+    tx.prompt(B, "brief");
+    sc.main.workflow(B, "wf_1", "task1");
+    sc.journal("wf_1", "started", "w1", "Build");
+    let mut s = sc.write_all();
+    let meta = sc.agents["a1"].0.path.with_file_name("agent-a1.meta.json");
+    std::fs::write(
+        &meta,
+        format!(r#"{{"description": "cut \ud83d", "toolUseId": "{call}"}}"#),
+    )
+    .unwrap();
+    let bom = sc.agents["b1"].0.path.with_file_name("agent-b1.meta.json");
+    std::fs::write(&bom, b"\xef\xbb\xbf{\"description\": \"y\"}").unwrap();
+    let summary = sc.session_dir().join("workflows/wf_1.json");
+    std::fs::create_dir_all(summary.parent().unwrap()).unwrap();
+    std::fs::write(
+        &summary,
+        r#"{"runId": "wf_1", "status": "killed", "name": "a \udc00"}"#,
+    )
+    .unwrap();
+    s.update(None);
+    let sess = s.session();
+    assert_eq!(sess.agents()["a1"].meta["description"], "cut \u{fffd}");
+    assert_eq!(sess.parent_of("a1"), Some(Owner::Main));
+    assert!(sess.agents()["b1"].meta.is_empty());
+    assert_eq!(
+        sess.wf_summary("wf_1").map(|m| m["status"].clone()),
+        Some(json!("killed"))
+    );
+}
+
+/// panorama `test_a_fork_does_not_take_over_its_own_spawning_call`.
+#[test]
+fn a_fork_does_not_take_over_its_own_spawning_call() {
+    let mut sc = Sc::new("fork-own-call");
+    let call = sc.main.launch_as(B, "k1", "fork it", true, "fork");
+    let copied = sc.main.lines[0].clone();
+    let k1 = sc.agent(
+        "k1",
+        json!({"description": "fork it", "agentType": "fork", "toolUseId": call}),
+        "meta_fork",
+        None,
+    );
+    k1.lines.push(copied); // the copied history
+    k1.prompt(B + 1.0, "brief");
+    let s = sc.load();
+    assert_eq!(s.session().parent_of("k1"), Some(Owner::Main));
+    assert!(s.session().children(&Owner::Agent("k1".into())).is_empty());
+}
+
+/// panorama `test_n1_a_fork_of_a_subagent_nests_under_it_even_when_only_its_own_copy_is_read`:
+/// the fork's own file repeats its spawning call; the real parent's file is
+/// skipped (`since`), so only the fork's own copy is read, and it never counts.
+#[test]
+fn a_fork_of_a_subagent_nests_under_it_when_only_its_own_copy_is_read() {
+    let mut sc = Sc::new("fork-own-copy");
+    bg_agent(&mut sc, "p1", "parent");
+    let inner = sc.tx("p1").launch_as(B + M, "k1", "fork it", true, "fork");
+    let copied = sc.tx("p1").lines[1].clone(); // the spawning call
+    let k1 = sc.agent(
+        "k1",
+        json!({"description": "fork it", "agentType": "fork", "toolUseId": inner,
+               "spawnDepth": 2, "parentAgentId": "p1"}),
+        "meta_fork",
+        None,
+    );
+    k1.lines.push(copied);
+    k1.prompt(B + 2.0 * M, "brief");
+    let mut s = sc.write_all();
+    set_mtime(&sc.agents["p1"].0.path, B); // the parent's file is old: skipped
+    s.update(Some(B + 60.0));
+    assert_eq!(read_ts(&s, "p1"), None);
+    let sess = s.session();
+    assert_eq!(sess.parent_of("k1"), Some(Owner::Agent("p1".into())));
+    assert_eq!(sess.children(&Owner::Agent("p1".into())), vec!["k1"]);
+    assert!(sess.children(&Owner::Agent("k1".into())).is_empty());
+}
+
+/// Terminal evidence at one instant: Python's `max(evidence)` compares the
+/// status strings, `cxl` < `done` < `fail`, whatever order they were read in.
+#[test]
+fn evidence_at_one_instant_ties_like_pythons_status_strings() {
+    let cases = [
+        (["killed", "completed"], Status::Done),
+        (["completed", "failed"], Status::Failed),
+        (["killed", "failed"], Status::Failed),
+    ];
+    for (i, (pair, want)) in cases.into_iter().enumerate() {
+        for order in [[pair[0], pair[1]], [pair[1], pair[0]]] {
+            let mut sc = Sc::new(&format!("tie{i}"));
+            let call = bg_agent(&mut sc, "a1", "x");
+            for status in order {
+                sc.main.notify(B + 2.0 * M, "a1", &call, status, &["queue"]);
+            }
+            let s = sc.load();
+            let st = s.session().status_of("a1", B + 3.0 * M, &NoProcs);
+            assert_eq!(
+                (st.status, st.ended),
+                (want, Some(B + 2.0 * M)),
+                "{order:?}"
+            );
+            let _ = std::fs::remove_dir_all(&sc.root);
+        }
+    }
 }
