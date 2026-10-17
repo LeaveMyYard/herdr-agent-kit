@@ -144,4 +144,23 @@ pub(crate) const BACKGROUND: &[Row] = &[
         live: no_tasks,
         want: (Status::Done, true),
     },
+    Row {
+        rule: "bg: a silent parent whose only live descendant waits on its background work is running",
+        agent: Some("p1"),
+        build: |sc| {
+            bg_agent(sc, "p1", "parent");
+            let inner = sc.tx("p1").launch(B + M, "c1", "child", true);
+            sc.agent(
+                "c1",
+                json!({"description": "child", "toolUseId": inner, "spawnDepth": 2}),
+                "meta_nested",
+                None,
+            )
+            .prompt(B + M, "brief");
+            sc.tx("c1").bash_background(B + 2.0 * M, "b1");
+            B + 30.0 * M
+        },
+        live: task_b1_running,
+        want: (Status::Run, true),
+    },
 ];

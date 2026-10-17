@@ -2,7 +2,7 @@
 //!
 //! panorama's `Session.update` and its readers (`scan/session.py`): the main
 //! transcript, every subagent transcript and `meta.json`, the workflow
-//! journals and run summaries, and panorama's hook records, each tailed
+//! journals and run summaries, and the hook records, each tailed
 //! incrementally ([`Tailer`]) so an update reads only what was appended.
 //!
 //! Performance as in panorama: a full-file pass only JSON-parses lines that

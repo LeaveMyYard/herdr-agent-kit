@@ -50,4 +50,18 @@ pub(crate) const HOOKS: &[Row] = &[
         live: hook_process_gone,
         want: (Status::Done, true),
     },
+    Row {
+        rule: "hooks: evidence at exactly the recorded start (then overturned by a resume): not lost",
+        agent: Some("a1"),
+        build: |sc| {
+            let call = bg_agent(sc, "a1", "x");
+            sc.main
+                .notify(B + 2.0 * M, "a1", &call, "completed", &["queue"]);
+            sc.hook("start", "a1", B + 2.0 * M, 4242, "s1");
+            sc.main.resume(B + 3.0 * M, "a1");
+            B + 30.0 * M
+        },
+        live: hook_process_gone,
+        want: (Status::Done, true),
+    },
 ];

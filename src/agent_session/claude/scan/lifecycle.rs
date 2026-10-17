@@ -11,8 +11,12 @@ use crate::agent_session::tail::Tailer;
 /// Construction and accessors.
 impl Scanner {
     /// The session `id` whose main transcript is `root`. `cwd` shortens the
-    /// paths in tool summaries; `hooks` is panorama's hook record file of the
-    /// session, if any.
+    /// paths in tool summaries; `hooks` is the session's hook-record file, if
+    /// any: JSONL in the kit's versioned
+    /// [hook-record format](crate::agent_session::claude::fold#hook-records-format-v1)
+    /// (herdr-panorama writes it). Without it the hook rules (recorded stops,
+    /// recorded starts, [`Status::Lost`](crate::agent_session::Status::Lost))
+    /// never apply.
     pub fn new(id: SessionId, root: PathBuf, cwd: Option<String>, hooks: Option<PathBuf>) -> Self {
         Scanner {
             root,

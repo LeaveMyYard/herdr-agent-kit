@@ -93,10 +93,12 @@ pub(crate) fn the_status_rules() {
             }
             // no agent: the row is about main's own background work
             None => {
-                let waiting = !scanner
+                let waiting = scanner
                     .session()
-                    .waiting_bg(&Owner::Main, Ts(now), &live)
-                    .is_empty();
+                    .background()
+                    .waiting(&Owner::Main, Ts(now), &live)
+                    .next()
+                    .is_some();
                 (if waiting { Status::Bg } else { Status::Done }, !waiting)
             }
         };

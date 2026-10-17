@@ -9,7 +9,7 @@ parent disagreements.
 - **Python side:** herdr-panorama's `scan.session.Session` from a checkout of
   panorama `main` (the bridged scanner).
 - **Rust side:** `agent_session::claude::Scanner` and `Session::status_of` /
-  `parent_of` from this kit, through `examples/replay_scan.rs`.
+  `Parentage::parent_of` from this kit, through `examples/replay_scan.rs`.
 
 ## Method
 

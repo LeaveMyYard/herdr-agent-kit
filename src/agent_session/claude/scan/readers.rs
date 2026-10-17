@@ -82,7 +82,7 @@ impl Scanner {
             return;
         };
         let m = Ts(mtime_of(&meta));
-        if self.session.summary_mtime(run) == Some(m) {
+        if self.session.workflows().summary_mtime(run) == Some(m) {
             return;
         }
         if let Some(summary) = read_object(&path) {
