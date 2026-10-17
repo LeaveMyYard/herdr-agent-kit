@@ -1,0 +1,97 @@
+{
+ "source": {
+  "herdr-inbox": "e2099399c309b5da0e3888b6ff9b20950cc3abfc",
+  "herdr-panorama": "92f6d4c4541d7397e76a115425db7c7ff4a7d744",
+  "node": "v24.12.0",
+  "captured": "2026-10-17"
+ },
+ "reads": [
+  {
+   "db": "current",
+   "questions": [
+    {
+     "id": 2,
+     "session_id": "5f0c2a8e-3b1d-4c6e-9a7f-1e2d3c4b5a69",
+     "pane_id": "w1:p1",
+     "asked_by": null,
+     "question": "Ship today?",
+     "created_at": "2026-10-17T15:54:01+00:00"
+    },
+    {
+     "id": 3,
+     "session_id": "5f0c2a8e-3b1d-4c6e-9a7f-1e2d3c4b5a69",
+     "pane_id": "w1:p1",
+     "asked_by": null,
+     "question": "Which region?",
+     "created_at": "2026-10-17T15:54:01+00:00"
+    },
+    {
+     "id": 4,
+     "session_id": "5f0c2a8e-3b1d-4c6e-9a7f-1e2d3c4b5a69",
+     "pane_id": "w1:p1",
+     "asked_by": null,
+     "question": "Run the migration now?",
+     "created_at": "2026-10-17T15:54:01+00:00"
+    }
+   ]
+  },
+  {
+   "db": "v01",
+   "questions": [
+    {
+     "id": 1,
+     "session_id": "5f0c2a8e-3b1d-4c6e-9a7f-1e2d3c4b5a69",
+     "pane_id": "w1:p1",
+     "asked_by": "old",
+     "question": "Old question one?",
+     "created_at": "2026-10-17T15:54:02+00:00"
+    },
+    {
+     "id": 3,
+     "session_id": null,
+     "pane_id": null,
+     "asked_by": null,
+     "question": "No pane, no session",
+     "created_at": "2026-10-17T15:54:02+00:00"
+    }
+   ]
+  },
+  {
+   "db": "no-table",
+   "questions": null
+  },
+  {
+   "db": "missing",
+   "questions": null
+  },
+  {
+   "db": "directory",
+   "questions": null
+  },
+  {
+   "db": "v01-wal-writer-busy",
+   "questions": [
+    {
+     "id": 1,
+     "session_id": "5f0c2a8e-3b1d-4c6e-9a7f-1e2d3c4b5a69",
+     "pane_id": "w1:p1",
+     "asked_by": "old",
+     "question": "Old question one?",
+     "created_at": "2026-10-17T15:54:02+00:00"
+    },
+    {
+     "id": 3,
+     "session_id": null,
+     "pane_id": null,
+     "asked_by": null,
+     "question": "No pane, no session",
+     "created_at": "2026-10-17T15:54:02+00:00"
+    }
+   ]
+  },
+  {
+   "db": "v01-rollback-locked",
+   "questions": null
+  }
+ ]
+}
