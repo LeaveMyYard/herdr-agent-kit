@@ -1696,3 +1696,98 @@ fn evidence_at_one_instant_ties_like_pythons_status_strings() {
         }
     }
 }
+
+/// Folds `tx`'s lines from `from` on into `s` as `owner`'s records.
+fn fold_lines(
+    s: &mut herdr_agent_kit::claude_session::Session,
+    owner: Owner,
+    tx: &Tx,
+    from: usize,
+) {
+    for raw in &tx.lines[from..] {
+        let line = herdr_agent_kit::claude_session::Line::parse(raw.as_bytes()).unwrap();
+        let when = line.ts();
+        s.apply(owner.clone(), &line, when);
+    }
+}
+
+/// `children` is cached between inputs: each input that can change
+/// parentage (`apply`, `set_agent`, `set_meta`), used alone after the cache
+/// was filled, shows in the next answer.
+#[test]
+fn children_follow_every_input_that_changes_parentage() {
+    let mut sc = Sc::new("children-cache");
+    bg_agent(&mut sc, "p1", "parent");
+    let p1 = Owner::Agent("p1".into());
+    let mut s = herdr_agent_kit::claude_session::Session::new(SessionId::parse(SID).unwrap());
+    fold_lines(&mut s, Owner::Main, &sc.main, 0);
+    s.set_agent("p1", PathBuf::from("p1.jsonl"), None);
+    s.set_meta("p1", sc.agents["p1"].1.clone());
+    assert_eq!(s.parent_of("p1"), Some(Owner::Main));
+
+    // apply: c1 is known with its meta; its spawning call is read later
+    let inner = sc.tx("p1").launch(B + M, "c1", "child", false);
+    s.set_agent("c1", PathBuf::from("c1.jsonl"), None);
+    s.set_meta(
+        "c1",
+        json!({"toolUseId": inner}).as_object().unwrap().clone(),
+    );
+    assert!(s.children(&p1).is_empty());
+    let n = sc.agents["p1"].0.lines.len();
+    fold_lines(&mut s, p1.clone(), &sc.agents["p1"].0, n - 1);
+    assert_eq!(s.children(&p1), vec!["c1"]);
+
+    // set_meta: o1's meta, empty at first (mid-write), then naming its parent
+    s.set_agent("o1", PathBuf::from("o1.jsonl"), None);
+    s.set_meta("o1", Map::new());
+    assert_eq!(s.children(&p1), vec!["c1"]);
+    s.set_meta(
+        "o1",
+        json!({"parentAgentId": "p1"}).as_object().unwrap().clone(),
+    );
+    assert_eq!(s.children(&p1), vec!["c1", "o1"]);
+
+    // set_agent: d1's spawn and acknowledgement were read before its file appeared
+    let n = sc.agents["p1"].0.lines.len();
+    sc.tx("p1").launch(B + 2.0 * M, "d1", "later", true);
+    fold_lines(&mut s, p1.clone(), &sc.agents["p1"].0, n);
+    assert_eq!(s.children(&p1), vec!["c1", "o1"]);
+    s.set_agent("d1", PathBuf::from("d1.jsonl"), None);
+    assert_eq!(s.children(&p1), vec!["c1", "d1", "o1"]);
+}
+
+/// One scanner across collects (as panorama keeps one per session): a
+/// silent parent reads as done until it spawns a child, then runs while the
+/// child runs.
+#[test]
+fn a_kept_scanner_keeps_a_silent_parent_running_while_its_new_child_runs() {
+    let mut sc = Sc::new("children-kept");
+    bg_agent(&mut sc, "p1", "parent");
+    let p1 = Owner::Agent("p1".into());
+    let now = B + 60.0 * M;
+    let mut s = sc.load();
+    let st = s.session().status_of("p1", now, &NoProcs);
+    assert_eq!((st.status, st.inferred), (Status::Done, true));
+    assert!(s.session().children(&p1).is_empty());
+
+    let inner = sc.tx("p1").launch(B + M, "c1", "child", true);
+    sc.agent(
+        "c1",
+        json!({"description": "child", "toolUseId": inner, "spawnDepth": 2}),
+        "meta_nested",
+        None,
+    )
+    .prompt(B + M, "brief");
+    sc.tx("c1").bash(now - M, "long work", false);
+    let _ = sc.write_all(); // the files only; `s` stays the scanner
+    s.update(None);
+    assert_eq!(s.session().children(&p1), vec!["c1"]);
+    assert_eq!(
+        s.session().status_of("c1", now, &NoProcs).status,
+        Status::Run
+    );
+    assert_eq!(
+        s.session().status_of("p1", now, &NoProcs).status,
+        Status::Run
+    );
+}
