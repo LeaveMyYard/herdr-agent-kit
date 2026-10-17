@@ -57,8 +57,10 @@ impl OpenKind {
 pub struct OpenTarget {
     /// What it points at.
     pub kind: OpenKind,
-    /// The value as stored: a question's `Q`/`q` prefix is removed (`Q7` → `7`, `007`
-    /// stays `007`, `laptop:Q12` stays as it is); other kinds are stored as given.
+    /// The value as stored: a question's leading `Q`/`q` characters are removed, as
+    /// Python's `lstrip("Qq")` does (`Q7` → `7`, `007` stays `007`, `laptop:Q12` stays as
+    /// it is, but a machine name starting with `q` loses it: `qnap:Q12` → `nap:Q12`, an
+    /// inbox bug kept for parity); other kinds are stored as given.
     pub value: String,
 }
 
@@ -164,8 +166,9 @@ fn is_session_id(value: &str) -> bool {
 ///
 /// Accepts `--kind value`, `--kind=value` and `--no-hold`, in any order; a repeated flag
 /// keeps its last value. As in argparse, a value may start with `-` only when it looks
-/// like a negative number. Unlike argparse, flags cannot be abbreviated (`--quest`) and
-/// `-h` is not handled here. An empty value means no target.
+/// like a negative number (or is `-` alone). Unlike argparse, flags cannot be abbreviated
+/// (`--quest`), `-h` is not handled here, and the error is the first problem met (argparse
+/// reports every unrecognized argument at once, after the others). An empty value means no target.
 pub fn parse_open_args<S: AsRef<str>>(args: &[S]) -> Result<OpenRequest, OpenArgsError> {
     let mut given: Option<(OpenKind, String)> = None;
     let mut hold = true;
@@ -190,7 +193,8 @@ pub fn parse_open_args<S: AsRef<str>>(args: &[S]) -> Result<OpenRequest, OpenArg
         let value = match inline {
             Some(v) => v.to_owned(),
             None => match args.get(i).map(AsRef::as_ref) {
-                Some(v) if !v.starts_with('-') || looks_negative(v) => {
+                // argparse: `-` alone and negative numbers are values, not flags
+                Some(v) if !v.starts_with('-') || v == "-" || looks_negative(v) => {
                     i += 1;
                     v.to_owned()
                 }

@@ -60,4 +60,6 @@ Documented in the module docs; none occurs in these goldens or in anything the i
 - `\b` next to a `Q` id uses Rust's alphanumeric set, which also counts the combining marks
   with the Alphabetic property.
 - `parse_open_args` takes the flags in full: argparse would also accept an abbreviation
-  (`--quest`).
+  (`--quest`). Its error is the first problem met; argparse reports every unrecognized
+  argument at once, after other errors, and quotes values with `repr()`. Only the message
+  differs: the same argument lists are refused.

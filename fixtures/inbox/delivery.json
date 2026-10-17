@@ -3555,6 +3555,90 @@
    ],
    "rewake_answers": [],
    "from_captured_ts": false
+  },
+  {
+   "text": "<task-notification>[inbox] Q8 answered — q: a\n  indented\nmore",
+   "header_ids": [],
+   "rewake_texts": [
+    "[inbox] Q8 answered — q: a\n  indented\nmore"
+   ],
+   "answers": [],
+   "rewake_answers": [],
+   "from_captured_ts": false
+  },
+  {
+   "text": "<task-notification>[inbox] Q8 answered — q: a\n \t\nnext",
+   "header_ids": [],
+   "rewake_texts": [
+    "[inbox] Q8 answered — q: a"
+   ],
+   "answers": [],
+   "rewake_answers": [],
+   "from_captured_ts": false
+  },
+  {
+   "text": "[inbox] answered — Q1 a · Q · Q5 b",
+   "header_ids": [
+    1,
+    5
+   ],
+   "rewake_texts": [
+    "[inbox] answered — Q1 a · Q · Q5 b"
+   ],
+   "answers": [
+    {
+     "id": "Q1",
+     "question": "",
+     "answer": "a · Q"
+    },
+    {
+     "id": "Q5",
+     "question": "",
+     "answer": "b"
+    }
+   ],
+   "rewake_answers": [],
+   "from_captured_ts": false
+  },
+  {
+   "text": "[inbox] answered — Q1 a · Q x · Q2 y",
+   "header_ids": [
+    1,
+    2
+   ],
+   "rewake_texts": [
+    "[inbox] answered — Q1 a · Q x · Q2 y"
+   ],
+   "answers": [
+    {
+     "id": "Q1",
+     "question": "",
+     "answer": "a · Q x"
+    },
+    {
+     "id": "Q2",
+     "question": "",
+     "answer": "y"
+    }
+   ],
+   "rewake_answers": [],
+   "from_captured_ts": false
+  },
+  {
+   "text": "<system-reminder>\nStop hook blocking error from command \"Stop\": [inbox] answered — Q1 a: b · Q2   </system-reminder>",
+   "header_ids": [],
+   "rewake_texts": [
+    "[inbox] answered — Q1 a: b · Q2"
+   ],
+   "answers": [],
+   "rewake_answers": [
+    {
+     "id": "Q1",
+     "question": "a",
+     "answer": "b · Q2"
+    }
+   ],
+   "from_captured_ts": false
   }
  ]
 }

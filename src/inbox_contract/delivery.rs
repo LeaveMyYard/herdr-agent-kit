@@ -249,6 +249,10 @@ fn id_then_space(s: &str) -> Option<u64> {
 ///
 /// Every occurrence starts a text, so one that sits inside an earlier one's paragraph is
 /// returned again on its own.
+///
+/// Python applies it only to a `user` record's content that contains
+/// `<task-notification>` (`transcript._record_texts`); elsewhere an `[inbox] ` inside a
+/// text is not a delivery.
 pub fn rewake_texts(content: &str) -> Vec<&str> {
     let mut out = Vec::new();
     let mut from = 0;

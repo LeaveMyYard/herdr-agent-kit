@@ -76,7 +76,8 @@ fn delivery_encoding_matches_the_inbox() {
                     .unwrap()
                     .iter()
                     .map(|x| x.as_u64().unwrap())
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>(),
+                "{name}"
             );
             assert_eq!(
                 m.acknowledged,
@@ -272,8 +273,12 @@ fn open_args_parse_like_the_inbox() {
         if c["exit"].as_i64() == Some(2) {
             let err = got.expect_err(&format!("{argv:?} must be refused"));
             let want = s(&c["error"]);
+            // the message matches argparse's, except that Python quotes the value with repr()
+            let printable = argv
+                .iter()
+                .all(|a| a.chars().all(|c| c.is_ascii_graphic() || c == ' '));
             assert!(
-                want.ends_with(&err.to_string()),
+                !printable || want.ends_with(&err.to_string()),
                 "{argv:?}: {err} vs {want}"
             );
             continue;
@@ -419,9 +424,15 @@ mod questions_db {
             let started = Instant::now();
             reads_like_panorama(name, &path);
             if mode == "DELETE" {
+                let waited = started.elapsed();
                 assert!(
-                    started.elapsed() >= Duration::from_millis(900),
+                    waited >= Duration::from_millis(900),
                     "waited for the lock first"
+                );
+                // rusqlite's own default is 5 s: this proves BUSY_TIMEOUT (1 s) is set
+                assert!(
+                    waited < Duration::from_secs(3),
+                    "gave up after BUSY_TIMEOUT: {waited:?}"
                 );
             }
             release_tx.send(()).unwrap();

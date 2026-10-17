@@ -150,6 +150,11 @@ PARSE_EXTRA = [
     "[inbox] Q9 answered — q: a </pasted_content> trailing",
     "[inbox] Q9 answered — q: a</pasted_content x>y>",
     "[inbox] Q9 answered — q: a\n</pasted_content id=\"1\">  \n",
+    "<task-notification>[inbox] Q8 answered — q: a\n  indented\nmore",
+    "<task-notification>[inbox] Q8 answered — q: a\n \t\nnext",
+    "[inbox] answered — Q1 a · Q · Q5 b",
+    "[inbox] answered — Q1 a · Q x · Q2 y",
+    "<system-reminder>\nStop hook blocking error from command \"Stop\": [inbox] answered — Q1 a: b · Q2   </system-reminder>",
 ]
 
 # question_ids inputs besides the MCP results: what else a tool result can hold
@@ -173,6 +178,9 @@ OPEN_PARSE = [
     ["--session", SESSION + "x"], ["--question", "Q7", "--pane", "w1:p2"], ["--question", "Q7", "--no-hold"],
     ["--no-hold"], ["--no-hold", "--group", "4"], ["--question"], ["--bogus"], ["extra"],
     ["--question", "Q7", "--question", "Q8"],
+    ["--question", "m" * 64 + ":Q1"], ["--question", "m" * 65 + ":Q1"], ["--question", ":Q1"],
+    ["--question", "qnap:Q12"], ["--pane", "-.x"], ["--pane", "-"], ["--pane", "-1"],
+    ["--pane", "a\x1cb"], ["--pane", "a\x85b"], ["--pane", "a\u3000b"],
 ]
 
 OPEN_ARGS = [

@@ -638,6 +638,98 @@
     "kind": "question",
     "value": "8"
    }
+  },
+  {
+   "argv": [
+    "--question",
+    "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm:Q1"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "question",
+    "value": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm:Q1"
+   }
+  },
+  {
+   "argv": [
+    "--question",
+    "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm:Q1"
+   ],
+   "exit": 2,
+   "error": "inbox: error: --question 'mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm:Q1': expected Qn or n"
+  },
+  {
+   "argv": [
+    "--question",
+    ":Q1"
+   ],
+   "exit": 2,
+   "error": "inbox: error: --question ':Q1': expected Qn or n"
+  },
+  {
+   "argv": [
+    "--question",
+    "qnap:Q12"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "question",
+    "value": "nap:Q12"
+   }
+  },
+  {
+   "argv": [
+    "--pane",
+    "-.x"
+   ],
+   "exit": 2,
+   "error": "inbox open: error: argument --pane: expected one argument"
+  },
+  {
+   "argv": [
+    "--pane",
+    "-"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "pane",
+    "value": "-"
+   }
+  },
+  {
+   "argv": [
+    "--pane",
+    "-1"
+   ],
+   "exit": 1,
+   "request": {
+    "kind": "pane",
+    "value": "-1"
+   }
+  },
+  {
+   "argv": [
+    "--pane",
+    "a\u001cb"
+   ],
+   "exit": 2,
+   "error": "inbox: error: --pane 'a\\x1cb': expected an id"
+  },
+  {
+   "argv": [
+    "--pane",
+    "ab"
+   ],
+   "exit": 2,
+   "error": "inbox: error: --pane 'a\\x85b': expected an id"
+  },
+  {
+   "argv": [
+    "--pane",
+    "a　b"
+   ],
+   "exit": 2,
+   "error": "inbox: error: --pane 'a\\u3000b': expected an id"
   }
  ]
 }
