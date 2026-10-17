@@ -14,9 +14,9 @@
 //!
 //! The two plugins key their state differently (panorama by
 //! `sha1(HERDR_SOCKET_PATH or "default")`, the inbox by `sha1(server_id())`
-//! next to its database), and both keep doing so. The general pieces (the
-//! environment, locks, private directories, `short_sha1`) are public in
-//! [`crate::plugin_env`].
+//! next to its database), and both keep doing so; [`short_sha1`] is that key.
+//! The general pieces (the environment, locks, private directories) are
+//! public in [`crate::plugin_env`].
 
 pub mod inbox;
 pub mod panorama;
@@ -25,6 +25,14 @@ pub mod panorama;
 pub const PANORAMA_ID: &str = "leavemyyard.herdr-panorama";
 /// herdr-inbox's plugin id.
 pub const INBOX_ID: &str = "leavemyyard.herdr-inbox";
+
+/// The first 12 hex digits of the SHA-1 of `bytes`: the key both plugins use
+/// to name per-server state (`hashlib.sha1(s.encode()).hexdigest()[:12]`).
+pub fn short_sha1(bytes: &[u8]) -> String {
+    let mut hex = sha1_smol::Sha1::from(bytes).digest().to_string();
+    hex.truncate(12);
+    hex
+}
 
 /// A Claude Code session id as it may appear in a file name: a canonical
 /// 8-4-4-4-12 hex UUID, any case in, lowercase out; anything else is `None`.

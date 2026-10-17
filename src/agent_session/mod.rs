@@ -17,6 +17,10 @@
 //! The neutral types are [`SessionId`] (the one session-id validator), [`Ts`],
 //! [`Status`] and [`SessionView`]. They are pure data.
 //!
+//! Beside them, [`tail`] is the one neutral IO piece a harness module builds
+//! on: incremental reading of an append-only file ([`tail::Tailer`]), which
+//! knows lines, not any harness's format.
+//!
 //! ```
 //! use herdr_agent_kit::agent_session::{SessionId, Status};
 //!
@@ -31,6 +35,7 @@ use std::fmt;
 use serde_json::Value;
 
 pub mod claude;
+pub mod tail;
 
 /// An agent session id: a canonical 8-4-4-4-12 hex UUID.
 ///

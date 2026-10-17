@@ -15,7 +15,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use super::fold::{Owner, Session};
-use super::io::Tailer;
+use crate::agent_session::tail::Tailer;
 
 // The scanner itself: construction and accessors.
 mod lifecycle;
@@ -26,8 +26,6 @@ mod update;
 
 // Supports: modification times and JSON object files.
 mod disk;
-
-pub use disk::mtime;
 
 /// A Bash moved to the background (its result record): an old agent file
 /// holding it is read even when it is outside the done window.

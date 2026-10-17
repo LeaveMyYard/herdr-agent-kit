@@ -48,7 +48,7 @@ pub const MAX_HOPS: usize = 8;
 
 /// The continuation state of one session's **main** transcript, folded line
 /// by line. Feed it every line of the file in order, in batches as they are
-/// appended ([`super::io::Tailer`]); [`Continuation::reset`] when the file
+/// appended ([`Tailer`](crate::agent_session::tail::Tailer)); [`Continuation::reset`] when the file
 /// was rewritten.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Continuation {

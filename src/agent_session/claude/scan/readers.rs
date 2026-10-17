@@ -7,8 +7,9 @@ use super::Scanner;
 use super::disk::{mtime_of, read_object};
 use crate::agent_session::Ts;
 use crate::agent_session::claude::fold::Owner;
-use crate::agent_session::claude::io::{Tail, summarize_tail, workflow_summary_path};
+use crate::agent_session::claude::io::{summarize_tail, workflow_summary_path};
 use crate::agent_session::claude::wire::{self, Line, contains};
+use crate::agent_session::tail::Tail;
 
 const TOOL_USE: &[u8] = br#""type":"tool_use""#;
 const ASSISTANT: &[u8] = br#""type":"assistant""#;

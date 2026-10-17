@@ -6,8 +6,9 @@ use super::disk::{mtime, mtime_of, read_object};
 use super::{BG_MARK, Journal, Scanner};
 use crate::agent_session::Ts;
 use crate::agent_session::claude::fold::Owner;
-use crate::agent_session::claude::io::{Tailer, related};
+use crate::agent_session::claude::io::{Related, related};
 use crate::agent_session::claude::wire::contains;
+use crate::agent_session::tail::Tailer;
 
 /// One incremental pass over the session's files.
 impl Scanner {
@@ -21,8 +22,8 @@ impl Scanner {
             // main is always the first file
             self.add_file(self.root.clone(), Owner::Main);
         }
-        let (agent_files, journals) = related(&self.root);
-        for af in agent_files {
+        let Related { agents, journals } = related(&self.root);
+        for af in agents {
             self.session
                 .set_agent(&af.agent_id, af.transcript.clone(), af.workflow.clone());
             let unread = self

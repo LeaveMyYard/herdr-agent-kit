@@ -11,8 +11,8 @@ tag yet; the plugins will depend on it by tag.
 
 The two plugins are separate repos and each runs without the other. The code
 whose rules must not drift between them lives here, once: the herdr API client,
-Claude Code session parsing, agent process checks, the plugin environment,
-remote machines, the TUI toolkit and the inbox's published formats.
+Claude Code session parsing, agent process checks, the plugin environment and
+the inbox's published formats.
 
 It is **one library crate** (no binaries, no plugin manifests), so there is one
 thing to tag and bump. Edition 2024, MSRV 1.96 (pinned in `rust-toolchain.toml`).
@@ -28,14 +28,13 @@ crate. Run `cargo doc --open --all-features` for the full reference.
 | `herdr_api` | always | IO | The only code that talks to herdr: socket client (async `Herdr`, `blocking::Herdr`), events, the CLI path, `HerdrError`, `Sanitized` |
 | `herdr_api::fake` | `test-support` | test IO | `FakeHerdr`, a scripted herdr socket server that records requests |
 | `agent_session` | always | pure | The harness-neutral seam: `SessionId` (the one session-id validator), `Ts`, `Status`, `SessionView` |
+| `agent_session::tail` | always | IO | Harness-neutral incremental reading of an append-only file (`Tailer`) |
 | `agent_session::claude` | always | pure | Claude Code: the wire format, the continuation rule (D6), the session fold and status rules, `Session::view` (the `SessionView` producer) |
 | `agent_session::claude::io`, `::scan` | always | IO | Projects root, transcript discovery, tailing, following continuations, `Scanner` |
 | `agent_procs` | always | IO | Neutral process table walks, pid checks, the `Liveness` trait |
 | `agent_procs::claude` | always | IO | Claude Code: "is this Claude Code", nested Claude, `SystemLiveness` (background tasks) |
 | `agent_procs::fake` | `test-support` | pure | Scripted process tables and liveness for tests |
 | `plugin_env` | always | IO | Plugin environment, `config.toml` with reload (`ConfigFile::load_as` into any serde type), flock, private socket dirs |
-| `remote_machines` | `remote` | IO | Planned (empty in 0.1): machine list, ssh options, the shared ControlPath scheme |
-| `tui_kit` | `tui` | IO | Planned (empty in 0.1): terminal setup, arming, identity cursors, click targets, theme |
 
 Pure code takes data and the current time and returns data: no IO, no threads,
 no environment. No feature is on by default.

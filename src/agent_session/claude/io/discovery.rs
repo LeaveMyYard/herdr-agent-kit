@@ -64,18 +64,33 @@ pub fn scan_workflow_ids(subagents: &Path) -> Vec<String> {
     out
 }
 
-/// A session's subagent files and workflow journals (`{run: journal path}`):
-/// panorama's `discovery.related`.
-pub fn related(main_transcript: &Path) -> (Vec<AgentFile>, Vec<(String, PathBuf)>) {
+/// A session's subagent transcripts and workflow journals: what [`related`]
+/// finds next to a main transcript.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct Related {
+    /// The subagent transcripts: the session's own, by agent id, then each
+    /// workflow run's (runs sorted by id).
+    pub agents: Vec<AgentFile>,
+    /// Each workflow run's journal, `(run id, journal path)`, sorted by run
+    /// id (the journal may not exist yet).
+    pub journals: Vec<(String, PathBuf)>,
+}
+
+/// A session's subagent files and workflow journals: panorama's
+/// `discovery.related`.
+pub fn related(main_transcript: &Path) -> Related {
     let subs = subagents_dir(main_transcript);
-    let mut files = scan_agent_files(&subs, None);
-    let mut journals = Vec::new();
+    let mut found = Related {
+        agents: scan_agent_files(&subs, None),
+        journals: Vec::new(),
+    };
     for run in scan_workflow_ids(&subs) {
         let dir = subs.join("workflows").join(&run);
-        files.extend(scan_agent_files(&dir, Some(&run)));
-        journals.push((run, dir.join("journal.jsonl")));
+        found.agents.extend(scan_agent_files(&dir, Some(&run)));
+        found.journals.push((run, dir.join("journal.jsonl")));
     }
-    (files, journals)
+    found
 }
 
 /// `<session>/workflows/<run>.json`: a workflow run's summary.

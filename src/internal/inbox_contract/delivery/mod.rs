@@ -32,7 +32,7 @@ pub use write::{
 
 /// herdr's cap on one argument, in code points (`herdr.MAX_ARG` in herdr-inbox): a
 /// delivery message longer than this is split, or sent as a reference.
-pub const MAX_ARG: usize = 4000;
+pub use crate::herdr_api::MAX_ARG;
 
 /// How much of a question's first line a delivery quotes, in code points.
 pub const QUESTION_WIDTH: usize = 80;

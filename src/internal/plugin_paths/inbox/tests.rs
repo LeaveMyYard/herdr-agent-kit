@@ -10,6 +10,18 @@ fn env(vars: &[(&str, &str)]) -> PluginEnv {
 }
 
 #[test]
+fn db_path_treats_empty_variables_as_unset() {
+    assert_eq!(
+        db_path(&env(&[(HERDR_INBOX_DB, ""), ("XDG_STATE_HOME", "/s")])),
+        PathBuf::from("/s/herdr-inbox/inbox.db")
+    );
+    assert_eq!(
+        db_path(&env(&[("XDG_STATE_HOME", "")])),
+        PathBuf::from("/home/u/.local/state/herdr-inbox/inbox.db")
+    );
+}
+
+#[test]
 fn db_path_prefers_the_override_then_xdg() {
     assert_eq!(
         db_path(&env(&[])),

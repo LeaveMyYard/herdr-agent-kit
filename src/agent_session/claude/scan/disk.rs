@@ -11,7 +11,7 @@ use crate::agent_session::claude::wire::Line;
 
 /// A file's modification time in epoch seconds, `0.0` when it cannot be read
 /// (panorama's `_mtime`; computed as CPython's `st_mtime`).
-pub fn mtime(path: &Path) -> Ts {
+pub(super) fn mtime(path: &Path) -> Ts {
     Ts(fs::metadata(path).map_or(0.0, |m| mtime_of(&m)))
 }
 

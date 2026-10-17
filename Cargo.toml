@@ -33,12 +33,9 @@ default = []
 # and scripted process tables and liveness (`agent_procs::fake`).
 test-support = []
 # Plugin-only parts, not public API and outside semver (`internal`):
-# the inbox's published formats (`internal::inbox_contract`).
-internal = []
-# Terminal toolkit shared by the two TUIs (`tui_kit`).
-tui = []
-# Remote machines: machine list, ssh options, ControlPath scheme (`remote_machines`).
-remote = []
+# the inbox's published formats (`internal::inbox_contract`) and the plugins'
+# state layouts (`internal::plugin_paths`).
+internal = ["dep:sha1_smol"]
 # Read-only reader of the inbox's 0.1 `questions` columns
 # (`internal::inbox_contract::sqlite`); plugin-only, so it turns on `internal`.
 sqlite = ["internal", "dep:rusqlite"]
@@ -51,7 +48,8 @@ regex = "1"
 # herdr's socket protocol is newline-delimited JSON (`herdr_api`).
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
-sha1_smol = "1.0.1"
+# `short_sha1`, the plugins' per-server state key (`internal::plugin_paths`).
+sha1_smol = { version = "1.0.1", optional = true }
 # The async herdr client (`herdr_api::Herdr`, its event stream and async CLI
 # path). The binaries run a `current_thread` runtime (plan section 2.5), so no
 # `rt-multi-thread` here.

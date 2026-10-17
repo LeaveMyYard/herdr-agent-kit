@@ -1,4 +1,7 @@
-//! [`Tailer`]: incremental reading of an append-only file.
+//! [`Tailer`]: incremental reading of an append-only file, line by line.
+//! **IO** (the file).
+//!
+//! Harness-neutral: it knows lines and bytes, not any transcript format.
 
 use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom};
@@ -139,9 +142,15 @@ impl Tailer {
 
 fn push_line(lines: &mut Vec<Vec<u8>>, raw: &[u8]) {
     let raw = raw.strip_suffix(b"\r").unwrap_or(raw);
-    if !crate::agent_session::claude::wire::blank(raw) {
+    if !blank(raw) {
         lines.push(raw.to_vec());
     }
+}
+
+/// Python's `bytes.strip()` is empty: the line is blank (`b" \t\n\r\x0b\x0c"`).
+pub(crate) fn blank(raw: &[u8]) -> bool {
+    raw.iter()
+        .all(|c| matches!(c, b' ' | b'\t' | b'\n' | b'\r' | b'\x0b' | b'\x0c'))
 }
 
 #[cfg(unix)]
