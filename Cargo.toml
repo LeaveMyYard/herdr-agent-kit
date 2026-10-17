@@ -23,6 +23,19 @@ remote = []
 sqlite = []
 
 [dependencies]
+# herdr's socket protocol is newline-delimited JSON.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# The async client (`herdr_api::Herdr`, the event stream, the async CLI path).
+# The binaries run a `current_thread` runtime (plan section 2.5); no `rt-multi-thread`.
+tokio = { version = "1", features = ["net", "io-util", "time", "process"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros", "net", "io-util", "time", "process"] }
+
+[[test]]
+name = "herdr_api"
+required-features = ["fake"]
 
 [lints.rust]
 missing_docs = "warn"
