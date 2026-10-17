@@ -226,5 +226,11 @@ fn agents_keep_their_discovery_order_across_updates() {
     s.update(None);
     let ids: Vec<&str> = s.session().agents().map(|(id, _)| id).collect();
     assert_eq!(ids, ["b1", "a1"]);
-    assert_eq!(s.session().parentage().children(&Owner::Main), ["b1", "a1"]);
+    assert_eq!(
+        s.session()
+            .parentage()
+            .children(&Owner::Main)
+            .collect::<Vec<_>>(),
+        ["b1", "a1"]
+    );
 }

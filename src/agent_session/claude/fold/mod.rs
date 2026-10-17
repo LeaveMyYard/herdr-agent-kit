@@ -141,6 +141,7 @@ mod owner;
 mod times;
 mod values;
 
+pub use crate::agent_session::claude::wire::Ending;
 pub use limits::{
     ACTIVE, ASYNC_QUIET, BG_CAP, HOOK_VERSION, MONITOR_SLACK, NESTING_CAP, PENDING_CAP,
     REOPEN_MARGIN,
@@ -148,7 +149,8 @@ pub use limits::{
 pub use owner::Owner;
 pub use status::StatusOf;
 pub use values::{
-    Ack, AgentRec, BgKind, BgLaunch, FileFacts, HookStart, Spawn, Titles, WorkflowLaunch,
+    Ack, AgentRec, BgKind, BgLaunch, FileFacts, HookStart, JournalStart, Prompt, Spawn, TaskEnd,
+    Titles, WorkflowLaunch,
 };
 pub use views::{Background, Conversation, Evidence, Parentage, Workflows};
 

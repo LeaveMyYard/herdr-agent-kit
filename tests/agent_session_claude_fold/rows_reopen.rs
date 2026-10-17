@@ -64,4 +64,17 @@ pub(crate) const REOPEN: &[Row] = &[
         live: unknown,
         want: (Status::Done, false),
     },
+    Row {
+        rule: "reopen: a resume at exactly the ending's time does not overturn it",
+        agent: Some("a1"),
+        build: |sc| {
+            let call = bg_agent(sc, "a1", "x");
+            sc.main
+                .notify(B + 2.0 * M, "a1", &call, "completed", &["queue"]);
+            sc.main.resume(B + 2.0 * M - 1.0, "a1"); // its result lands at B + 2m
+            B + 30.0 * M
+        },
+        live: unknown,
+        want: (Status::Done, false),
+    },
 ];

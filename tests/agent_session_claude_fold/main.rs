@@ -8,7 +8,7 @@
 //! `record`), not a Claude Code wire format.
 //!
 //! One topic per file: `templates`, `transcript` and `scenario` build
-//! sessions; `rows` and `rows_*` are the status-rules table; `copies`, `status`,
+//! sessions; `rows` and `rows_*` are the status-rules table; `copies`, `status`, `views`,
 //! `parentage`, `order`, `questions` and `updates` are the other cases.
 
 #[path = "../common/mod.rs"]
@@ -37,6 +37,7 @@ mod parentage;
 mod questions;
 mod status;
 mod updates;
+mod views;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};

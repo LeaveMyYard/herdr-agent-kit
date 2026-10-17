@@ -108,7 +108,12 @@ impl Session {
         live: &dyn Liveness,
     ) -> StatusOf {
         let me = Owner::Agent(a.id.to_string());
-        if !self.background().waiting(&me, Ts(now), live).is_empty() {
+        if self
+            .background()
+            .waiting(&me, Ts(now), live)
+            .next()
+            .is_some()
+        {
             return StatusOf::new(Status::Bg, None, false); // its turn ended, its background work runs
         }
         let meta = a.rec.map(|r| &r.meta);

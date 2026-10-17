@@ -3,8 +3,8 @@
 
 use serde_json::Value;
 
-use super::super::HookStart;
 use super::super::limits::{REOPEN_MARGIN, STOP_NOTICE_WINDOW};
+use super::super::{HookStart, TaskEnd};
 use super::{Agent, Session, StatusOf};
 use crate::agent_session::claude::wire::Ending;
 use crate::agent_session::{Status, Ts};
@@ -91,8 +91,11 @@ impl Session {
     /// `killed` / `failed` when no launch of the run is known.
     fn run_ending(&self, run: &str) -> Option<(f64, Ending)> {
         let workflows = self.workflows();
-        if let Some((Ts(t), end)) = workflows.end(run) {
-            let end = match end {
+        if let Some(TaskEnd {
+            at: Ts(t), ending, ..
+        }) = workflows.end(run)
+        {
+            let end = match ending {
                 Ending::Cancelled | Ending::Failed => Ending::Cancelled,
                 Ending::Done => Ending::Done,
             };

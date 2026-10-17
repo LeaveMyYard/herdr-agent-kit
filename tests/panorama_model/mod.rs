@@ -19,7 +19,7 @@ use std::sync::OnceLock;
 
 use herdr_agent_kit::agent_procs::NoProcs;
 use herdr_agent_kit::agent_session::claude::Scanner;
-use herdr_agent_kit::agent_session::claude::fold::{BgLaunch, Owner, Session};
+use herdr_agent_kit::agent_session::claude::fold::{BgLaunch, Owner, Session, TaskEnd};
 use herdr_agent_kit::agent_session::claude::io::ProjectsRoot;
 use herdr_agent_kit::agent_session::claude::wire::{self, Ending, Line, ToolCall};
 use herdr_agent_kit::agent_session::tail::{Tail, Tailer};
@@ -666,7 +666,10 @@ impl Collector {
         o.transcript = Some(scanner.root().to_string_lossy().into_owned());
         o.bg = bg_tasks(
             sess,
-            &sess.background().waiting(&Owner::Main, Ts(now), &NoProcs),
+            &sess
+                .background()
+                .waiting(&Owner::Main, Ts(now), &NoProcs)
+                .collect::<Vec<_>>(),
         );
         o.last_activity = sess.last_activity().map(Ts::secs);
         if o.herdr_status == J::str("blocked")
@@ -810,14 +813,14 @@ fn build_agent(
     let counted = sess
         .evidence()
         .notices(aid)
-        .filter(|n| n.2.is_some())
+        .filter(|n| n.tool_uses.is_some())
         .max_by(|a, b| {
-            a.0.0
-                .total_cmp(&b.0.0)
-                .then(a.1.cmp(&b.1))
-                .then(a.2.cmp(&b.2))
+            a.at.0
+                .total_cmp(&b.at.0)
+                .then(a.ending.cmp(&b.ending))
+                .then(a.tool_uses.cmp(&b.tool_uses))
         })
-        .and_then(|n| n.2);
+        .and_then(|n| n.tool_uses);
     ag.tool_calls = [
         f.map_or(0, |f| f.tool_calls as i64),
         counted.map_or(0, |c| c as i64),
@@ -858,7 +861,8 @@ fn build_agent(
             sess,
             &sess
                 .background()
-                .waiting(&Owner::Agent(aid.into()), Ts(now), &NoProcs),
+                .waiting(&Owner::Agent(aid.into()), Ts(now), &NoProcs)
+                .collect::<Vec<_>>(),
         );
         let n = ag.bg.len();
         ag.activity = format!(
@@ -873,7 +877,7 @@ fn build_agent(
         .workflow
         .as_deref()
         .and_then(|run| sess.workflows().started(run, aid))
-        .map_or("", |(l, _)| l);
+        .map_or("", |j| j.label);
     let fallback = match &ag.agent_type {
         J::Str(s) if !s.is_empty() => Some(s.as_str()),
         _ => None,
@@ -957,7 +961,7 @@ fn agent_spans(sess: &Session, a: &Agent) -> Vec<SpanOf> {
     let mut ends: Vec<(f64, Ending)> = sess
         .evidence()
         .notices(&a.id)
-        .map(|n| (n.0.0, n.1))
+        .map(|n| (n.at.0, n.ending))
         .collect();
     ends.sort_by(|x, y| x.0.total_cmp(&y.0).then(x.1.cmp(&y.1)));
     let mut out = Vec::new();
@@ -1010,8 +1014,8 @@ fn threads_of(
     let mut spans: HashMap<String, Vec<SpanOf>> = HashMap::new();
     for id in &top {
         let a = &by_id[id];
-        if let Some((i, _)) = sess.conversation().prompt_before(a.started.map(Ts)) {
-            turn_of.insert(id.clone(), i as i64);
+        if let Some(p) = sess.conversation().prompt_before(a.started.map(Ts)) {
+            turn_of.insert(id.clone(), p.index as i64);
         }
         spans.insert(id.clone(), agent_spans(sess, a));
     }
@@ -1111,7 +1115,7 @@ fn workflow_thread(
         let journal = sess
             .workflows()
             .started(run, id)
-            .and_then(|(_, p)| p)
+            .and_then(|j| j.phase)
             .filter(|p| !p.is_empty());
         let meta_phase = str_of(
             &sess.agent(id).expect("a recorded agent").meta,
@@ -1131,8 +1135,7 @@ fn workflow_thread(
     let extra: Vec<String> = sess
         .workflows()
         .phases(run)
-        .iter()
-        .cloned()
+        .map(str::to_string)
         .chain(
             phase_of
                 .values()
@@ -1190,12 +1193,18 @@ fn workflow_thread(
         Some(true) => t.status = "active".into(),
         Some(false) => {
             t.status = match end {
-                Some((_, Ending::Failed)) => "failed",
-                Some((_, Ending::Cancelled)) => "cancelled",
+                Some(TaskEnd {
+                    ending: Ending::Failed,
+                    ..
+                }) => "failed",
+                Some(TaskEnd {
+                    ending: Ending::Cancelled,
+                    ..
+                }) => "cancelled",
                 _ => "done",
             }
             .into();
-            t.ended = end.map(|e| e.0.0);
+            t.ended = end.map(|e| e.at.0);
         }
     }
     t.started = launches.first().and_then(|w| w.ts).map(Ts::secs);
@@ -1689,7 +1698,7 @@ fn main_session_thread(o: &Orchestrator, sess: &Session) -> Option<(Thread, Agen
     let since = sess
         .conversation()
         .prompts()
-        .map(|(t, _)| t.0)
+        .map(|p| p.at.0)
         .reduce(f64::max);
     let id = format!("main:{}", o.pane_id);
     let mut ag = Agent::new(&id);

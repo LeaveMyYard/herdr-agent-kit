@@ -8,7 +8,7 @@ use serde_json::{Map, Value};
 use super::Owner;
 use crate::agent_procs::Pid;
 use crate::agent_session::Ts;
-use crate::agent_session::claude::wire::TailInfo;
+use crate::agent_session::claude::wire::{Ending, TailInfo};
 
 /// A spawning call (`Agent`, `Task`).
 #[derive(Clone, Debug, PartialEq)]
@@ -157,4 +157,42 @@ pub struct Titles {
     pub agent: Option<String>,
     /// `ai-title`.
     pub ai: Option<String>,
+}
+
+/// A terminal `<task-notification>` about a task or agent
+/// ([`Evidence::notices`](super::Evidence::notices),
+/// [`Workflows::end`](super::Workflows::end)).
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct TaskEnd {
+    /// The notice's time.
+    pub at: Ts,
+    /// How it says the task ended.
+    pub ending: Ending,
+    /// Its `<tool_uses>` count, when it has one.
+    pub tool_uses: Option<u64>,
+}
+
+/// A human prompt of the main transcript
+/// ([`Conversation::prompts`](super::Conversation::prompts)).
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct Prompt<'a> {
+    /// Its position among the prompts, in time order.
+    pub index: usize,
+    /// Its time.
+    pub at: Ts,
+    /// Its first non-blank line, cut to 200 characters.
+    pub text: &'a str,
+}
+
+/// A workflow journal's `started` record of an agent
+/// ([`Workflows::started`](super::Workflows::started)).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct JournalStart<'a> {
+    /// Its `label` (the agent id when it has none).
+    pub label: &'a str,
+    /// Its `phase`.
+    pub phase: Option<&'a str>,
 }

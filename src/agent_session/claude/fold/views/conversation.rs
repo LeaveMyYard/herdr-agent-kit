@@ -1,8 +1,8 @@
 //! [`Conversation`]: the main transcript's titles, prompts and
 //! continuation.
 
-use super::super::Titles;
 use super::super::stores::ConversationStore;
+use super::super::{Prompt, Titles};
 use crate::agent_session::{SessionId, Ts};
 
 /// The main transcript's conversation
@@ -25,25 +25,24 @@ impl<'a> Conversation<'a> {
         self.store.continuation.next()
     }
 
-    /// The human prompts of the main transcript, `(time, first line)`, in
-    /// time order (equal ones once).
-    pub fn prompts(&self) -> impl Iterator<Item = (Ts, &'a str)> + 'a {
-        self.store
-            .prompts
-            .iter()
-            .map(|(t, s)| (Ts(t.0), s.as_str()))
-    }
-
-    /// The latest human prompt at or before `when`: its index among
-    /// [`Conversation::prompts`] and its text (zoetrope's `prompt_for_ts`).
-    pub fn prompt_before(&self, when: Option<Ts>) -> Option<(usize, &'a str)> {
-        let when = when?.0;
+    /// The human prompts of the main transcript, in time order (equal ones
+    /// once).
+    pub fn prompts(&self) -> impl ExactSizeIterator<Item = Prompt<'a>> + use<'a> {
         self.store
             .prompts
             .iter()
             .enumerate()
-            .take_while(|(_, (t, _))| t.0 <= when)
-            .last()
-            .map(|(i, (_, s))| (i, s.as_str()))
+            .map(|(index, (t, s))| Prompt {
+                index,
+                at: Ts(t.0),
+                text: s.as_str(),
+            })
+    }
+
+    /// The latest human prompt at or before `when` (zoetrope's
+    /// `prompt_for_ts`).
+    pub fn prompt_before(&self, when: Option<Ts>) -> Option<Prompt<'a>> {
+        let when = when?;
+        self.prompts().take_while(|p| p.at.0 <= when.0).last()
     }
 }

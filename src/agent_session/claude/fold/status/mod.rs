@@ -82,7 +82,6 @@ impl Session {
             let running = self
                 .parentage()
                 .children(&Owner::Agent(id.to_string()))
-                .into_iter()
                 .filter(|c| !seen.contains(c))
                 .any(|c| {
                     matches!(

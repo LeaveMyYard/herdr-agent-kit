@@ -3,10 +3,9 @@
 
 use serde_json::{Map, Value};
 
-use super::super::WorkflowLaunch;
 use super::super::stores::{Notices, WorkflowStore};
+use super::super::{JournalStart, TaskEnd, WorkflowLaunch};
 use crate::agent_session::Ts;
-use crate::agent_session::claude::wire::Ending;
 
 /// The workflow runs ([`Session::workflows`](super::super::Session::workflows)).
 #[derive(Clone, Copy, Debug)]
@@ -17,7 +16,7 @@ pub struct Workflows<'a> {
 
 impl<'a> Workflows<'a> {
     /// The workflow launches, in the order they were first read.
-    pub fn launches(&self) -> impl Iterator<Item = &'a WorkflowLaunch> + 'a {
+    pub fn launches(&self) -> impl ExactSizeIterator<Item = &'a WorkflowLaunch> + use<'a> {
         self.store.launches.values()
     }
 
@@ -31,21 +30,27 @@ impl<'a> Workflows<'a> {
         self.store.summaries.get(run).map(|(_, m)| Ts(*m))
     }
 
-    /// The journal's `started` record of agent `id` in run `run`: its label
-    /// and phase.
-    pub fn started(&self, run: &str, id: &str) -> Option<(&'a str, Option<&'a str>)> {
+    /// The journal's `started` record of agent `id` in run `run`.
+    pub fn started(&self, run: &str, id: &str) -> Option<JournalStart<'a>> {
         let (label, phase) = self.store.started.get(run)?.get(id)?;
-        Some((label, phase.as_deref()))
+        Some(JournalStart {
+            label,
+            phase: phase.as_deref(),
+        })
     }
 
     /// The phases of run `run` in the order its journal first named them.
-    pub fn phases(&self, run: &str) -> &'a [String] {
-        self.store.phases.get(run).map_or(&[], Vec::as_slice)
+    pub fn phases(&self, run: &str) -> impl ExactSizeIterator<Item = &'a str> + use<'a> {
+        self.store
+            .phases
+            .get(run)
+            .map(|p| p.iter())
+            .unwrap_or_default()
+            .map(String::as_str)
     }
 
-    /// The `(time, ending)` of the latest notice about the run's latest
-    /// launch, if any.
-    pub fn end(&self, run: &str) -> Option<(Ts, Ending)> {
+    /// The latest notice about the run's latest launch, if any.
+    pub fn end(&self, run: &str) -> Option<TaskEnd> {
         let mut launches: Vec<&WorkflowLaunch> = self
             .store
             .launches
@@ -58,7 +63,11 @@ impl<'a> Workflows<'a> {
         });
         let task = launches.last()?.task_id.as_deref().unwrap_or("");
         let last = self.notices.get(task)?.last()?;
-        Some((Ts(last.0.0), last.1))
+        Some(TaskEnd {
+            at: Ts(last.0.0),
+            ending: last.1,
+            tool_uses: last.2,
+        })
     }
 
     /// Whether run `run` is still running: `None` when no launch of it is

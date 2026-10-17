@@ -90,7 +90,7 @@ impl<'a> Parentage<'a> {
 
     /// The agents whose parent is `parent`, by id, in the order they were
     /// first recorded.
-    pub fn children(&self, parent: &Owner) -> Vec<&'a str> {
+    pub fn children(&self, parent: &Owner) -> impl ExactSizeIterator<Item = &'a str> + use<'a> {
         let index = self.children.get_or_init(|| {
             let mut index: HashMap<Owner, Vec<String>> = HashMap::new();
             for id in self.agents.keys() {
@@ -102,7 +102,8 @@ impl<'a> Parentage<'a> {
         });
         index
             .get(parent)
-            .map(|c| c.iter().map(String::as_str).collect())
+            .map(|c| c.iter())
             .unwrap_or_default()
+            .map(String::as_str)
     }
 }

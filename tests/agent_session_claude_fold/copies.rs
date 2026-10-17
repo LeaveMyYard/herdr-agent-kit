@@ -107,7 +107,6 @@ fn bg_owners(a: &File, b: &File, candidates: &[Owner]) -> Vec<Vec<Owner>> {
                 .filter(|o| {
                     s.background()
                         .open(o, Ts(B + 30.0 * M))
-                        .iter()
                         .any(|l| l.task == "b1")
                 })
                 .cloned()

@@ -30,7 +30,11 @@ impl<'a> Background<'a> {
 
     /// `owner`'s background tasks with no ending in the transcripts, oldest
     /// first.
-    pub fn open(&self, owner: &Owner, now: Ts) -> Vec<&'a BgLaunch> {
+    pub fn open(
+        &self,
+        owner: &Owner,
+        now: Ts,
+    ) -> impl ExactSizeIterator<Item = &'a BgLaunch> + use<'a> {
         let now = now.0;
         let expired = |l: &BgLaunch| match (l.kind, l.persistent, l.timeout, l.ts) {
             (BgKind::Monitor, false, Some(to), Some(ts)) => {
@@ -52,15 +56,20 @@ impl<'a> Background<'a> {
             a.ts.map_or(0.0, Ts::secs)
                 .total_cmp(&b.ts.map_or(0.0, Ts::secs))
         });
-        out
+        out.into_iter()
     }
 
     /// The open tasks that are still running: their process lives, or, when
     /// that cannot be checked, they started at most [`BG_CAP`] ago. A
     /// Monitor's process is never checked (its timeout decides).
-    pub fn waiting(&self, owner: &Owner, now: Ts, live: &dyn Liveness) -> Vec<&'a BgLaunch> {
-        self.open(owner, now)
-            .into_iter()
+    pub fn waiting(
+        &self,
+        owner: &Owner,
+        now: Ts,
+        live: &dyn Liveness,
+    ) -> impl ExactSizeIterator<Item = &'a BgLaunch> + use<'a> {
+        let waiting: Vec<&'a BgLaunch> = self
+            .open(owner, now)
             .filter(|l| {
                 let alive = match l.kind {
                     BgKind::Bash => live.task_alive(&l.task),
@@ -68,6 +77,7 @@ impl<'a> Background<'a> {
                 };
                 alive.unwrap_or_else(|| l.ts.is_some_and(|ts| now.0 - ts.0 <= BG_CAP))
             })
-            .collect()
+            .collect();
+        waiting.into_iter()
     }
 }

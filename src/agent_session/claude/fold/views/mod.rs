@@ -1,5 +1,11 @@
 //! The read side, one view per concern. A view borrows only the stores it
 //! reads; [`Session`] hands them out.
+//!
+//! Every view getter returns data borrowed from the session, never from the
+//! (temporary, `Copy`) view or from its arguments: one item is a reference
+//! or a small `#[non_exhaustive]` struct, several items are an
+//! `ExactSizeIterator` (`+ use<'a>`), so `session.parentage().children(p)`
+//! can be returned from a function that holds only `&Session`.
 
 mod background;
 mod conversation;
