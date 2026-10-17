@@ -18,6 +18,7 @@ mod common;
 mod scenario;
 mod templates;
 mod transcript;
+mod transcript_background;
 
 // The status-rules table.
 mod rows;
