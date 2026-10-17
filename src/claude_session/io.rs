@@ -411,6 +411,12 @@ pub const FOLLOW_CHUNK: u64 = 8 * 1024 * 1024;
 /// The whole file is read once, in steps of at most [`FOLLOW_CHUNK`] bytes
 /// (so a large transcript never sits in memory whole), then only what is
 /// appended; a rewritten file is read again from the start.
+///
+/// One record over [`MAX_PARTIAL`] (8 MB) is dropped when it spans a step
+/// boundary (some records between 8 and 16 MB, every one above 16 MB), as
+/// any record over the cap is when it is appended while being followed.
+/// Python's cold read kept them. A `continued-in` record is a few hundred
+/// bytes; a dropped huge `user` record cannot clear a continuation.
 #[derive(Clone, Debug)]
 pub struct Follower {
     path: PathBuf,
@@ -439,6 +445,7 @@ impl Follower {
     /// read so far is kept).
     pub fn update(&mut self) -> bool {
         let mut resets = 0;
+        let mut before = self.tailer.offset();
         loop {
             match self.tailer.read_at_most(&self.path, FOLLOW_CHUNK) {
                 Tail::Missing => return false,
@@ -447,6 +454,7 @@ impl Follower {
                     if let Some(state) = &mut self.state {
                         state.reset();
                     }
+                    before = 0;
                     resets += 1;
                     if resets > 2 {
                         return true; // replaced again and again: read on the next update
@@ -456,7 +464,9 @@ impl Follower {
                     if let Some(state) = &mut self.state {
                         state.feed(&lines);
                     }
-                    if self.tailer.offset() >= self.tailer.size() {
+                    let progressed = self.tailer.offset() > before;
+                    before = self.tailer.offset();
+                    if !progressed || self.tailer.offset() >= self.tailer.size() {
                         return true;
                     }
                 }
