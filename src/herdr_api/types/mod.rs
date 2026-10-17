@@ -8,7 +8,7 @@ mod lenient;
 mod outcome;
 mod process;
 mod registry;
-mod session;
+mod snapshot;
 
 #[cfg(test)]
 mod tests;
@@ -19,7 +19,7 @@ pub use agent::{AgentInfo, AgentSession, AgentStatus};
 pub use outcome::{MoveResult, NotificationResult, SwapResult};
 pub use process::{ForegroundProc, ProcessInfo};
 pub use registry::{Machine, PluginInfo};
-pub use session::{LayoutInfo, PaneInfo, Snapshot, TabInfo, WorkspaceInfo};
+pub use snapshot::{LayoutInfo, PaneInfo, Snapshot, TabInfo, WorkspaceInfo};
 
 /// Fields this crate does not name, as herdr sent them.
 pub type Extra = Map<String, Value>;

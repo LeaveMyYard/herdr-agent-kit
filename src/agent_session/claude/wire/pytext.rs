@@ -14,12 +14,6 @@ pub(crate) fn py_strip(s: &str) -> &str {
     s.trim_matches(py_isspace)
 }
 
-/// Python's `bytes.strip()` is empty: the line is blank (`b" \t\n\r\x0b\x0c"`).
-pub(crate) fn blank(raw: &[u8]) -> bool {
-    raw.iter()
-        .all(|c| matches!(c, b' ' | b'\t' | b'\n' | b'\r' | b'\x0b' | b'\x0c'))
-}
-
 /// Python's `str.splitlines()` (without the line ends).
 pub(crate) fn py_splitlines(s: &str) -> Vec<&str> {
     let mut out = Vec::new();

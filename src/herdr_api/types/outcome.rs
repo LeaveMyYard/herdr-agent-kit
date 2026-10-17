@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::Extra;
 use super::lenient::lenient;
-use super::session::PaneInfo;
+use super::snapshot::PaneInfo;
 use crate::herdr_api::ids::PaneId;
 
 /// `pane.move`'s `move_result`.

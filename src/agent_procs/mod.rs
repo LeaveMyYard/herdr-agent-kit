@@ -59,7 +59,7 @@ pub struct ProcStat {
 
 /// A view of the process table, for walking up from a process.
 pub trait ProcessTable {
-    /// The parent, command name and start token of `pid`; `None` if unknown.
+    /// The parent and command name of `pid`; `None` if unknown.
     fn stat(&self, pid: Pid) -> Option<ProcStat>;
     /// The argv of `pid`; empty if unknown.
     fn cmdline(&self, pid: Pid) -> Vec<String>;

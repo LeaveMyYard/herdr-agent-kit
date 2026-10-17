@@ -8,12 +8,14 @@
 //! `fixtures/inbox/questions-db/` (databases made by the inbox's own code, as SQL dumps,
 //! and what panorama's reader returned for each).
 
-use std::ffi::OsString;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::Duration;
 
 use rusqlite::types::ValueRef;
 use rusqlite::{Connection, OpenFlags};
+
+#[cfg(doc)]
+use crate::internal::plugin_paths;
 
 /// How long a read waits for a writer's lock before it reads as "no inbox" (Python's
 /// `sqlite3.connect(timeout=1.0)`).
@@ -36,38 +38,8 @@ pub struct OpenQuestion {
     pub created_at: Option<String>,
 }
 
-/// Where the inbox database is: `$HERDR_INBOX_DB`, else
-/// `$XDG_STATE_HOME/herdr-inbox/inbox.db`, else `~/.local/state/herdr-inbox/inbox.db`.
-/// Empty variables count as unset. Reads the environment.
-pub fn db_path() -> PathBuf {
-    db_path_from(
-        std::env::var_os("HERDR_INBOX_DB"),
-        std::env::var_os("XDG_STATE_HOME"),
-        std::env::home_dir(),
-    )
-}
-
-/// [`db_path`] from given values instead of the environment.
-pub fn db_path_from(
-    inbox_db: Option<OsString>,
-    xdg_state_home: Option<OsString>,
-    home: Option<PathBuf>,
-) -> PathBuf {
-    if let Some(db) = inbox_db.filter(|v| !v.is_empty()) {
-        return PathBuf::from(db);
-    }
-    let state = match xdg_state_home.filter(|v| !v.is_empty()) {
-        Some(state) => PathBuf::from(state),
-        None => home
-            .unwrap_or_else(|| PathBuf::from("~"))
-            .join(".local")
-            .join("state"),
-    };
-    state.join("herdr-inbox").join("inbox.db")
-}
-
 /// The open questions, oldest first, or `None` when there is no usable inbox: no regular
-/// file at `path`, one that cannot be opened read-only, a lock held past
+/// file at `path` (where the database is: [`plugin_paths::inbox::db_path`]), one that cannot be opened read-only, a lock held past
 /// [`BUSY_TIMEOUT`], no `questions` table, or any other SQLite error.
 pub fn open_questions(path: &Path) -> Option<Vec<OpenQuestion>> {
     if !path.is_file() {
@@ -107,6 +79,3 @@ fn text(v: ValueRef<'_>) -> Option<String> {
         ValueRef::Text(t) | ValueRef::Blob(t) => Some(String::from_utf8_lossy(t).into_owned()),
     }
 }
-
-#[cfg(test)]
-mod tests;

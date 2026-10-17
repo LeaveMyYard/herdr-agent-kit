@@ -4,7 +4,8 @@
 
 use std::path::PathBuf;
 
-use crate::plugin_env::{PluginEnv, short_sha1};
+use super::short_sha1;
+use crate::plugin_env::PluginEnv;
 
 /// The longest socket path the core uses: `sockaddr_un` holds 108 bytes on
 /// Linux and 104 on macOS, so stay under both (`protocol.SUN_PATH_MAX`).

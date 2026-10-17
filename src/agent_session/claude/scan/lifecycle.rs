@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use super::{FileState, Scanner};
 use crate::agent_session::SessionId;
 use crate::agent_session::claude::fold::{Owner, Session};
-use crate::agent_session::claude::io::Tailer;
+use crate::agent_session::tail::Tailer;
 
 /// Construction and accessors.
 impl Scanner {

@@ -11,8 +11,8 @@
 //!   parsing, the marker prefilter, tool summaries, task notifications),
 //!   [`continuation`] (the one continuation rule, D6, and forward-only
 //!   chains) and [`fold`] (a session's keyed stores and the status rules);
-//! - **IO**: [`io`] finds the projects root and transcripts, tails files
-//!   ([`io::Tailer`]), summarizes a transcript's tail
+//! - **IO**: [`io`] finds the projects root and transcripts, tails them
+//!   (with the neutral [`Tailer`](super::tail::Tailer)), summarizes a transcript's tail
 //!   ([`io::summarize_tail`]) and follows continuations on disk
 //!   ([`io::Transcripts`]); [`scan`] reads one session's files into a
 //!   [`fold::Session`] ([`scan::Scanner`]).

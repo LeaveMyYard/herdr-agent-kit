@@ -1,16 +1,15 @@
-//! `agent_session::claude::io` against real files: the tailer (herdr-panorama
-//! `tests/test_scan_tail.py`), discovery, the tail summary and continuation
-//! followers. Records are captured templates (`tests/common`).
+//! `agent_session::claude::io` against real files: discovery, the tail
+//! summary and continuation followers (the tailer itself:
+//! `agent_session_tail.rs`). Records are captured templates (`tests/common`).
 
 mod common;
 
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::fs;
 
 use common::{BASE, CWD, Project, Transcript, dumps, stamp, tmp_dir, tpl};
 use herdr_agent_kit::agent_session::claude::io::{
-    Follower, ProjectsRoot, Tail, Tailer, Transcripts, related, summarize_tail,
-    summarize_tail_from, workflow_summary_path,
+    Follower, ProjectsRoot, Transcripts, related, summarize_tail, summarize_tail_from,
+    workflow_summary_path,
 };
 use herdr_agent_kit::agent_session::claude::{Hop, TranscriptFiles, chain, continuation::MAX_HOPS};
 use herdr_agent_kit::agent_session::{SessionId, Ts};
@@ -22,43 +21,6 @@ const THIRD: &str = "77777777-7777-4777-8777-777777777777";
 
 fn id(s: &str) -> SessionId {
     SessionId::parse(s).expect("a session id")
-}
-
-fn lines(v: &[&[u8]]) -> Tail {
-    Tail::Lines(v.iter().map(|l| l.to_vec()).collect())
-}
-
-#[test]
-fn read_appended_offsets_shrink_and_replacement() {
-    let dir = tmp_dir("tail");
-    let p = dir.join("t.jsonl");
-    fs::write(&p, b"one\ntw").unwrap();
-    let mut t = Tailer::new();
-    assert_eq!(t.read(&p), lines(&[b"one"]));
-    assert_eq!(t.read(&p), Tail::NoChange);
-    OpenOptions::new()
-        .append(true)
-        .open(&p)
-        .unwrap()
-        .write_all(b"o\nthree\n")
-        .unwrap();
-    assert_eq!(t.read(&p), lines(&[b"two", b"three"]));
-    fs::write(&p, b"new\n").unwrap(); // shrank: rewritten
-    assert_eq!(t.read(&p), Tail::Reset);
-    assert_eq!(t.read(&p), lines(&[b"new"]));
-    let other = dir.join("o.jsonl");
-    fs::write(&other, b"new\nlonger file\n").unwrap();
-    fs::rename(&other, &p).unwrap(); // replaced by a different inode, not shorter
-    assert_eq!(t.read(&p), Tail::Reset);
-    assert_eq!(t.read(&p), lines(&[b"new", b"longer file"]));
-}
-
-#[test]
-fn missing_file() {
-    assert_eq!(
-        Tailer::new().read(&tmp_dir("missing").join("nope")),
-        Tail::Missing
-    );
 }
 
 #[test]
@@ -86,7 +48,8 @@ fn related_lists_agent_files_and_workflow_journals() {
     let proj = Project::new(tmp.join("projects"));
     let main = proj.main(SID);
     main.write();
-    assert_eq!(related(&main.path), (vec![], vec![]));
+    let none = related(&main.path);
+    assert!(none.agents.is_empty() && none.journals.is_empty());
     let subs = proj.dir.join(SID).join("subagents");
     let wf = subs.join("workflows").join("run1");
     fs::create_dir_all(&wf).unwrap();
@@ -100,7 +63,8 @@ fn related_lists_agent_files_and_workflow_journals() {
         fs::write(subs.join(name), "").unwrap();
     }
     fs::write(wf.join("agent-w1.jsonl"), "").unwrap();
-    let (files, journals) = related(&main.path);
+    let found = related(&main.path);
+    let (files, journals) = (found.agents, found.journals);
     let ids: Vec<(&str, Option<&str>)> = files
         .iter()
         .map(|f| (f.agent_id.as_str(), f.workflow.as_deref()))
@@ -391,16 +355,8 @@ fn a_rewrite_forgets_the_time_read_before_it() {
 
 #[test]
 fn a_large_transcript_is_followed_in_bounded_steps() {
+    // a follower reads a file bigger than one step (`Tailer::read_at_most`) to its end
     let tmp = tmp_dir("chunks");
-    let p = tmp.join("t.jsonl");
-    fs::write(&p, b"one\ntwo\nthree\n").unwrap();
-    let mut t = Tailer::new();
-    assert_eq!(t.read_at_most(&p, 5), lines(&[b"one"]));
-    assert_eq!(t.read_at_most(&p, 5), lines(&[b"two"]));
-    assert_eq!(t.read_at_most(&p, 0), lines(&[]));
-    assert_eq!(t.read_at_most(&p, 100), lines(&[b"three"]));
-    assert_eq!(t.read_at_most(&p, 100), Tail::NoChange);
-    // a follower reads a file bigger than one step to its end
     let proj = Project::new(tmp.join("projects"));
     let mut m = proj.main(SID);
     let filler = "x".repeat(1024 * 1024);

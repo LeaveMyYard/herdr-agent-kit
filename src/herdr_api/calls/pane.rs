@@ -49,7 +49,7 @@ pub fn toggle_zoom(pane: &PaneId) -> Call<Extra> {
 }
 
 /// Python's universal newlines: `\r\n` and a lone `\r` read as `\n`.
-pub fn universal_newlines(text: &str) -> String {
+pub(crate) fn universal_newlines(text: &str) -> String {
     text.replace("\r\n", "\n").replace('\r', "\n")
 }
 
@@ -57,8 +57,9 @@ pub fn universal_newlines(text: &str) -> String {
 /// with ANSI styling (herdr-inbox `panel_focused`, `composer_state`).
 ///
 /// Line ends are read as the Python clients read the CLI's output (text
-/// mode, [`universal_newlines`]): herdr's ANSI format ends lines with
-/// `\r\n`, which `composer_state` saw as `\n`.
+/// mode, universal newlines: `\r\n` and a lone `\r` read as `\n`):
+/// herdr's ANSI format ends lines with `\r\n`, which `composer_state` saw
+/// as `\n`.
 pub fn read_pane(pane: &PaneId, lines: u16, ansi: bool) -> Call<String> {
     Call::new(
         "pane.read",

@@ -13,6 +13,7 @@
 //! |---|---|---|
 //! | [`herdr_api`] | IO | The herdr client: socket, events, the CLI path, [`herdr_api::HerdrError`], [`herdr_api::Sanitized`] |
 //! | [`agent_session`] | pure | Neutral session types: [`agent_session::SessionId`], [`agent_session::Status`], [`agent_session::SessionView`] |
+//! | [`agent_session::tail`] | IO | Neutral incremental reading of an append-only file: [`agent_session::tail::Tailer`] |
 //! | [`agent_session::claude`] | pure and IO | Claude Code's transcripts: wire format, continuation, the session fold and status rules, discovery and tailing |
 //! | [`agent_procs`] | IO | Process table walks and liveness; [`agent_procs::claude`]: "is this Claude Code", nested Claude |
 //! | [`plugin_env`] | IO | The plugin environment, `config.toml` with reload, state dirs, flock, private socket dirs |
@@ -33,7 +34,7 @@
 //! starts no threads and reads no environment. The pure parts are
 //! [`agent_session`]'s neutral types and, in [`agent_session::claude`], the
 //! wire format, the continuation rule and the fold. Everything else is IO:
-//! [`herdr_api`], [`agent_session::claude::io`] and
+//! [`herdr_api`], [`agent_session::tail`], [`agent_session::claude::io`] and
 //! [`agent_session::claude::scan`], [`agent_procs`] and [`plugin_env`].
 //!
 //! # Example

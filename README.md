@@ -28,6 +28,7 @@ crate. Run `cargo doc --open --all-features` for the full reference.
 | `herdr_api` | always | IO | The only code that talks to herdr: socket client (async `Herdr`, `blocking::Herdr`), events, the CLI path, `HerdrError`, `Sanitized` |
 | `herdr_api::fake` | `test-support` | test IO | `FakeHerdr`, a scripted herdr socket server that records requests |
 | `agent_session` | always | pure | The harness-neutral seam: `SessionId` (the one session-id validator), `Ts`, `Status`, `SessionView` |
+| `agent_session::tail` | always | IO | Harness-neutral incremental reading of an append-only file (`Tailer`) |
 | `agent_session::claude` | always | pure | Claude Code: the wire format, the continuation rule (D6), the session fold and status rules, `Session::view` (the `SessionView` producer) |
 | `agent_session::claude::io`, `::scan` | always | IO | Projects root, transcript discovery, tailing, following continuations, `Scanner` |
 | `agent_procs` | always | IO | Neutral process table walks, pid checks, the `Liveness` trait |

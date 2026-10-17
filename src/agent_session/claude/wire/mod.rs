@@ -44,11 +44,12 @@ mod timestamp;
 mod tool_summary;
 mod tools;
 
+pub(crate) use crate::agent_session::tail::blank;
 pub use line::Line;
 pub(crate) use markers::contains;
 pub use markers::{MARKERS, PROMPT_MARKERS, wanted, wanted_lines};
 pub use notice::{Ending, Notice, ORPHAN, parse_notice, parse_notices};
-pub(crate) use pytext::{blank, py_isspace, py_splitlines, py_str, py_strip, truthy};
+pub(crate) use pytext::{py_isspace, py_splitlines, py_str, py_strip, truthy};
 pub use questions::question_ids;
 pub use record::{Attachment, BOOKKEEPING, Block, Content, Record, TitleKind, text_of};
 pub use tail::{TailInfo, ToolCall};

@@ -10,7 +10,8 @@ use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 
 use super::session_file_name;
-use crate::plugin_env::{PluginEnv, short_sha1};
+use super::short_sha1;
+use crate::plugin_env::PluginEnv;
 
 /// `HERDR_INBOX_DB`: overrides the database path (tests, remote machines).
 pub const HERDR_INBOX_DB: &str = "HERDR_INBOX_DB";

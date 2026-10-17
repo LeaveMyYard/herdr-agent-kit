@@ -25,14 +25,3 @@ pub mod vars;
 pub use config::{ConfigError, ConfigFile};
 pub use lock::{HeldLock, LockFile};
 pub use vars::PluginEnv;
-
-/// The first 12 hex digits of the SHA-1 of `bytes`: the key both plugins use
-/// to name per-server state (`hashlib.sha1(s.encode()).hexdigest()[:12]`).
-pub fn short_sha1(bytes: &[u8]) -> String {
-    let mut hex = sha1_smol::Sha1::from(bytes).digest().to_string();
-    hex.truncate(12);
-    hex
-}
-
-#[cfg(test)]
-mod tests;

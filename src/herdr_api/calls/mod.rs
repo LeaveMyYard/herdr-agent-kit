@@ -32,9 +32,10 @@ mod tests;
 pub(crate) use agent::not_ready;
 pub use agent::{AGENT_NOT_FOUND, agent, agent_named, agents, focus_agent, prompt, start_agent};
 pub use call::{Call, raw_call};
+pub(crate) use pane::universal_newlines;
 pub use pane::{
     MoveTo, focus_pane, move_pane, pane, panes, process_info, read_pane, rename_pane, set_token,
-    swap_panes, toggle_zoom, universal_newlines,
+    swap_panes, toggle_zoom,
 };
 pub use plugin::{
     Direction, OpenPluginPane, Placement, close_plugin_pane, invoke_action, open_plugin_pane,

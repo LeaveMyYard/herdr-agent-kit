@@ -3,8 +3,8 @@
 
 use std::path::{Path, PathBuf};
 
-use super::{Tail, Tailer};
 use crate::agent_session::claude::continuation::Continuation;
+use crate::agent_session::tail::{Tail, Tailer};
 use crate::agent_session::{SessionId, Ts};
 
 /// The most a [`Follower`] reads in one step.
@@ -21,7 +21,7 @@ pub const FOLLOW_CHUNK: u64 = 8 * 1024 * 1024;
 /// (so a large transcript never sits in memory whole), then only what is
 /// appended; a rewritten file is read again from the start.
 ///
-/// One record over [`MAX_PARTIAL`](super::MAX_PARTIAL) (8 MB) is dropped when it spans a step
+/// One record over [`MAX_PARTIAL`](crate::agent_session::tail::MAX_PARTIAL) (8 MB) is dropped when it spans a step
 /// boundary (some records between 8 and 16 MB, every one above 16 MB), as
 /// any record over the cap is when it is appended while being followed.
 /// Python's cold read kept them. A `continued-in` record is a few hundred
