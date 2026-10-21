@@ -68,7 +68,7 @@ fn data_from_herdr_resets_the_backoff_and_nothing_else_does() {
 #[tokio::test(flavor = "current_thread")]
 async fn a_connection_closed_before_any_ack_keeps_the_backoff_growing() {
     // Python's server accepts, then closes before any ack (an older herdr, a shutdown): a
-    // connect that succeeds proves nothing, so the waits keep growing (0.5 s, then 1 s, ...)
+    // connect that succeeds proves nothing, so the waits keep growing
     let dir = tempfile::tempdir().unwrap();
     let socket = dir.path().join("herdr.sock");
     let listener = std::os::unix::net::UnixListener::bind(&socket).unwrap();
@@ -89,12 +89,21 @@ async fn a_connection_closed_before_any_ack_keeps_the_backoff_growing() {
         }
     });
     let mut events = Events::new(socket, "t", &[EventKind::TAB_FOCUSED]);
-    // the first connection at once, the second after 0.5 s; at 1.2 s the stream waits 1 s more
-    let _ = tokio::time::timeout(Duration::from_millis(1200), events.next()).await;
-    assert_eq!(accepted.load(std::sync::atomic::Ordering::SeqCst), 2);
+    // driven in 20 ms slices, timing-free: the waits grow 0.5 s, 1 s, 2 s, so after two closed
+    // connections the backoff is 2 s; a stream that reset on each connect never gets there
+    // (the deadline only catches that, or a hang)
+    let deadline = std::time::Instant::now() + Duration::from_secs(20);
+    while events.backoff < Duration::from_secs(2) && std::time::Instant::now() < deadline {
+        let _ = tokio::time::timeout(Duration::from_millis(20), events.next()).await;
+    }
     assert_eq!(
         events.backoff.as_secs_f64(),
         2.0,
         "a bare connect reset the backoff"
     );
+    assert!(
+        events.conn.is_none() && events.retry_at.is_some(),
+        "waiting to connect again"
+    );
+    assert!(accepted.load(std::sync::atomic::Ordering::SeqCst) >= 2);
 }
