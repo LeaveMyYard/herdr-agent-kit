@@ -10,6 +10,7 @@ use super::calls::{self, Call, MoveTo, OpenPluginPane};
 use super::cli;
 use super::error::HerdrError;
 use super::ids::{PaneId, ServerId, TabId, WorkspaceId};
+use super::observe::{self, Transport};
 use super::sanitize::Sanitized;
 use super::target::{Target, client_config};
 use super::transport;
@@ -49,11 +50,13 @@ impl Herdr {
     pub fn send<T>(&self, call: Call<T>) -> Result<T, HerdrError> {
         let line = self.target.line(&call);
         let timeout = self.target.timeout_of(&call);
-        call.parse(transport::exchange_blocking(
-            self.target.server.socket(),
-            &line,
-            timeout,
-        ))
+        let trace = self
+            .target
+            .watch
+            .start(Transport::Socket, || call.method().to_owned());
+        let reply = transport::exchange_blocking(self.target.server.socket(), &line, timeout);
+        drop(trace);
+        call.parse(reply)
     }
 
     /// Any method, params as given (not cleaned), the raw `result`.
@@ -108,7 +111,13 @@ impl Herdr {
     }
 
     fn cli(&self, inv: &cli::Invocation) -> Result<String, HerdrError> {
-        cli::run_blocking(&self.target.bin, inv, self.target.timeout)
+        let trace = self
+            .target
+            .watch
+            .start(Transport::Cli, || observe::cli_op(&inv.args));
+        let out = cli::run_blocking(&self.target.bin, inv, self.target.timeout);
+        drop(trace);
+        out
     }
 }
 

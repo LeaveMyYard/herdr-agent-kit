@@ -17,6 +17,7 @@ pub(super) struct Target {
     pub(super) bin: PathBuf,
     pub(super) timeout: Duration,
     pub(super) client: String,
+    pub(super) watch: super::observe::Watch,
 }
 
 impl Target {
@@ -26,6 +27,7 @@ impl Target {
             bin: PathBuf::from("herdr"),
             timeout: TIMEOUT,
             client: DEFAULT_CLIENT.to_owned(),
+            watch: super::observe::Watch::default(),
         }
     }
 
@@ -83,6 +85,18 @@ macro_rules! client_config {
         /// The client name in request ids: `panorama` sends `panorama:1`.
         pub fn with_client(mut self, client: impl Into<String>) -> Self {
             self.target.client = client.into();
+            self
+        }
+
+        /// `observer` hears every call this client (and its clones, and its other-mode
+        /// client) makes: one [`CallTrace`](crate::herdr_api::CallTrace) per socket request
+        /// and per CLI run (see [`herdr_api::observe`](crate::herdr_api::observe)).
+        pub fn with_observer(
+            mut self,
+            observer: impl Fn(&crate::herdr_api::CallTrace) + Send + Sync + 'static,
+        ) -> Self {
+            self.target.watch =
+                crate::herdr_api::observe::Watch(Some(std::sync::Arc::new(observer)));
             self
         }
 

@@ -29,6 +29,7 @@ mod events;
 #[cfg(feature = "test-support")]
 pub mod fake;
 mod ids;
+pub mod observe;
 mod sanitize;
 mod target;
 mod transport;
@@ -44,6 +45,7 @@ pub use client::Herdr;
 pub use error::{HerdrError, SERVER_NOT_RUNNING};
 pub use events::{Event, EventKind, Events, FIRST_BACKOFF, HerdrEvent, MAX_BACKOFF};
 pub use ids::{PaneId, ServerId, TabId, WorkspaceId};
+pub use observe::{CallTrace, Transport};
 pub use sanitize::{MAX_ARG, Sanitized, clean};
 pub use types::{
     AgentInfo, AgentSession, AgentStatus, Extra, ForegroundProc, LayoutInfo, Machine, MoveResult,
