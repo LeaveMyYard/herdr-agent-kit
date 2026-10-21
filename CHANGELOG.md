@@ -15,6 +15,12 @@ dependency pinned by tag, for example
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-10-21
+
+### Changed
+
+- Tests only: the event stream's backoff resets on herdr data (a truthy `result` or `data`) and on nothing else, and a connection closed before any ack keeps it growing (#38). No behaviour change.
+
 ## [0.1.2] - 2026-10-21
 
 ### Added
@@ -54,7 +60,8 @@ First release.
 - `internal` feature (plugin-only, outside semver): herdr-inbox's published formats (`internal::inbox_contract`) and the plugins' state layouts (`internal::plugin_paths`).
 - `sqlite` feature (plugin-only, turns on `internal`): a read-only reader of the inbox's 0.1 `questions` columns.
 
-[Unreleased]: https://github.com/LeaveMyYard/herdr-agent-kit/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/LeaveMyYard/herdr-agent-kit/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/LeaveMyYard/herdr-agent-kit/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/LeaveMyYard/herdr-agent-kit/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/LeaveMyYard/herdr-agent-kit/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/LeaveMyYard/herdr-agent-kit/releases/tag/v0.1.0
