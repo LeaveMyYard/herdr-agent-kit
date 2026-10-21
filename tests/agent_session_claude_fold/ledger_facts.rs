@@ -82,8 +82,8 @@ fn titles_and_prompts() {
     let c = s.session().conversation();
     let t = c.titles();
     assert_eq!(
-        (t.custom.as_deref(), t.agent.as_deref()),
-        (Some("billing-api"), Some("billing"))
+        (t.custom.as_deref(), t.agent.as_deref(), t.ai.as_deref()),
+        (Some("billing-api"), Some("billing"), None) // Python compares the whole dict: no ai title
     );
     let texts: Vec<&str> = c.prompts().map(|p| p.text).collect();
     assert_eq!(texts, ["first task", "legacy prompt"]);
