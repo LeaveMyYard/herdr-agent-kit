@@ -8,6 +8,7 @@ mod support;
 
 mod cli;
 mod events;
+mod observe;
 mod parity_agents_plugins;
 mod parity_tabs_panes;
 mod refusals;

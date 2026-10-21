@@ -11,6 +11,7 @@ use super::cli;
 use super::error::HerdrError;
 use super::events::{EventKind, Events};
 use super::ids::{PaneId, ServerId, TabId, WorkspaceId};
+use super::observe::{self, Transport};
 use super::sanitize::Sanitized;
 use super::target::{Target, client_config};
 use super::transport;
@@ -60,7 +61,11 @@ impl Herdr {
     pub async fn send<T>(&self, call: Call<T>) -> Result<T, HerdrError> {
         let line = self.target.line(&call);
         let timeout = self.target.timeout_of(&call);
-        call.parse(transport::exchange(self.target.server.socket(), &line, timeout).await)
+        let timing = self.target.watch.start();
+        let reply = transport::exchange(self.target.server.socket(), &line, timeout).await;
+        let w = &self.target.watch;
+        w.report(timing, Transport::Socket, || call.method().to_owned());
+        call.parse(reply)
     }
 
     /// Any method, params as given (not cleaned), the raw `result`.
@@ -140,7 +145,11 @@ impl Herdr {
     }
 
     async fn cli(&self, inv: &cli::Invocation) -> Result<String, HerdrError> {
-        cli::run(&self.target.bin, inv, self.target.timeout).await
+        let timing = self.target.watch.start();
+        let out = cli::run(&self.target.bin, inv, self.target.timeout).await;
+        let w = &self.target.watch;
+        w.report(timing, Transport::Cli, || observe::cli_op(&inv.args));
+        out
     }
 }
 
