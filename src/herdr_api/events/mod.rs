@@ -18,6 +18,12 @@ pub const FIRST_BACKOFF: Duration = Duration::from_millis(500);
 /// The longest wait before a reconnect.
 pub const MAX_BACKOFF: Duration = Duration::from_secs(10);
 
+/// The wait after `backoff`: doubled, capped at [`MAX_BACKOFF`] (panorama
+/// `herdr.events`: 0.5, 1, 2, 4, 8, 10, 10 s).
+pub(crate) fn next_backoff(backoff: Duration) -> Duration {
+    (backoff * 2).min(MAX_BACKOFF)
+}
+
 /// A subscription type (`tab.focused`). The constants are the ones the
 /// plugins use; [`EventKind::new`] names any other from herdr's schema.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

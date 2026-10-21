@@ -8,7 +8,7 @@ use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tokio::time::Instant;
 
-use super::{Event, EventKind, FIRST_BACKOFF, HerdrEvent, MAX_BACKOFF};
+use super::{Event, EventKind, FIRST_BACKOFF, HerdrEvent, next_backoff};
 use crate::herdr_api::wire::{self, MAX_REPLY};
 use crate::pytext::truthy;
 
@@ -68,7 +68,7 @@ impl Events {
     /// after every connection that ends or fails), then double it.
     fn back_off(&mut self) {
         self.retry_at = Some(Instant::now() + self.backoff);
-        self.backoff = (self.backoff * 2).min(MAX_BACKOFF);
+        self.backoff = next_backoff(self.backoff);
     }
 
     async fn connect(&self) -> Option<BufReader<UnixStream>> {
@@ -151,3 +151,6 @@ impl Events {
         event
     }
 }
+
+#[cfg(test)]
+mod tests;
