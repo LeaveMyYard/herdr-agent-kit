@@ -19,6 +19,7 @@ mod scenario;
 mod templates;
 mod transcript;
 mod transcript_background;
+mod transcript_extra;
 
 // The status-rules table.
 mod rows;
@@ -31,6 +32,8 @@ mod rows_review;
 
 // The other cases.
 mod copies;
+mod ledger_facts;
+mod ledger_rules;
 mod order;
 mod parentage;
 #[cfg(feature = "internal")]
