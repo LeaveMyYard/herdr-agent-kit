@@ -64,3 +64,37 @@ fn data_from_herdr_resets_the_backoff_and_nothing_else_does() {
     events.handle(&event);
     assert_eq!(events.backoff, FIRST_BACKOFF, "an event resets it");
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_connection_closed_before_any_ack_keeps_the_backoff_growing() {
+    // Python's server accepts, then closes before any ack (an older herdr, a shutdown): a
+    // connect that succeeds proves nothing, so the waits keep growing (0.5 s, then 1 s, ...)
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("herdr.sock");
+    let listener = std::os::unix::net::UnixListener::bind(&socket).unwrap();
+    let accepted = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let count = accepted.clone();
+    std::thread::spawn(move || {
+        for conn in listener.incoming() {
+            count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            // the subscribe request is read, then the connection closes before any reply
+            let mut conn = conn.unwrap();
+            let mut line = Vec::new();
+            let _ = std::io::BufRead::read_until(
+                &mut std::io::BufReader::new(&mut conn),
+                b'\n',
+                &mut line,
+            );
+            drop(conn);
+        }
+    });
+    let mut events = Events::new(socket, "t", &[EventKind::TAB_FOCUSED]);
+    // the first connection at once, the second after 0.5 s; at 1.2 s the stream waits 1 s more
+    let _ = tokio::time::timeout(Duration::from_millis(1200), events.next()).await;
+    assert_eq!(accepted.load(std::sync::atomic::Ordering::SeqCst), 2);
+    assert_eq!(
+        events.backoff.as_secs_f64(),
+        2.0,
+        "a bare connect reset the backoff"
+    );
+}
