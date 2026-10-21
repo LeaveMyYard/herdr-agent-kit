@@ -15,6 +15,8 @@ dependency pinned by tag, for example
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-21
+
 ### Added
 
 - `herdr_api`: `with_observer(impl Fn(&CallTrace))` on both clients, and the
@@ -23,6 +25,10 @@ dependency pinned by tag, for example
   answered, failed, timed out, or dropped unfinished. It runs outside any lock; a panic in
   it is caught and never reaches the call. For timing slow herdr calls (panorama's
   `PANORAMA_TRACE`).
+
+### Changed
+
+- The reconnect backoff growth is a pure function with a test (0.5, 1, 2, 4, 8, 10, 10 s); no behaviour change (#33).
 
 ## [0.1.1] - 2026-10-21
 
@@ -48,6 +54,7 @@ First release.
 - `internal` feature (plugin-only, outside semver): herdr-inbox's published formats (`internal::inbox_contract`) and the plugins' state layouts (`internal::plugin_paths`).
 - `sqlite` feature (plugin-only, turns on `internal`): a read-only reader of the inbox's 0.1 `questions` columns.
 
-[Unreleased]: https://github.com/LeaveMyYard/herdr-agent-kit/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/LeaveMyYard/herdr-agent-kit/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/LeaveMyYard/herdr-agent-kit/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/LeaveMyYard/herdr-agent-kit/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/LeaveMyYard/herdr-agent-kit/releases/tag/v0.1.0
