@@ -88,11 +88,15 @@ macro_rules! client_config {
             self
         }
 
-        /// An [`Observer`](crate::herdr_api::Observer) that hears every call this client
-        /// (and its clones) makes: one [`CallTrace`](crate::herdr_api::CallTrace) per socket
-        /// request and per CLI run.
-        pub fn with_observer(mut self, observer: crate::herdr_api::Observer) -> Self {
-            self.target.watch = crate::herdr_api::observe::Watch(Some(observer));
+        /// `observer` hears every call this client (and its clones, and its other-mode
+        /// client) makes: one [`CallTrace`](crate::herdr_api::CallTrace) per socket request
+        /// and per CLI run (see [`herdr_api::observe`](crate::herdr_api::observe)).
+        pub fn with_observer(
+            mut self,
+            observer: impl Fn(&crate::herdr_api::CallTrace) + Send + Sync + 'static,
+        ) -> Self {
+            self.target.watch =
+                crate::herdr_api::observe::Watch(Some(std::sync::Arc::new(observer)));
             self
         }
 

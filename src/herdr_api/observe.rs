@@ -1,5 +1,16 @@
-//! Watching the calls a client makes: an [`Observer`] hears one [`CallTrace`] per socket
-//! request and per CLI run, after it ended, failed or not. Event streams are not calls.
+//! Watching the calls a client makes: an observer set with `with_observer` hears one
+//! [`CallTrace`] per socket request and per CLI run once it is over: answered, failed, timed
+//! out, or dropped unfinished (an async call whose future was cancelled). Event streams are
+//! not calls.
+//!
+//! The observer runs on the thread that ends the call, outside any lock the client holds, and
+//! the caller waits for it: keep it quick. A panic in it is caught and never reaches the call;
+//! the process's panic hook still runs first (it prints the panic as usual), and under
+//! `panic = "abort"` a panic aborts the process as any panic does.
+//!
+//! [`CallTrace::op`] is the bare method or arguments (`session.snapshot`, `api snapshot`); a
+//! log that wants panorama's `PANORAMA_TRACE` lines adds the `socket ` or `cli ` prefix
+//! from [`CallTrace::transport`], and takes its time stamp as `started + took` (the end).
 //!
 //! ```
 //! use herdr_agent_kit::herdr_api::{CallTrace, Herdr, ServerId};
@@ -7,9 +18,8 @@
 //!
 //! let seen = Arc::new(Mutex::new(Vec::new()));
 //! let log = seen.clone();
-//! let herdr = Herdr::new(ServerId::new("/nowhere/herdr.sock")).with_observer(Arc::new(
-//!     move |t: &CallTrace| log.lock().unwrap().push((t.op.clone(), t.took)),
-//! ));
+//! let herdr = Herdr::new(ServerId::new("/nowhere/herdr.sock"))
+//!     .with_observer(move |t: &CallTrace| log.lock().unwrap().push((t.op.clone(), t.took)));
 //! # drop(herdr);
 //! ```
 
@@ -34,18 +44,16 @@ pub struct CallTrace {
     /// The socket or the CLI.
     pub transport: Transport,
     /// What was called: the socket method (`session.snapshot`), or the CLI's first two
-    /// arguments joined by a space (`api snapshot`, `--machine m1`).
+    /// arguments joined by a space (`api snapshot`, `--machine m1`). No prefix.
     pub op: String,
     /// When it started (the wall clock).
     pub started: SystemTime,
-    /// How long it took, reply or failure included.
+    /// How long it took, until it was answered, failed, timed out or was dropped.
     pub took: Duration,
 }
 
-/// A function that hears every call a client makes. It runs on the calling thread after the
-/// call, outside any lock the client holds; a panic in it is caught and dropped, never the
-/// call's. It should be quick: the caller waits for it.
-pub type Observer = Arc<dyn Fn(&CallTrace) + Send + Sync>;
+/// A client's observer.
+pub(crate) type Observer = Arc<dyn Fn(&CallTrace) + Send + Sync>;
 
 /// A client's observer, if any.
 #[derive(Clone, Default)]
@@ -61,37 +69,43 @@ impl std::fmt::Debug for Watch {
     }
 }
 
-/// A call under way.
-pub(crate) struct Timing {
+/// A call under way: the observer hears it when this is dropped (the call ended, or its
+/// future was dropped unfinished).
+pub(crate) struct Pending {
+    observer: Observer,
+    transport: Transport,
+    op: String,
     started: SystemTime,
     at: Instant,
 }
 
 impl Watch {
-    /// Starts timing a call (cheap when nobody watches).
-    pub(crate) fn start(&self) -> Option<Timing> {
-        self.0.as_ref().map(|_| Timing {
+    /// A call starts (nothing, not even its op, is made when nobody watches).
+    pub(crate) fn start(
+        &self,
+        transport: Transport,
+        op: impl FnOnce() -> String,
+    ) -> Option<Pending> {
+        let observer = self.0.clone()?;
+        Some(Pending {
+            observer,
+            transport,
+            op: op(),
             started: SystemTime::now(),
             at: Instant::now(),
         })
     }
+}
 
-    /// The call is over: the observer hears it.
-    pub(crate) fn report(
-        &self,
-        timing: Option<Timing>,
-        transport: Transport,
-        op: impl FnOnce() -> String,
-    ) {
-        let (Some(observer), Some(t)) = (&self.0, timing) else {
-            return;
-        };
+impl Drop for Pending {
+    fn drop(&mut self) {
         let trace = CallTrace {
-            transport,
-            op: op(),
-            started: t.started,
-            took: t.at.elapsed(),
+            transport: self.transport,
+            op: std::mem::take(&mut self.op),
+            started: self.started,
+            took: self.at.elapsed(),
         };
+        let observer = &self.observer;
         let _ = catch_unwind(AssertUnwindSafe(|| observer(&trace)));
     }
 }

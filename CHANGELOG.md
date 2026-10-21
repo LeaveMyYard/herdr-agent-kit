@@ -17,10 +17,12 @@ dependency pinned by tag, for example
 
 ### Added
 
-- `herdr_api`: `with_observer` on both clients. An `Observer` hears one `CallTrace`
-  (transport, op, start time, duration) per socket request and per CLI run, failures
-  included, outside any lock; a panic in it is caught and never reaches the call. For
-  timing slow herdr calls (panorama's `PANORAMA_TRACE`).
+- `herdr_api`: `with_observer(impl Fn(&CallTrace))` on both clients, and the
+  `herdr_api::observe` module (`CallTrace`, `Transport`). The observer hears one
+  `CallTrace` (transport, op, start time, duration) per socket request and per CLI run:
+  answered, failed, timed out, or dropped unfinished. It runs outside any lock; a panic in
+  it is caught and never reaches the call. For timing slow herdr calls (panorama's
+  `PANORAMA_TRACE`).
 
 ## [0.1.1] - 2026-10-21
 

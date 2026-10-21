@@ -1,26 +1,32 @@
 use super::*;
 use std::sync::Mutex;
 
-#[test]
-fn nobody_watching_costs_no_clock_and_reports_nothing() {
-    let w = Watch::default();
-    assert!(w.start().is_none());
-    w.report(None, Transport::Socket, || {
-        unreachable!("no op is made for nobody")
-    });
+fn recorded() -> (Watch, Arc<Mutex<Vec<CallTrace>>>) {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let log = seen.clone();
+    let observer: Observer = Arc::new(move |t: &CallTrace| log.lock().unwrap().push(t.clone()));
+    (Watch(Some(observer)), seen)
 }
 
 #[test]
-fn a_watched_call_is_reported_once_with_its_op_and_time() {
-    let seen = Arc::new(Mutex::new(Vec::new()));
-    let log = seen.clone();
-    let w = Watch(Some(Arc::new(move |t: &CallTrace| {
-        log.lock().unwrap().push(t.clone())
-    })));
+fn nobody_watching_makes_nothing() {
+    let w = Watch::default();
+    assert!(
+        w.start(Transport::Socket, || unreachable!(
+            "no op is made for nobody"
+        ))
+        .is_none()
+    );
+}
+
+#[test]
+fn a_call_is_heard_once_when_it_ends_with_its_op_and_time() {
+    let (w, seen) = recorded();
     let before = SystemTime::now();
-    let timing = w.start();
+    let call = w.start(Transport::Cli, || "api snapshot".into());
     std::thread::sleep(Duration::from_millis(20));
-    w.report(timing, Transport::Cli, || "api snapshot".into());
+    assert!(seen.lock().unwrap().is_empty(), "heard before it ended");
+    drop(call);
     let seen = seen.lock().unwrap();
     assert_eq!(seen.len(), 1);
     assert_eq!(
@@ -34,8 +40,7 @@ fn a_watched_call_is_reported_once_with_its_op_and_time() {
 #[test]
 fn a_panicking_observer_never_reaches_the_call() {
     let w = Watch(Some(Arc::new(|_: &CallTrace| panic!("observer broke"))));
-    let timing = w.start();
-    w.report(timing, Transport::Socket, || "x".into()); // returns normally
+    drop(w.start(Transport::Socket, || "x".into())); // returns normally
 }
 
 #[test]

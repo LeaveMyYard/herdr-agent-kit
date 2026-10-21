@@ -50,10 +50,12 @@ impl Herdr {
     pub fn send<T>(&self, call: Call<T>) -> Result<T, HerdrError> {
         let line = self.target.line(&call);
         let timeout = self.target.timeout_of(&call);
-        let timing = self.target.watch.start();
+        let trace = self
+            .target
+            .watch
+            .start(Transport::Socket, || call.method().to_owned());
         let reply = transport::exchange_blocking(self.target.server.socket(), &line, timeout);
-        let w = &self.target.watch;
-        w.report(timing, Transport::Socket, || call.method().to_owned());
+        drop(trace);
         call.parse(reply)
     }
 
@@ -109,10 +111,12 @@ impl Herdr {
     }
 
     fn cli(&self, inv: &cli::Invocation) -> Result<String, HerdrError> {
-        let timing = self.target.watch.start();
+        let trace = self
+            .target
+            .watch
+            .start(Transport::Cli, || observe::cli_op(&inv.args));
         let out = cli::run_blocking(&self.target.bin, inv, self.target.timeout);
-        let w = &self.target.watch;
-        w.report(timing, Transport::Cli, || observe::cli_op(&inv.args));
+        drop(trace);
         out
     }
 }
