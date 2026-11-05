@@ -21,13 +21,26 @@ fn a_reply_from_a_peer_that_already_closed_is_read() {
     assert_eq!(read_reply(client, deadline).unwrap(), json!({"ok": true}));
 }
 
+/// A client held up past its deadline still has the reply herdr sent: the
+/// call was carried out, and reading it costs nothing.
+#[test]
+fn a_reply_already_here_is_read_past_the_deadline() {
+    let (mut server, client) = UnixStream::pair().unwrap();
+    writeln!(server, r#"{{"id": "x:1", "result": {{"ok": true}}}}"#).unwrap();
+    assert_eq!(
+        read_reply(client, Instant::now()).unwrap(),
+        json!({"ok": true})
+    );
+}
+
 #[test]
 fn a_peer_that_closed_without_a_reply_is_no_reply() {
     let (server, client) = UnixStream::pair().unwrap();
     drop(server);
     let deadline = Instant::now() + Duration::from_secs(3);
     let error = read_reply(client, deadline).unwrap_err();
-    assert!(matches!(error, HerdrError::NoReply(_)), "{error:?}");
+    let closed = HerdrError::NoReply("closed without a reply".into());
+    assert_eq!(error.to_string(), closed.to_string());
 }
 
 /// The read timeout set before the request is the whole budget: the read

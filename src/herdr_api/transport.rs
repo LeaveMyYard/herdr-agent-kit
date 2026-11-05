@@ -8,7 +8,8 @@
 //!   a reply: [`HerdrError::NoReply`]; an unreadable reply:
 //!   [`HerdrError::Garbled`].
 //!
-//! The timeout covers the whole exchange.
+//! The timeout covers the whole exchange on the async path. On the blocking
+//! path it bounds each read: a peer that keeps sending can take longer.
 
 use std::io::{self, BufRead, Read, Write};
 use std::path::Path;
@@ -115,36 +116,31 @@ pub(crate) fn exchange_blocking(
     read_reply(stream, deadline)
 }
 
-/// The reply on `stream`, by `deadline`. The caller has set a read timeout.
+/// The reply on `stream`. The caller has set a read timeout. Reads first and
+/// asks the clock never: a reply already here counts, even past `deadline`, as
+/// on the async path.
 fn read_reply(
     stream: std::os::unix::net::UnixStream,
     deadline: Instant,
 ) -> Result<Value, HerdrError> {
-    let mut reader = io::BufReader::new(stream);
+    // Tightens the timeout already set to what is left, and may fail: a failure
+    // must not cost a reply that arrived (macOS: EINVAL once the peer closed),
+    // and whatever the cause, the timeout already set still applies.
+    let _ = stream.set_read_timeout(Some(left(deadline)));
+    let mut reader = io::BufReader::new(stream).take(MAX_REPLY as u64);
     let mut buf = Vec::new();
-    loop {
-        if Instant::now() >= deadline {
-            return Err(timed_out());
+    match reader.read_until(b'\n', &mut buf) {
+        // a newline, the end of the stream or the size cap
+        Ok(_) => finish(&buf),
+        Err(e)
+            if matches!(
+                e.kind(),
+                io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
+            ) =>
+        {
+            Err(timed_out())
         }
-        // Tightens the timeout already set to what is left, and may fail: a failure
-        // must not cost a reply that arrived (macOS: EINVAL once the peer closed),
-        // and whatever the cause, the timeout already set still bounds the read.
-        let _ = reader.get_ref().set_read_timeout(Some(left(deadline)));
-        let room = (MAX_REPLY - buf.len()) as u64;
-        match (&mut reader).take(room).read_until(b'\n', &mut buf) {
-            // a newline, the end of the stream or the size cap
-            Ok(_) => return finish(&buf),
-            Err(e)
-                if matches!(
-                    e.kind(),
-                    io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
-                ) =>
-            {
-                return Err(timed_out());
-            }
-            Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
-            Err(e) => return Err(HerdrError::NoReply(e.to_string())),
-        }
+        Err(e) => Err(HerdrError::NoReply(e.to_string())),
     }
 }
 
