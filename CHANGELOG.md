@@ -15,6 +15,10 @@ dependency pinned by tag, for example
 
 ## [Unreleased]
 
+### Fixed
+
+- `herdr_api`: the blocking client no longer loses a reply on macOS when herdr answers and closes before the client sets its read timeout. `setsockopt` fails there on a socket whose peer closed (EINVAL), and the call came back as `NoReply` although herdr had done it. A failure to tighten the read timeout no longer fails the call: the timeout is set before the request goes out, and that one bounds the read.
+
 ## [0.1.3] - 2026-10-21
 
 ### Changed

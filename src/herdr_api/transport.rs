@@ -89,6 +89,13 @@ fn connect_blocking(
     }
 }
 
+/// What is left of `deadline`, never zero (a zero timeout means none).
+fn left(deadline: Instant) -> Duration {
+    deadline
+        .saturating_duration_since(Instant::now())
+        .max(Duration::from_millis(1))
+}
+
 /// Send `line` and read the reply (blocking).
 pub(crate) fn exchange_blocking(
     socket: &Path,
@@ -97,25 +104,32 @@ pub(crate) fn exchange_blocking(
 ) -> Result<Value, HerdrError> {
     let deadline = Instant::now() + timeout;
     let mut stream = connect_blocking(socket, timeout)?;
-    let left = |deadline: Instant| {
-        deadline
-            .saturating_duration_since(Instant::now())
-            .max(Duration::from_millis(1))
-    };
+    // Both timeouts go on before the request: once it is out, herdr may answer
+    // and close at any moment, and macOS then refuses `setsockopt` (EINVAL), so
+    // this is the read's bound if `read_reply` cannot tighten it.
     stream
         .set_write_timeout(Some(left(deadline)))
+        .and_then(|()| stream.set_read_timeout(Some(left(deadline))))
         .and_then(|()| stream.write_all(line))
         .map_err(|e| HerdrError::Unreachable(e.to_string()))?;
+    read_reply(stream, deadline)
+}
+
+/// The reply on `stream`, by `deadline`. The caller has set a read timeout.
+fn read_reply(
+    stream: std::os::unix::net::UnixStream,
+    deadline: Instant,
+) -> Result<Value, HerdrError> {
     let mut reader = io::BufReader::new(stream);
     let mut buf = Vec::new();
     loop {
         if Instant::now() >= deadline {
             return Err(timed_out());
         }
-        reader
-            .get_ref()
-            .set_read_timeout(Some(left(deadline)))
-            .map_err(|e| HerdrError::NoReply(e.to_string()))?;
+        // Tightens the timeout already set to what is left, and may fail: a failure
+        // must not cost a reply that arrived (macOS: EINVAL once the peer closed),
+        // and whatever the cause, the timeout already set still bounds the read.
+        let _ = reader.get_ref().set_read_timeout(Some(left(deadline)));
         let room = (MAX_REPLY - buf.len()) as u64;
         match (&mut reader).take(room).read_until(b'\n', &mut buf) {
             // a newline, the end of the stream or the size cap
@@ -133,3 +147,6 @@ pub(crate) fn exchange_blocking(
         }
     }
 }
+
+#[cfg(test)]
+mod tests;
